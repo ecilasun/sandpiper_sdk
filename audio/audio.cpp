@@ -66,13 +66,13 @@ int main(int argc, char**argv)
 
 		// Wait for the APU to finish playing back current read buffer
 		volatile uint32_t currframe = APUFrame(&ax);
-		int iterations = 0;
+		//int iterations = 0;
 		while(currframe == prevframe)
 		{
 			currframe = APUFrame(&ax);
-			++iterations;
+			//++iterations;
 		};
-		printf("0x%08X : %d\n", currframe, iterations);
+		//printf("0x%08X : %d\n", currframe, iterations);
 
 		// Once we reach this point, the APU has switched to the other buffer we just filled, and playback resumes uninterrupted
 
