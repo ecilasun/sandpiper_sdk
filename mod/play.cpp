@@ -23,12 +23,12 @@ static SPSizeAlloc apubuffer;
 struct SPSizeAlloc bufferA;
 struct SPSizeAlloc bufferB;
 
-// Number of 16bit stereo samples (valid values are 512,256,128 or 64)
-#define BUFFER_SAMPLE_COUNT 512
+// Number of 16bit stereo samples (valid values are 1024, 512, 256, 128 or 64)
+#define BUFFER_SAMPLE_COUNT 1024
 #define BUFFER_BYTE_COUNT (BUFFER_SAMPLE_COUNT*sizeof(uint16_t)*2)
 
-std::complex<float> outputL[BUFFER_SAMPLE_COUNT*2];
-std::complex<float> outputR[BUFFER_SAMPLE_COUNT*2];
+std::complex<float> outputL[BUFFER_SAMPLE_COUNT];
+std::complex<float> outputR[BUFFER_SAMPLE_COUNT];
 int16_t barsL[256];
 int16_t barsR[256];
 
@@ -159,7 +159,7 @@ void draw_wave()
 		}
 	}
 
-	VPUWaitVSync(&vx);
+//	VPUWaitVSync(&vx);
 	VPUSwapPages(&vx, &sc);
 }
 
@@ -177,7 +177,7 @@ void PlayXMP(const char *fname)
 		return;
 	}
 
-	APUSetBufferSize(&ax, ABS_2048Bytes);
+	APUSetBufferSize(&ax, ABS_4096Bytes);
 	APUSetSampleRate(&ax, ASR_22_050_Hz);
 	uint32_t prevframe = APUFrame(&ax);
 
@@ -220,11 +220,11 @@ void PlayXMP(const char *fname)
 
 int main(int argc, char *argv[])
 {
-//	if (argc < 2)
-//	{
-//		printf("Usage: %s <modulefilename>\n", argv[0]);
-//		return -1;
-//	}
+	if (argc < 2)
+	{
+		printf("Usage: %s <modulefilename>\n", argv[0]);
+		return -1;
+	}
 
 	SPInitPlatform(&platform);
 
@@ -252,19 +252,20 @@ int main(int argc, char *argv[])
 	signal(SIGINT, &sigint_handler);
 
 	VPUSetVideoMode(&vx, EVM_320_Wide, ECM_8bit_Indexed, EVS_Enable);
+	VPUSetDefaultPalette(&vx);
 
 	sc.cycle = 0;
 	sc.framebufferA = &bufferA;
 	sc.framebufferB = &bufferB;
 	VPUSwapPages(&vx, &sc);
-	//VPUClear(&vx, 0x00000000);
-	//VPUSwapPages(&vx, &sc);
-	//VPUClear(&vx, 0x00000000);
+	VPUClear(&vx, 0x00000000);
+	VPUSwapPages(&vx, &sc);
+	VPUClear(&vx, 0x00000000);
 
 	memset(barsL, 0, 256*sizeof(int16_t));
 	memset(barsR, 0, 256*sizeof(int16_t));
 
-	PlayXMP("test.mod");//argv[1]);
+	PlayXMP(argv[1]);
 
 	printf("Playback complete\n");
 
