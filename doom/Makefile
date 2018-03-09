@@ -1,4 +1,4 @@
-TARGET = doom.elf
+TARGET = doom
 
 src_dir = ./src
 sdk_dir = ../SDK

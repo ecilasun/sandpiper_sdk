@@ -1,5 +1,5 @@
 
-TARGET = test.elf
+TARGET = test
 
 default: $(TARGET)
 
