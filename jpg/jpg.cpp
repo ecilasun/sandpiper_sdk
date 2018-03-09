@@ -88,10 +88,10 @@ void DecodeJPEG(uint32_t stride, const char *fname)
 				{
 					for (int x=0;x<iW;++x)
 					{
-						uint32_t red = uint32_t(15.f*float(img[(x+y*W)*3+0])/255.f);
-						uint32_t green = uint32_t(15.f*float(img[(x+y*W)*3+1])/255.f);
-						uint32_t blue = uint32_t(15.f*float(img[(x+y*W)*3+2])/255.f);
-						image[x+y*stride] = MAKECOLORRGB12(red, green, blue);
+						uint32_t red = uint32_t(31.f*float(img[(x+y*W)*3+0])/255.f);
+						uint32_t green = uint32_t(63.f*float(img[(x+y*W)*3+1])/255.f);
+						uint32_t blue = uint32_t(31.f*float(img[(x+y*W)*3+2])/255.f);
+						image[x+y*stride] = MAKECOLORRGB16(red, green, blue);
 					}
 				}
 			}
@@ -102,7 +102,7 @@ void DecodeJPEG(uint32_t stride, const char *fname)
 					for (int i=0;i<iW;++i)
 					{
 						uint8_t V = img[i+j*W]>>4;
-						image[i+j*stride] = MAKECOLORRGB12(V,V,V);
+						image[i+j*stride] = MAKECOLORRGB16(V,V,V);
 					}
 			}
 		}

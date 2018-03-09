@@ -33,9 +33,9 @@ void VID_SetPalette(unsigned char *palette)
 	// Copy palette to G-RAM
 	byte r, g, b;
 	for (int i=0 ; i<256 ; i++) {
-		r = (*palette++)>>4;
-		g = (*palette++)>>4;
-		b = (*palette++)>>4;
+		r = *palette++;
+		g = *palette++;
+		b = *palette++;
 		VPUSetPal(&vx, i, r, g, b);
 	}
 }

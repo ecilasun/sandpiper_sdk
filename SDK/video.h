@@ -34,8 +34,11 @@
 #define CONSOLEDEFAULTFG CONSOLEWHITE
 #define CONSOLEDEFAULTBG CONSOLEBLUE
 
-// Hardware format is: 12bit R:G:B
-#define MAKECOLORRGB12(_r, _g, _b) ((((_r&0xF)<<8) | (_g&0xF)<<4) | (_b&0xF))
+// For setting up palette colors, r8g8b8
+#define MAKECOLORRGB24(_r, _g, _b) ((((_r&0xFF)<<16) | (_g&0xFF)<<8) | (_b&0xFF))
+
+// For building colors for 16bit RGB, r5g6b5
+#define MAKECOLORRGB16(_r, _g, _b) ((((_r&0x1F)<<11) | (_g&0x3F)<<5) | (_b&0x1F))
 
 enum EVideoMode
 {

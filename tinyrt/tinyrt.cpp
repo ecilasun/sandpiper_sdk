@@ -89,32 +89,21 @@ static inline void graphics_terminate() {
     //printf("\033[48;5;16m\033[38;5;15m");
 }
 
-/*inline uint32_t ftoui4sat(float value)
-{
-  uint32_t retval;
-  asm (
-    "mv a1, %1;"
-    ".insn 0xc2058553;" // fcvtswu4sat a0, a1 // note A0==cpu.x10, A1==cpu.x11
-    "mv %0, a0; "
-    : "=r" (retval)
-    : "r" (value)
-    : "a0", "a1"
-  );
-  return retval;
-}*/
-
 // Replace with your own code.
 inline void graphics_set_pixel(uint32_t addrs, uint32_t stride, int x, int y, float r, float g, float b) {
    // graphics output deactivated for bench run
    if(bench_run)
       return;
 
-  uint32_t red = uint32_t(15.f*r);//ftoui4sat(r);
-  uint32_t green = uint32_t(15.f*g);
-  uint32_t blue = uint32_t(15.f*b);
+  int32_t red = int32_t(31.f*r);
+  int32_t green = int32_t(63.f*g);
+  int32_t blue = int32_t(31.f*b);
+  red = max(0,min(red,31));
+  green = max(0,min(green,63));
+  blue = max(0,min(blue,31));
 
   uint16_t *pixel = (uint16_t*)(addrs + 2*x + y*stride);
-  *pixel = (red<<8) | (green<<4) | blue;
+  *pixel = (red<<11) | (green<<5) | blue;
 }
 
 
