@@ -48,7 +48,7 @@ int main(int argc, char**argv)
 	signal(SIGINT, &sigint_handler);
 
 	APUSetBufferSize(&ax, ABS_2048Bytes);
-	APUSetSampleRate(&ax, ASR_22_050_Hz);
+	APUSetSampleRate(&ax, ASR_44_100_Hz);
 	uint32_t prevframe = APUFrame(&ax);
 
 	float offset = 0.f;
@@ -76,7 +76,7 @@ int main(int argc, char**argv)
 		// Remember this frame for next time
 		prevframe = currframe;
 
-		offset += 1.f;
+		offset += 0.1f;
 
 	} while(1);
 
