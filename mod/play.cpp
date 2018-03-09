@@ -205,7 +205,7 @@ void PlayXMP(const char *fname)
 
 			// Once we reach this point, the APU has switched to the other buffer we just filled, and playback resumes uninterrupted
 
-			//draw_wave();
+			draw_wave();
 			//printf("F:%d\n", currframe);
 
 			// Remember this frame
