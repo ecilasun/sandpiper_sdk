@@ -10,11 +10,12 @@
 #define VIDEO_MODE      EVM_640_Wide
 #define VIDEO_COLOR     ECM_8bit_Indexed
 #define VIDEO_HEIGHT    480
+
 static struct EVideoContext s_vctx;
 static struct EVideoSwapContext s_sctx;
 struct SPSizeAlloc frameBufferA;
 struct SPSizeAlloc frameBufferB;
-static struct SPPlatform platform;
+static struct SPPlatform s_platform;
 
 void shutdowncleanup()
 {
@@ -25,11 +26,11 @@ void shutdowncleanup()
 	VPUShutdownVideo();
 
 	// Release allocations
-	SPFreeBuffer(&platform, &frameBufferB);
-	SPFreeBuffer(&platform, &frameBufferA);
+	SPFreeBuffer(&s_platform, &frameBufferB);
+	SPFreeBuffer(&s_platform, &frameBufferA);
 
 	// Shutdown platform
-	SPShutdownPlatform(&platform);
+	SPShutdownPlatform(&s_platform);
 }
 
 void sigint_handler(int s)
@@ -42,11 +43,11 @@ int main(int argc, char** argv)
 {
 	printf("Hello, video\n");
 
-	SPInitPlatform(&platform);
+	SPInitPlatform(&s_platform);
 
 	printf("started platform\n");
 
-	VPUInitVideo(&s_vctx, &platform);
+	VPUInitVideo(&s_vctx, &s_platform);
 
 	printf("started video system\n");
 
@@ -55,11 +56,11 @@ int main(int argc, char** argv)
 
 	frameBufferB.size = frameBufferA.size = stride*VIDEO_HEIGHT;
 
-	SPAllocateBuffer(&platform, &frameBufferA);
-	printf("acrs:%d framebufferA: 0x%08X <- 0x%08X - %dbytes\n", platform.alloc_cursor, frameBufferA.cpuAddress, frameBufferA.dmaAddress, frameBufferA.size);
+	SPAllocateBuffer(&s_platform, &frameBufferA);
+	printf("acrs:%d framebufferA: 0x%08X <- 0x%08X - %dbytes\n", s_platform.alloc_cursor, frameBufferA.cpuAddress, frameBufferA.dmaAddress, frameBufferA.size);
 
-	SPAllocateBuffer(&platform, &frameBufferB);
-	printf("acrs:%d framebufferB: 0x%08X <- 0x%08X - %dbytes\n", platform.alloc_cursor, frameBufferB.cpuAddress, frameBufferB.dmaAddress, frameBufferB.size);
+	SPAllocateBuffer(&s_platform, &frameBufferB);
+	printf("acrs:%d framebufferB: 0x%08X <- 0x%08X - %dbytes\n", s_platform.alloc_cursor, frameBufferB.cpuAddress, frameBufferB.dmaAddress, frameBufferB.size);
 
 	atexit(shutdowncleanup);
 	signal(SIGINT, &sigint_handler);

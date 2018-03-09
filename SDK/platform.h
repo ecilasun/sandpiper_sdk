@@ -23,7 +23,7 @@ struct SPPlatform
 	struct metal_io_region *videoio;
 	struct metal_io_region *audioio;
 	uint8_t* mapped_memory;
-	uint8_t alloc_cursor;
+	uint32_t alloc_cursor;
 	int memfd;
 	int ready;
 };
