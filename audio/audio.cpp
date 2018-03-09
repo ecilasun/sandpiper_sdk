@@ -46,6 +46,7 @@ int main(int argc, char**argv)
 
 	atexit(shutdowncleanup);
 	signal(SIGINT, &sigint_handler);
+	signal(SIGTERM, &sigint_handler);
 
 	APUSetBufferSize(&ax, ABS_4096Bytes);
 	APUSetSampleRate(&ax, ASR_22_050_Hz);

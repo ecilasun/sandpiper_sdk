@@ -258,6 +258,7 @@ int main(int argc, char *argv[])
 
 	atexit(shutdowncleanup);
 	signal(SIGINT, &sigint_handler);
+	signal(SIGTERM, &sigint_handler);
 
 	VPUSetVideoMode(&vx, EVM_320_Wide, ECM_8bit_Indexed, EVS_Enable);
 	VPUSetDefaultPalette(&vx);
