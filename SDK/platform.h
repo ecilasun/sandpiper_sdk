@@ -7,7 +7,8 @@
 #include <sys/mman.h>
 
 // Device reserved memory start
-#define RESERVED_MEMORY_ADDRESS	0x18000000
+#define RESERVED_MEMORY_ADDRESS	0x1E000000
+
 // 32Mbytes reserved for device access
 #define RESERVED_MEMORY_SIZE	0x2000000
 
