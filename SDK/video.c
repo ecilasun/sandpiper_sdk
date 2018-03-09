@@ -277,8 +277,8 @@ void VPUSwapPages(struct EVideoContext* _context, struct EVideoSwapContext *_sc)
 
 void VPUWaitVSync(struct EVideoContext *_context)
 {
-	uint32_t prevvsync = VPUReadVBlankCounter(_context);
-	uint32_t currentvsync;
+	volatile uint32_t prevvsync = VPUReadVBlankCounter(_context);
+	volatile uint32_t currentvsync;
 	do {
 		currentvsync = VPUReadVBlankCounter(_context);
 	} while (currentvsync == prevvsync);

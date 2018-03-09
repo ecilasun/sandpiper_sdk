@@ -17,10 +17,9 @@ void APUStartDMA(struct EAudioContext* _context, uint32_t audioBufferAddress16by
 
 void APUSetSampleRate(struct EAudioContext* _context, enum EAPUSampleRate sampleRate)
 {
+	_context->m_sampleRate = sampleRate;
 	metal_io_write32(_context->m_platform->audioio, 0, APUCMD_SETRATE);
 	metal_io_write32(_context->m_platform->audioio, 0, (uint32_t)sampleRate);
-
-	_context->m_sampleRate = sampleRate;
 }
 
 uint32_t APUFrame(struct EAudioContext* _context)
@@ -40,5 +39,9 @@ int APUInitAudio(struct EAudioContext* _context, struct SPPlatform* _platform)
 
 void APUShutdownAudio(struct EAudioContext* _context)
 {
-	// TODO:
+	if (_context->m_sampleRate != ASR_Halt)
+	{
+		// In case the user forgot to stop audio
+		APUSetSampleRate(_context, ASR_Halt);
+	}
 }

@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <pthread.h>
 
 #include "core.h"
 #include "platform.h"
@@ -96,75 +97,82 @@ void fft(std::complex<float>* data)
     }
 }
 
-void draw_wave()
+void *draw_wave(void *data)
 {
 	uint32_t stride = VPUGetStride(EVM_320_Wide, ECM_8bit_Indexed);
 
-	VPUClear(&vx, 0x00000000);
-
-	short* buf = (short*)apubuffer.cpuAddress;
-	for (size_t i = 0; i < BUFFER_SAMPLE_COUNT; ++i)
+	while(1)
 	{
-		outputL[i] = std::complex<float>(buf[i*2+0]>>15, 0.0f);
-		outputR[i] = std::complex<float>(buf[i*2+1]>>15, 0.0f);
-	}
+		VPUClear(&vx, 0x00000000);
 
-	fft(outputL);
-	fft(outputR);		
-
-	for (uint32_t i=0; i<256; i+=4)
-	{
-		int16_t L0 = 200 - (int16_t)std::abs(outputL[i+0]);
-		int16_t L1 = 200 - (int16_t)std::abs(outputL[i+1]);
-		int16_t L2 = 200 - (int16_t)std::abs(outputL[i+2]);
-		int16_t L3 = 200 - (int16_t)std::abs(outputL[i+3]);
-		int16_t R0 = 200 - (int16_t)std::abs(outputR[i+0]);
-		int16_t R1 = 200 - (int16_t)std::abs(outputR[i+1]);
-		int16_t R2 = 200 - (int16_t)std::abs(outputR[i+2]);
-		int16_t R3 = 200 - (int16_t)std::abs(outputR[i+3]);
-		barsL[i>>2] = (barsL[i>>2] + L0 + L1 + L2 + L3)/5;
-		barsR[i>>2] = (barsR[i>>2] + R0 + R1 + R2 + R3)/5;
-	}
-
-	// Draw first 128 samples
-	for (uint32_t i=0; i<128; ++i)
-	{
-		// Convert i to a logarithmic coordinate
-		int16_t logi = (int16_t)(128.0f * log10f((float)i+1.0f) / 2.0f);
-		// Next bar's logarithmic coordinate
-		int16_t nextlogi = (int16_t)(128.0f * log10f((float)(i+1)+1.0f) / 2.0f);
-		// Distance between the two
-		int16_t delta = nextlogi - logi;
-
-		// Draw bars for left channel
-		for (int16_t j=0; j<delta; ++j)
+		short* buf = (short*)apubuffer.cpuAddress;
+		for (size_t i = 0; i < BUFFER_SAMPLE_COUNT; ++i)
 		{
-			if (logi+j >= 0 && logi+j < 320)
+			outputL[i] = std::complex<float>(buf[i*2+0]>>15, 0.0f);
+			outputR[i] = std::complex<float>(buf[i*2+1]>>15, 0.0f);
+		}
+
+		fft(outputL);
+		fft(outputR);		
+
+		for (uint32_t i=0; i<256; i+=4)
+		{
+			int16_t L0 = 200 - (int16_t)std::abs(outputL[i+0]);
+			int16_t L1 = 200 - (int16_t)std::abs(outputL[i+1]);
+			int16_t L2 = 200 - (int16_t)std::abs(outputL[i+2]);
+			int16_t L3 = 200 - (int16_t)std::abs(outputL[i+3]);
+			int16_t R0 = 200 - (int16_t)std::abs(outputR[i+0]);
+			int16_t R1 = 200 - (int16_t)std::abs(outputR[i+1]);
+			int16_t R2 = 200 - (int16_t)std::abs(outputR[i+2]);
+			int16_t R3 = 200 - (int16_t)std::abs(outputR[i+3]);
+			barsL[i>>2] = (barsL[i>>2] + L0 + L1 + L2 + L3)/5;
+			barsR[i>>2] = (barsR[i>>2] + R0 + R1 + R2 + R3)/5;
+		}
+
+		// Draw first 128 samples
+		for (uint32_t i=0; i<128; ++i)
+		{
+			// Convert i to a logarithmic coordinate
+			int16_t logi = (int16_t)(128.0f * log10f((float)i+1.0f) / 2.0f);
+			// Next bar's logarithmic coordinate
+			int16_t nextlogi = (int16_t)(128.0f * log10f((float)(i+1)+1.0f) / 2.0f);
+			// Distance between the two
+			int16_t delta = nextlogi - logi;
+	
+			// Draw bars for left channel
+			for (int16_t j=0; j<delta; ++j)
 			{
-				int16_t L = std::min<int16_t>(239, std::max<int16_t>(0, barsL[i]));
-				for (int16_t k=L; k<200; ++k)
-					sc.writepage[16 + logi+j + k*stride] = 0x37;
+				if (logi+j >= 0 && logi+j < 320)
+				{
+					int16_t L = std::min<int16_t>(239, std::max<int16_t>(0, barsL[i]));
+					for (int16_t k=L; k<200; ++k)
+						sc.writepage[16 + logi+j + k*stride] = 0x37;
+				}
+			}
+
+			// Do the same for right channel
+			for (int16_t j=0; j<delta; ++j)
+			{
+				if (logi+j >= 0 && logi+j < 320)
+				{
+					int16_t R = std::min<int16_t>(239, std::max<int16_t>(0, barsR[i]));
+					for (int16_t k=R; k<200; ++k)
+						sc.writepage[304 - logi-j + k*stride] = 0x27;
+				}
 			}
 		}
 
-		// Do the same for right channel
-		for (int16_t j=0; j<delta; ++j)
-		{
-			if (logi+j >= 0 && logi+j < 320)
-			{
-				int16_t R = std::min<int16_t>(239, std::max<int16_t>(0, barsR[i]));
-				for (int16_t k=R; k<200; ++k)
-					sc.writepage[304 - logi-j + k*stride] = 0x27;
-			}
-		}
+		VPUWaitVSync(&vx);
+		VPUSwapPages(&vx, &sc);
+		sched_yield();
 	}
-
-//	VPUWaitVSync(&vx);
-	VPUSwapPages(&vx, &sc);
+	return NULL;
 }
 
-void PlayXMP(const char *fname)
+void *PlayXMP(void *data)
 {
+	char *fname = (char*)data;
+
 	struct xmp_module_info mi;
 	struct xmp_frame_info fi;
 	int i;
@@ -174,12 +182,11 @@ void PlayXMP(const char *fname)
 	if (xmp_load_module(ctx, fname) < 0)
 	{
 		printf("Error: cannot load module '%s'\n", fname);
-		return;
+		return NULL;
 	}
 
 	APUSetBufferSize(&ax, ABS_4096Bytes);
 	APUSetSampleRate(&ax, ASR_22_050_Hz);
-	uint32_t prevframe = APUFrame(&ax);
 
 	if (xmp_start_player(ctx, 22050, 0) == 0)
 	{
@@ -188,6 +195,7 @@ void PlayXMP(const char *fname)
 
 		int playing = 1;
 		short* buf = (short*)apubuffer.cpuAddress;
+		volatile uint32_t prevframe = APUFrame(&ax);
 		while (playing)
 		{
 			playing = xmp_play_buffer(ctx, buf, BUFFER_BYTE_COUNT, 0) == 0;
@@ -196,17 +204,19 @@ void PlayXMP(const char *fname)
 			APUStartDMA(&ax, (uint32_t)apubuffer.dmaAddress);
 
 			// Wait for the APU to be done with current read buffer which is still playing
-			uint32_t currframe;
+			volatile uint32_t currframe;
+			//int iterations = 0;
 			do
 			{
 				// APU will return a different 'frame' as soon as the current buffer reaches the end
 				currframe = APUFrame(&ax);
+				//++iterations;
 			} while (currframe == prevframe);
 
 			// Once we reach this point, the APU has switched to the other buffer we just filled, and playback resumes uninterrupted
 
-			draw_wave();
-			//printf("F:%d\n", currframe);
+			//draw_wave();
+			//printf("%d:%d\n", currframe, iterations);
 
 			// Remember this frame
 			prevframe = currframe;
@@ -216,6 +226,7 @@ void PlayXMP(const char *fname)
 		xmp_release_module(ctx);
 		xmp_free_context(ctx);
 	}
+	return NULL;
 }
 
 int main(int argc, char *argv[])
@@ -239,14 +250,14 @@ int main(int argc, char *argv[])
 		short* buf = (short*)apubuffer.cpuAddress;
 		memset(buf, 0, BUFFER_BYTE_COUNT);
 	}
-	printf("\nAPU mix buffer: 0x%08X <-0x%08X - %dbytes \n", (unsigned int)apubuffer.cpuAddress, (unsigned int)apubuffer.dmaAddress, apubuffer.size);
+	printf("APU mix buffer: 0x%08X <-0x%08X - %dbytes \n", (unsigned int)apubuffer.cpuAddress, (unsigned int)apubuffer.dmaAddress, apubuffer.size);
 
 	uint32_t stride = VPUGetStride(EVM_320_Wide, ECM_8bit_Indexed);
 	bufferB.size = bufferA.size = stride*240;
 	SPAllocateBuffer(&platform, &bufferA);
-	printf("\nVPU buffer: 0x%08X <-0x%08X - %dbytes \n", (unsigned int)bufferA.cpuAddress, (unsigned int)bufferA.dmaAddress, bufferB.size);
+	printf("VPU buffer: 0x%08X <-0x%08X - %dbytes \n", (unsigned int)bufferA.cpuAddress, (unsigned int)bufferA.dmaAddress, bufferB.size);
 	SPAllocateBuffer(&platform, &bufferB);
-	printf("\nVPU buffer: 0x%08X <-0x%08X - %dbytes \n", (unsigned int)bufferB.cpuAddress, (unsigned int)bufferB.dmaAddress, bufferB.size);
+	printf("VPU buffer: 0x%08X <-0x%08X - %dbytes \n", (unsigned int)bufferB.cpuAddress, (unsigned int)bufferB.dmaAddress, bufferB.size);
 
 	atexit(shutdowncleanup);
 	signal(SIGINT, &sigint_handler);
@@ -265,7 +276,11 @@ int main(int argc, char *argv[])
 	memset(barsL, 0, 256*sizeof(int16_t));
 	memset(barsR, 0, 256*sizeof(int16_t));
 
-	PlayXMP(argv[1]);
+	pthread_t thread1, thread2;
+	int success = pthread_create(&thread1, NULL, draw_wave, NULL);
+	success = pthread_create(&thread2, NULL, PlayXMP, argv[1]);
+	pthread_join(thread1, NULL);
+	pthread_join(thread2, NULL);
 
 	printf("Playback complete\n");
 

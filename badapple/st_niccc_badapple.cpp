@@ -192,6 +192,9 @@ int main(int argc, char** argv)
 
 	VPUClear(&s_vctx, 0x03030303);
 
+	// More than one parameter on command line triggers no-vsync mode
+	int haveVsync = argc <= 2 ? 1 : 0;
+
 	for(;;)
 	{
 		st_niccc_rewind(&io);
@@ -203,7 +206,8 @@ int main(int argc, char** argv)
 			while(st_niccc_read_polygon(&io, &frame, &polygon))
 				gfx_fillpoly(s_sctx.writepage, stride, polygon.nb_vertices, polygon.XY, polygon.color);
 
-			VPUWaitVSync(&s_vctx);
+			if (haveVsync)
+				VPUWaitVSync(&s_vctx);
 			VPUSwapPages(&s_vctx, &s_sctx);
 		}
 	}

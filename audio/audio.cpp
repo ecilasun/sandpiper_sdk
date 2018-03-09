@@ -16,7 +16,7 @@ struct SPPlatform platform;
 static EAudioContext ax;
 static SPSizeAlloc apubuffer;
 
-#define BUFFER_SAMPLES 512		// buffer size
+#define BUFFER_SAMPLES 1024		// buffer size
 #define NUM_CHANNELS 2			// Stereo
 #define SAMPLE_WIDTH 2			// 16 bit samples
 
@@ -49,7 +49,7 @@ int main(int argc, char**argv)
 
 	APUSetBufferSize(&ax, ABS_2048Bytes);
 	APUSetSampleRate(&ax, ASR_44_100_Hz);
-	uint32_t prevframe = APUFrame(&ax);
+	volatile uint32_t prevframe = APUFrame(&ax);
 
 	float offset = 0.f;
 	short *buf = (short*)apubuffer.cpuAddress;
@@ -65,18 +65,21 @@ int main(int argc, char**argv)
 		APUStartDMA(&ax, (uint32_t)apubuffer.dmaAddress);
 
 		// Wait for the APU to finish playing back current read buffer
-		uint32_t currframe;
-		do
+		volatile uint32_t currframe = APUFrame(&ax);
+		int iterations = 0;
+		while(currframe == prevframe)
 		{
 			currframe = APUFrame(&ax);
-		} while (currframe == prevframe);
+			++iterations;
+		};
+		printf("%d:%d\n", currframe, iterations);
 
 		// Once we reach this point, the APU has switched to the other buffer we just filled, and playback resumes uninterrupted
 
 		// Remember this frame for next time
 		prevframe = currframe;
 
-		offset += 0.1f;
+		offset += 1.0f;
 
 	} while(1);
 
