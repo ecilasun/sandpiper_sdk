@@ -103,6 +103,7 @@ void SPShutdownPlatform(struct SPPlatform* _platform)
 	//metal_io_region_close(_platform->videoio);
 	//metal_device_close(_platform->audiodevice);
 	//metal_device_close(_platform->videodevice);
+	//metal_device_close(_platform->keyboarddevice);
 
 	metal_finish();
 

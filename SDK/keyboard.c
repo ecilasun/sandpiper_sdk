@@ -1,13 +1,16 @@
 #include "keyboard.h"
+//#include <assert.h>
 
 int KPUInitKeyboard(struct EKeyboardContext* _context, struct SPPlatform* _platform)
 {
-
+	_context->m_platform = _platform;
+	_context->m_keyStates = 0;
+	_context->m_previousKeyStates = 0;
 }
 
 void KPUShutdownKeyboard(struct EKeyboardContext* _context)
 {
-
+	// TODO:
 }
 
 void KPUScanMatrix(struct EKeyboardContext* _context)
@@ -15,15 +18,17 @@ void KPUScanMatrix(struct EKeyboardContext* _context)
 	// Stash previous key states
 	_context->m_previousKeyStates = _context->m_keyStates;
 
+	//assert(_context->m_platform != NULL && "call KPUInitKeyboard() first\n");
+
 	// Send a scan command to the matrix scanner
 	metal_io_write32(_context->m_platform->keyboardio, 0, KPUCMD_SCANMATRIX);
 
 	// Delay for a very small bit to allow the scan to complete
 	// NOTE: Ideally the result would be written to a FIFO so we can check the size before reading it
-	usleep(10);
+	//usleep(10);
 
 	// Read the new key states (total of 64 bits for 63 keys, highest bit is unused for now)
-	_context->m_keyStates = metal_io_read32(_context->m_platform->keyboardio, 0) | (metal_io_read32(_context->m_platform->keyboardio, 4) << 32);
+	//_context->m_keyStates = metal_io_read32(_context->m_platform->keyboardio, 0) | (metal_io_read32(_context->m_platform->keyboardio, 4) << 32);
 }
 
 /*static int s_control = 0;

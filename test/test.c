@@ -44,11 +44,9 @@ int main(int argc, char** argv)
 	printf("Hello, video\n");
 
 	SPInitPlatform(&s_platform);
-
 	printf("started platform\n");
 
 	VPUInitVideo(&s_vctx, &s_platform);
-
 	printf("started video system\n");
 
 	uint32_t stride = VPUGetStride(VIDEO_MODE, VIDEO_COLOR);
@@ -64,6 +62,7 @@ int main(int argc, char** argv)
 
 	atexit(shutdowncleanup);
 	signal(SIGINT, &sigint_handler);
+	signal(SIGTERM, &sigint_handler);
 
 	// Write random pattern into both buffers
 	uint32_t* memA = (uint32_t*)frameBufferA.cpuAddress;
@@ -102,8 +101,10 @@ int main(int argc, char** argv)
 	{
 		VPUConsoleResolve(&s_vctx);
 
-		if (s_sctx.cycle % 30 == 0)
+		if (s_sctx.cycle % 30 == 0) // When we wait for vysync this makes a half second interval
+		{
 			s_vctx.m_caretBlink ^= 1;
+		}
 
 		VPUWaitVSync(&s_vctx); // This and other reads from VPU cause a hardware freeze, figure out why
 		VPUSwapPages(&s_vctx, &s_sctx);
