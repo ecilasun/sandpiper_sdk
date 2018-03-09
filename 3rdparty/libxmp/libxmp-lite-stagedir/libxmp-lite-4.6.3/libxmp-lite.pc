@@ -1,0 +1,13 @@
+prefix=/run/media/data-mmcblk0p3/sandpiper/3rdparty/libxmp/libxmp-lite-stagedir/libxmp-lite-4.6.3/test-install
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include
+
+Name: libxmp-lite
+Description: Xmp lite module player library
+Version: 4.6.3
+
+Requires:
+Libs: -L${libdir} -lxmp-lite
+Cflags: -I${includedir}/libxmp-lite
+Libs.private: -lm
