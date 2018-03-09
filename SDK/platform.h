@@ -6,8 +6,8 @@
 #include <metal/io.h>
 #include <sys/mman.h>
 
-// Device reserved memory start
-#define RESERVED_MEMORY_ADDRESS	0x18000000
+// Device reserved memory start is after fbcon buffer
+#define RESERVED_MEMORY_ADDRESS	0x18096000
 
 // 32Mbytes reserved for device access
 #define RESERVED_MEMORY_SIZE	0x2000000
