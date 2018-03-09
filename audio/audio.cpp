@@ -35,7 +35,7 @@ void sigint_handler(int s)
 }
 
 // Approximation of an old school phone ring tone
-int main()
+int main(int argc, char**argv)
 {
 	SPInitPlatform(&platform);
 	APUInitAudio(&ax, &platform);
@@ -52,16 +52,17 @@ int main()
 	uint32_t prevframe = APUFrame(&ax);
 
 	float offset = 0.f;
+	short *buf = (short*)apubuffer.cpuAddress;
 	do{
 		// Generate individual waves for each channel
 		for (uint32_t i=0; i<BUFFER_SAMPLES; ++i)
 		{
-			apubuffer[i*NUM_CHANNELS+0] = short(16384.f*sinf(offset+2.f*3.1415927f*float(i)/12.f));
-			apubuffer[i*NUM_CHANNELS+1] = short(16384.f*cosf(offset+2.f*3.1415927f*float(i*2)/38.f));
+			buf[i*NUM_CHANNELS+0] = short(16384.f*sinf(offset+2.f*3.1415927f*float(i)/12.f));
+			buf[i*NUM_CHANNELS+1] = short(16384.f*cosf(offset+2.f*3.1415927f*float(i*2)/38.f));
 		}
 
 		// Fill current write buffer with new mix data
-		APUStartDMA(&ax, (uint32_t)apubuffer);
+		APUStartDMA(&ax, (uint32_t)apubuffer.dmaAddress);
 
 		// Wait for the APU to finish playing back current read buffer
 		uint32_t currframe;
