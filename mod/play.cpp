@@ -6,6 +6,7 @@
 #include <string.h>
 #include <math.h>
 #include <pthread.h>
+#include <signal.h>
 
 #include "core.h"
 #include "platform.h"

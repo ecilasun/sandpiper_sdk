@@ -175,8 +175,8 @@ void VPUSetDefaultPalette(struct EVideoContext *_context)
 {
 	for (uint32_t i=0; i<256; ++i)
 	{
-		metal_io_write32(_context->m_platform->videoio, 0, VPUCMD_SETPAL);
-		metal_io_write32(_context->m_platform->videoio, 0, (i<<24) | vgapalette[i]);
+		*_context->m_platform->videoio = VPUCMD_SETPAL;
+		*_context->m_platform->videoio = (i<<24) | vgapalette[i];
 	}
 }
 
@@ -199,16 +199,14 @@ void VPUSetVideoMode(struct EVideoContext *_context, const enum EVideoMode _mode
 		_context->m_consoleHeight = (uint16_t)(_context->m_graphicsHeight/8);
 		_context->m_consoleUpdated = 0;
 
-		//*VPUIO = VPUCMD_SETVMODE;
-		//*VPUIO = MAKEVMODEINFO((uint32_t)_context->m_cmode, (uint32_t)_context->m_vmode, (uint32_t)_scanEnable);
-		metal_io_write32(_context->m_platform->videoio, 0, VPUCMD_SETVMODE);
-		metal_io_write32(_context->m_platform->videoio, 0, MAKEVMODEINFO((uint32_t)_context->m_cmode, (uint32_t)_context->m_vmode, (uint32_t)_scanEnable));
+		*_context->m_platform->videoio = VPUCMD_SETVMODE;
+		*_context->m_platform->videoio = MAKEVMODEINFO((uint32_t)_context->m_cmode, (uint32_t)_context->m_vmode, (uint32_t)_scanEnable);
 	}
 	else
 	{
 		// Does not preserve state, mostly preferred during shutdown
-		metal_io_write32(_context->m_platform->videoio, 0, VPUCMD_SETVMODE);
-		metal_io_write32(_context->m_platform->videoio, 0, MAKEVMODEINFO((uint32_t)_cmode, (uint32_t)_mode, (uint32_t)_scanEnable));
+		*_context->m_platform->videoio = VPUCMD_SETVMODE;
+		*_context->m_platform->videoio = MAKEVMODEINFO((uint32_t)_cmode, (uint32_t)_mode, (uint32_t)_scanEnable);
 	}
 }
 
@@ -217,10 +215,8 @@ void VPUSetScanoutAddress(struct EVideoContext *_context, const uint32_t _scanOu
 	_context->m_scanoutAddressCacheAligned = _scanOutAddress64ByteAligned;
 	//EAssert((_scanOutAddress64ByteAligned&0x3F) == 0, "Video scanout address has to be aligned to 64 bytes\n");
 
-	//*VPUIO = VPUCMD_SETVPAGE;
-	//*VPUIO = (uint32_t)_scanOutAddress64ByteAligned;
-	metal_io_write32(_context->m_platform->videoio, 0, VPUCMD_SETVPAGE);
-	metal_io_write32(_context->m_platform->videoio, 0, (uint32_t)_scanOutAddress64ByteAligned);
+	*_context->m_platform->videoio = VPUCMD_SETVPAGE;
+	*_context->m_platform->videoio = (uint32_t)_scanOutAddress64ByteAligned;
 }
 
 void VPUSetWriteAddress(struct EVideoContext *_context, const uint32_t _cpuWriteAddress64ByteAligned)
@@ -231,8 +227,8 @@ void VPUSetWriteAddress(struct EVideoContext *_context, const uint32_t _cpuWrite
 
 void VPUSetPal(struct EVideoContext *_context, const uint8_t _paletteIndex, const uint32_t _red, const uint32_t _green, const uint32_t _blue)
 {
-	metal_io_write32(_context->m_platform->videoio, 0, VPUCMD_SETPAL);
-	metal_io_write32(_context->m_platform->videoio, 0, (_paletteIndex<<24) | (MAKECOLORRGB24(_red, _green, _blue)));
+	*_context->m_platform->videoio = VPUCMD_SETPAL;
+	*_context->m_platform->videoio = (_paletteIndex<<24) | (MAKECOLORRGB24(_red, _green, _blue));
 }
 
 void VPUClear(struct EVideoContext *_context, const uint32_t _colorWord)
@@ -246,14 +242,12 @@ void VPUClear(struct EVideoContext *_context, const uint32_t _colorWord)
 uint32_t VPUReadVBlankCounter(struct EVideoContext *_context)
 {
 	// vblank counter lives at this address
-	//return (*VPUIO) & 0x00000001;
-	return metal_io_read32(_context->m_platform->videoio, 0) & 0x1;
+	return (*_context->m_platform->videoio) & 0x1;
 }
 
 uint32_t VPUGetScanline(struct EVideoContext *_context)
 {
-	//return ((*VPUIO) & 0x000007FE) >> 1;
-	return (metal_io_read32(_context->m_platform->videoio, 0) & 0x7FE) >> 1;
+	return ((*_context->m_platform->videoio) & 0x7FE) >> 1;
 }
 
 void VPUSwapPages(struct EVideoContext* _context, struct EVideoSwapContext *_sc)

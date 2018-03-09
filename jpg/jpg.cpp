@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <signal.h>
 
 #include "nanojpeg.h"
 
@@ -28,8 +29,9 @@ static struct SPPlatform s_platform;
 
 void shutdowncleanup()
 {
-	// Turn off video scan-out
-	VPUSetVideoMode(&s_vctx, VIDEO_MODE, VIDEO_COLOR, EVS_Disable);
+	// Switch to fbcon buffer
+	VPUSetScanoutAddress(&s_vctx, 0x18000000);
+	VPUSetVideoMode(&s_vctx, EVM_640_Wide, ECM_16bit_RGB, EVS_Enable);
 
 	// Free console buffer memory
 	VPUShutdownVideo();
@@ -147,7 +149,6 @@ int main(int argc, char** argv )
 
 	// Hold image while we view it
 	while(1){
-		sched_yield();
 	}
 
 	return 0;
