@@ -22,10 +22,7 @@
 #include <time.h>
 #include <unistd.h>
 
-#include "basesystem.h"
-#include "serialinringbuffer.h"
-#include "task.h"
-#include "keyboard.h"
+#include "core.h"
 
 enum {
 	MOUSE_BUTTON_LEFT = 1,
@@ -176,7 +173,7 @@ static int poll_event()
 
 int qembd_dequeue_key_event(key_event_t *e)
 {
-	static uint32_t oldcountKey = 0xAAAABBBB;
+	/*static uint32_t oldcountKey = 0xAAAABBBB;
 	volatile struct SKeyboardState* keyState = KeyboardGetState();
 
 	if (oldcountKey != keyState->count && keyState->scancode != 0x0)
@@ -223,7 +220,7 @@ int qembd_dequeue_key_event(key_event_t *e)
 		}
 		e->state = keyState->state;
 		return 0;
-	}
+	}*/
 
 	return -1;
 }

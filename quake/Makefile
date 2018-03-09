@@ -2,7 +2,7 @@
 
 TOPTARGETS := all clean
 
-SUBDIRS := tinysys/.
+SUBDIRS := sandpiper/.
 
 $(TOPTARGETS): $(SUBDIRS)
 $(SUBDIRS):

@@ -1,18 +1,14 @@
 ARM_GCC = gcc
 
-ARM_GCC_OPTS = -std=c++20 -O0 -g -mcpu=cortex-a9 -mfpu=vfpv3 -mfloat-abi=hard
+ARM_GCC_OPTS = -std=c99 -O0 -g -mcpu=cortex-a9 -mfpu=vfpv3 -mfloat-abi=hard
 ARM_GCC_LIBS = -lgcc -lc -lm -lmetal
 
-corelib_dir = ../SDK
+src_dir = .
+corelib_dir = ../../SDK
 
 SOURCES_quake_arch := \
-	../../../SDK/core.c \
-	../../../SDK/basesystem.c \
-	../../../SDK/apu.c \
-	../../../SDK/vpu.c \
-	../../../SDK/serialinringbuffer.c \
-	../../../SDK/keyboard.c \
-	../../../SDK/task.c \
+	../../SDK/platform.c \
+	../../SDK/video.c \
 	display.c \
 	fio.c \
 	main.c \
@@ -86,11 +82,11 @@ SOURCES_quake_arch := \
 
 all: quake
 
-incs  += -I$(src_dir) -I$(corelib_dir) $(addprefix -I$(src_dir)/, $(folders))
-libs += $(wildcard $(corelib_dir)/*.S) $(wildcard $(corelib_dir)/*.c)
+incs = -I. -I../include/ -I$(corelib_dir)/ -I../winquake/
+libs = $(wildcard $(corelib_dir)/*.S) $(wildcard $(corelib_dir)/*.c)
 
 quake: $(addprefix ../,$(SOURCES_quake)) $(SOURCES_quake_arch)
-	$(ARM_GCC) $(ARM_GCC_OPTS) -o ../$@ $(addprefix ../,$(SOURCES_quake)) $(SOURCES_quake_arch) $(ARM_GCC_LIBS)
+	$(ARM_GCC) $(ARM_GCC_OPTS) -o ../$@ $(addprefix ../,$(SOURCES_quake)) $(incs) $(libs) $(SOURCES_quake_arch) $(ARM_GCC_LIBS)
 
 clean:
 	rm -rf *.elf *.o *.gen.h

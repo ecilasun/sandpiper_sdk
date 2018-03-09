@@ -18,10 +18,11 @@
 #include <quakedef.h>
 #include <quakembd.h>
 #include <d_local.h>
-#include "vpu.h"
+#include "video.h"
 
 static byte *vid_buffer;
 static byte *surfcache;
+extern EVideoContext vx; 
 
 /* Global allocation for the renderer */
 unsigned short d_8to16table[256];
@@ -35,7 +36,7 @@ void VID_SetPalette(unsigned char *palette)
 		r = (*palette++)>>4;
 		g = (*palette++)>>4;
 		b = (*palette++)>>4;
-		VPUSetPal(i, r, g, b);
+		VPUSetPal(&vx, i, r, g, b);
 	}
 }
 
