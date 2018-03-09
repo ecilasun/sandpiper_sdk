@@ -12,11 +12,35 @@
 #include <math.h>
 #include <cmath>
 
-#include "basesystem.h"
 #include "core.h"
-#include "vpu.h"
+#include "platform.h"
+#include "video.h"
 
-uint8_t *framebuffer;
+struct SPPlatform platform;
+static EVideoContext vx;
+static EVideoSwapContext sc;
+struct SPSizeAlloc framebuffer;
+
+void shutdowncleanup()
+{
+	// Turn off video scan-out
+	VPUSetVideoMode(&vx, EVM_320_Wide, ECM_8bit_Indexed, EVS_Disable);
+
+	// Yield physical memory and reset video routines
+	VPUShutdownVideo();
+
+	// Release allocations
+	SPFreeBuffer(&platform, &framebuffer);
+
+	// Shutdown platform
+	SPShutdownPlatform(&platform);
+}
+
+void sigint_handler(int s)
+{
+	shutdowncleanup();
+	exit(0);
+}
 
 inline int evalMandel(const int maxiter, int col, int row, float ox, float oy, float sx)
 {
@@ -43,7 +67,10 @@ int tiley = 0;
 
 void mandelbrotFloat(float ox, float oy, float sx)
 {
-// http://blog.recursiveprocess.com/2014/04/05/mandelbrot-fractal-v2/
+	uint32_t stride = VPUGetStride(EVM_320_Wide, ECM_8bit_Indexed);
+	uint8_t* framebuffer = (uint8_t*)sc.writepage;
+
+	// http://blog.recursiveprocess.com/2014/04/05/mandelbrot-fractal-v2/
 	int R = int(27.71f-5.156f*logf(sx));
 
 	for (int y = 0; y < 16; ++y)
@@ -56,37 +83,44 @@ void mandelbrotFloat(float ox, float oy, float sx)
 			int M = evalMandel(R, col, row, ox, oy, sx);
 			float ratio = float(M) / float(R);
 			int c = int(ratio*255.f);
-			framebuffer[col + (row*320)] = c;
+			framebuffer[col + (row*stride)] = c;
 		}
 	}
 
-	// Flush tile to memory
-	CFLUSH_D_L1();
-
 	// distance	(via iq's shadertoy sample https://www.shadertoy.com/view/lsX3W4)
-		// d(c) = |Z|·log|Z|/|Z'|
-		//float d = 0.5*sqrt(dot(z,z)/dot(dz,dz))*log(dot(z,z));
-	//if( di>0.5 ) d=0.0;
+	// d(c) = |Z|·log|Z|/|Z'|
+	// float d = 0.5*sqrt(dot(z,z)/dot(dz,dz))*log(dot(z,z));
+	// if( di>0.5 ) d=0.0;
 }
 
 int main()
 {
-	// Set up frame buffer
-	// NOTE: Video scanout buffer has to be aligned at 64 byte boundary
-	framebuffer = VPUAllocateBuffer(320*240);
-	struct EVideoContext vx;
-	vx.m_vmode = EVM_320_Wide;
-	vx.m_cmode = ECM_8bit_Indexed;
-	VPUSetVMode(&vx, EVS_Enable);
-	VPUSetWriteAddress(&vx, (uint32_t)framebuffer);
-	VPUSetScanoutAddress(&vx, (uint32_t)framebuffer);
+	// Initialize platform and video system
+	SPInitPlatform(&platform);
+	VPUInitVideo(&vx, &platform);
+
+	// Grab video buffer
+	uint32_t stride = VPUGetStride(EVM_320_Wide, ECM_8bit_Indexed);
+	framebuffer.size = stride*240;
+	SPAllocateBuffer(&platform, &framebuffer);
+
+	// Register exit handlers
+	atexit(shutdowncleanup);
+	signal(SIGINT, &sigint_handler);
+
+	// Set up the video mode and frame pointers
+	VPUSetVideoMode(&vx, EVM_320_Wide, ECM_8bit_Indexed, EVS_Enable);
+	sc.cycle = 0;
+	sc.framebufferA = &framebuffer; // Not double-buffering
+	sc.framebufferB = &framebuffer;
+	VPUSwapPages(&vx, &sc);
 	VPUClear(&vx, 0x03030303);
 
 	// Grayscale palette
 	for (uint32_t i=0; i<256; ++i)
 	{
 		int j = (255-i)>>4;
-		VPUSetPal(i, j, j, j);
+		VPUSetPal(&vx, i, j, j, j);
 	}
 
 	float R = 4.0E-5f + 0.01f; // Step once to see some detail due to adaptive code
@@ -110,8 +144,6 @@ int main()
 		if (tiley == 15)
 		{
 			tiley = 0;
-			// Flush leftover writes
-			CFLUSH_D_L1();
 			// Zoom
 			R += 0.001f;
 		}
