@@ -6,31 +6,28 @@
 /*******************************************************************/
 
 #include <math.h>
-#include "core.h"
-#include "basesystem.h"
-#include "vpu.h"
 #include <stdio.h>
+#include "platform.h"
+#include "video.h"
 
-static struct EVideoContext s_vctx;
-static struct EVideoSwapContext s_sctx;
-struct SPSizeAlloc frameBufferA;
-struct SPSizeAlloc frameBufferB;
-static struct SPPlatform s_platform;
+static struct EVideoContext vx;
+static struct EVideoSwapContext sc;
+struct SPSizeAlloc framebuffer;
+static struct SPPlatform platform;
 
 void shutdowncleanup()
 {
 	// Turn off video scan-out
-	VPUSetVideoMode(&s_vctx, VIDEO_MODE, VIDEO_COLOR, EVS_Disable);
+	VPUSetVideoMode(&vx, EVM_320_Wide, ECM_8bit_Indexed, EVS_Disable);
 
 	// Yield physical memory and reset video routines
 	VPUShutdownVideo();
 
 	// Release allocations
-	SPFreeBuffer(&s_platform, &frameBufferB);
-	SPFreeBuffer(&s_platform, &frameBufferA);
+	SPFreeBuffer(&platform, &framebuffer);
 
 	// Shutdown platform
-	SPShutdownPlatform(&s_platform);
+	SPShutdownPlatform(&platform);
 }
 
 void sigint_handler(int s)
@@ -92,7 +89,7 @@ static inline void graphics_terminate() {
     //printf("\033[48;5;16m\033[38;5;15m");
 }
 
-inline uint32_t ftoui4sat(float value)
+/*inline uint32_t ftoui4sat(float value)
 {
   uint32_t retval;
   asm (
@@ -104,7 +101,7 @@ inline uint32_t ftoui4sat(float value)
     : "a0", "a1"
   );
   return retval;
-}
+}*/
 
 // Replace with your own code.
 inline void graphics_set_pixel(uint32_t addrs, uint32_t stride, int x, int y, float r, float g, float b) {
@@ -112,11 +109,11 @@ inline void graphics_set_pixel(uint32_t addrs, uint32_t stride, int x, int y, fl
    if(bench_run)
       return;
 
-  uint32_t red = ftoui4sat(r);
-  uint32_t green = ftoui4sat(g);
-  uint32_t blue = ftoui4sat(b);
+  uint32_t red = uint32_t(15.f*r);//ftoui4sat(r);
+  uint32_t green = uint32_t(15.f*g);
+  uint32_t blue = uint32_t(15.f*b);
 
-  uint16_t *pixel = (uint16_t*)(addrs + (x+y*stride)*2);
+  uint16_t *pixel = (uint16_t*)(addrs + 2*x + y*stride);
   *pixel = (red<<8) | (green<<4) | blue;
 }
 
@@ -155,8 +152,8 @@ static uint64_t cycles_start;
 // Begins statistics collection for current frame.
 // Leave emtpy if not needed.
 static inline void stats_begin_frame() {
-    instret_start = E32ReadRetiredInstructions();
-    cycles_start  = E32ReadCycles();
+    instret_start = 0;//E32ReadRetiredInstructions();
+    cycles_start  = 0;//E32ReadCycles();
 }
 
 // Ends statistics collection for current frame
@@ -164,8 +161,8 @@ static inline void stats_begin_frame() {
 // Leave emtpy if not needed.
 static inline void stats_end_frame() {
    graphics_terminate();
-   uint64_t instret = E32ReadRetiredInstructions() - instret_start;
-   uint64_t cycles = E32ReadCycles()    - cycles_start ;
+   uint64_t instret = 0;//E32ReadRetiredInstructions() - instret_start;
+   uint64_t cycles = 0;//E32ReadCycles()    - cycles_start ;
    uint64_t kCPI       = cycles*1000/instret;
    uint64_t pixels     = graphics_width * graphics_height;
    uint64_t kRAYSTONES = (pixels*1000000000)/cycles;
@@ -440,8 +437,8 @@ static inline void render_pixel(
        make_vec3(0,0,0), vec3_normalize(make_vec3(dir_x, dir_y, dir_z)),
        spheres, nb_spheres, lights, nb_lights, 0
    );
-   graphics_set_pixel(addrs,stride,j,C.x,C.y,C.z);
-   stats_end_pixel();
+   graphics_set_pixel(addrs,stride,i,j,C.x,C.y,C.z);
+   //stats_end_pixel();
 }
 
 void render(Sphere* spheres, int nb_spheres, Light* lights, int nb_lights) {
@@ -461,7 +458,7 @@ void render(Sphere* spheres, int nb_spheres, Light* lights, int nb_lights) {
     }
   }
 #endif
-   stats_end_frame();
+   //stats_end_frame();
 }
 
 int nb_spheres = 4;
@@ -518,12 +515,6 @@ int main()
 	VPUClear(&vx, 0x03030303);
 
 	init_scene();
-
-	bench_run = 1;
-	graphics_width  = 40;
-	graphics_height = 20;
-	printf("Running without graphic output (for accurate measurement)...\n");
-	render(spheres, nb_spheres, lights, nb_lights);
 
 	bench_run = 0;
 	graphics_width = 320;
