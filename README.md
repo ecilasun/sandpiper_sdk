@@ -10,22 +10,22 @@ The current hardware utilizes a Zynq 7020 system on module and 512Mbytes of DDR 
 
 The Zynq CPU is clocked at 666MHz and contains two 32bit ARM cores (arm7a), which are accompanied by a few custom hardware on the programmable logic (PL) side.
 
-Some of the custom hardware includes video and audio modules, which can access a 128Mbyte reserved memory region out of the 512Mbyte DDR chip. This region is uncached and Linux can't directly use it for allocations, therefore it is for the sole use of graphics and audio subsystems.
+Some of the custom hardware includes video and audio modules, which can access a 32Mbyte reserved memory region out of the 512Mbyte DDR chip. This region is uncached and Linux can't directly use it for allocations, therefore it is for the sole use of graphics and audio subsystems.
 
-This SDK provides allocation functions which will automatically manage the CPU/PL address pairs and the sub-allocation from the 128Mbyte pool.
+This SDK provides allocation functions which will automatically manage the CPU/PL address pairs and the sub-allocation from the 32Mbyte pool.
 
-The rest of the memory (~384Mbytes) is shared between Linux and user applications. Caching is enabled for this memory region, and all allocations can go through regular memory allocation libraries or OS calls as expected under Linux.
+The rest of the memory (~480Mbytes) is shared between Linux and user applications. Caching is enabled for this memory region, and all allocations can go through regular memory allocation libraries or OS calls as expected under Linux.
 
 ## Using shared memory between devices
 
-To access the 128Mbyte shared memory region, we need to initialize the platform library first:
+To access the 32Mbyte shared memory region, we need to initialize the platform library first:
 
 ```
 struct SPPlatform platform;
 SPInitPlatform(&platform);
 ```
 
-This ensures the 128Mbyte region is mapped and ready for uncached access for use by the CPU and PL devices.
+This ensures the 32Mbyte region is mapped and ready for uncached access for use by the CPU and PL devices.
 
 Now we can call our allocation function:
 ```
