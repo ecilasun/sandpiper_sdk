@@ -12,9 +12,8 @@
 
 // Please see https://github.com/BrunoLevy/Vectorizer for the original code
 
-#include "basesystem.h"
 #include "core.h"
-#include "vpu.h"
+#include "video.h"
 #include "io.h"
 
 #include <stdio.h>
@@ -25,21 +24,43 @@ int cur_byte_address = 0;
 
 FILE *s_fp;
 uint8_t *filedata;
-EVideoContext s_vctx;
-uint8_t *s_framebufferB;
-uint8_t *s_framebufferA;
-//uint8_t *s_rasterBuffer; // For hardware rasterizer
 
 #define MIN(x,y) ((x) < (y) ? (x) : (y))
 #define MAX(x,y) ((x) > (y) ? (x) : (y))
 
-static void clear(uint8_t* buffer)
+#define VIDEO_MODE      EVM_320_Wide
+#define VIDEO_COLOR     ECM_8bit_Indexed
+#define VIDEO_HEIGHT    240
+
+struct EVideoContext s_vctx;
+struct EVideoSwapContext s_sctx;
+struct SPSizeAlloc frameBufferA;
+struct SPSizeAlloc frameBufferB;
+static struct SPPlatform s_platform;
+
+void shutdowncleanup()
 {
-	for(int i=0; i<320*240; ++i)
-		buffer[i] = 0x07;
+	// Turn off video scan-out
+	VPUSetVideoMode(&s_vctx, VIDEO_MODE, VIDEO_COLOR, EVS_Disable);
+
+	// Yield physical memory and reset video routines
+	VPUShutdownVideo();
+
+	// Release allocations
+	SPFreeBuffer(&s_platform, &frameBufferB);
+	SPFreeBuffer(&s_platform, &frameBufferA);
+
+	// Shutdown platform
+	SPShutdownPlatform(&s_platform);
 }
 
-void gfx_fillpoly(uint8_t* buffer, int nb_pts, int* points, uint8_t color)
+void sigint_handler(int s)
+{
+	shutdowncleanup();
+	exit(0);
+}
+
+void gfx_fillpoly(uint8_t* buffer, uint32_t stride, int nb_pts, int* points, uint8_t color)
 {
     int x_left[256];
     int x_right[256];
@@ -131,31 +152,12 @@ void gfx_fillpoly(uint8_t* buffer, int nb_pts, int* points, uint8_t color)
 
 	for(int y = miny; y <= maxy; ++y)
 		for(int x = x_left[y]; x <= x_right[y]; ++x)
-			buffer[y * 320 + x] = color;
+			buffer[y * stride + x] = color;
 }
 
 int main(int argc, char** argv)
 {
-	s_framebufferB = VPUAllocateBuffer(320*240); // Or think of it as 1280*64 for tiles
-	s_framebufferA = VPUAllocateBuffer(320*240);
-	//s_rasterBuffer = VPUAllocateBuffer(80*60*16); // Rasterizer tile buffer
-
-	//memset(s_rasterBuffer, 0x07, 80*60*16);
-	memset(s_framebufferA, 0x07, 320*240);
-	memset(s_framebufferB, 0x07, 320*240);
-
-	s_vctx.m_vmode = EVM_320_Wide;
-	s_vctx.m_cmode = ECM_8bit_Indexed;
-	VPUSetVMode(&s_vctx, EVS_Enable);
-	VPUSetDefaultPalette(&s_vctx);
-
-	struct EVideoSwapContext sc;
-	sc.cycle = 0;
-	sc.framebufferA = s_framebufferA;
-	sc.framebufferB = s_framebufferB;
-	VPUSwapPages(&s_vctx, &sc);
-
-	char scene_file[512];
+	char scene_file[256];
 	if (argc>=2)
 		strcpy(scene_file, argv[1]);
 	else
@@ -165,26 +167,44 @@ int main(int argc, char** argv)
 	ST_NICCC_FRAME frame;
 	ST_NICCC_POLYGON polygon;
 
-    if(!st_niccc_open(&io,scene_file,ST_NICCC_READ))
+	if(!st_niccc_open(&io,scene_file,ST_NICCC_READ))
 	{
-        fprintf(stderr,"could not open data file\n");
-        exit(-1);
-    }
+        	fprintf(stderr,"could not open data file\n");
+	        exit(-1);
+    	}
+
+	SPInitPlatform(&s_platform);
+	VPUInitVideo(&s_vctx, &s_platform);
+	uint32_t stride = VPUGetStride(VIDEO_MODE, VIDEO_COLOR);
+	frameBufferB.size = frameBufferA.size = stride*VIDEO_HEIGHT;
+	SPAllocateBuffer(&s_platform, &frameBufferA);
+	SPAllocateBuffer(&s_platform, &frameBufferB);
+
+	atexit(shutdowncleanup);
+	signal(SIGINT, &sigint_handler);
+
+	VPUSetVideoMode(&s_vctx, VIDEO_MODE, VIDEO_COLOR, EVS_Enable);
+
+	s_sctx.cycle = 0;
+	s_sctx.framebufferA = &frameBufferA;
+	s_sctx.framebufferB = &frameBufferB;
+	VPUSwapPages(&s_vctx, &s_sctx);
+
+	VPUClear(&s_vctx, 0x03030303);
 
 	for(;;)
 	{
-        st_niccc_rewind(&io);
-
-		while(st_niccc_read_frame(&io, &frame))
+		st_niccc_rewind(&io);
+		while(st_niccc_read_frame(&s_vctx, &io, &frame))
 		{
 			if(frame.flags & CLEAR_BIT)
-				clear(sc.writepage);
+				VPUClear(&s_vctx, 0x07070707);
 
 			while(st_niccc_read_polygon(&io, &frame, &polygon))
-				gfx_fillpoly(sc.writepage, polygon.nb_vertices, polygon.XY, polygon.color);
+				gfx_fillpoly(s_sctx.writepage, stride, polygon.nb_vertices, polygon.XY, polygon.color);
 
-			VPUWaitVSync();
-			VPUSwapPages(&s_vctx, &sc);
+			VPUWaitVSync(&s_vctx);
+			VPUSwapPages(&s_vctx, &s_sctx);
 		}
 	}
 }

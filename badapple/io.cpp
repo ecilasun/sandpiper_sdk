@@ -2,8 +2,6 @@
 #include <stdlib.h>
 #include <assert.h>
 
-#include "vpu.h"
-
 int st_niccc_open(ST_NICCC_IO* io, const char* filename, int mode)
 {
     io->f = fopen(filename, (mode == ST_NICCC_WRITE) ? "wb" : "rb");
@@ -19,7 +17,7 @@ int st_niccc_open(ST_NICCC_IO* io, const char* filename, int mode)
 		fseek(io->f, 0, SEEK_END);
 		fgetpos(io->f, &endpos);
 		fsetpos(io->f, &pos);
-		uint32_t fsize = (uint32_t)endpos;
+		uint32_t fsize = (uint32_t)endpos.__pos;
 		io->scenedata = (uint8_t*)malloc(fsize);
 		fread(io->scenedata, 1, fsize, io->f);
 		fclose(io->f);
@@ -109,7 +107,7 @@ void st_niccc_next_block(ST_NICCC_IO* io) {
 
 /*********************************************************************/
 
-int st_niccc_read_frame(ST_NICCC_IO* io, ST_NICCC_FRAME* frame)
+int st_niccc_read_frame(EVideoContext* vctx, ST_NICCC_IO* io, ST_NICCC_FRAME* frame)
 {
     if(io->eof)
         return 0;
@@ -132,15 +130,15 @@ int st_niccc_read_frame(ST_NICCC_IO* io, ST_NICCC_FRAME* frame)
 				int r3 = (rgb & 0x700) >> 8;
 
 				// Set the actual hardware color register
-				VPUSetPal(15-b, r3*2,g3*2,b3*2);
+				VPUSetPal(vctx, 15-b, r3*2, g3*2, b3*2);
 
 				// Get the three 3-bits per component R,G,B
 				/*int b3 = (rgb & 0x007);
 				int g3 = (rgb & 0x070) >> 4;
 				int r3 = (rgb & 0x700) >> 8;
-						frame->cmap_r[15-b] = r3 << 5;
-						frame->cmap_g[15-b] = g3 << 5;
-						frame->cmap_b[15-b] = b3 << 5;*/
+				frame->cmap_r[15-b] = r3 << 5;
+				frame->cmap_g[15-b] = g3 << 5;
+				frame->cmap_b[15-b] = b3 << 5;*/
 			}
 		}
 	}

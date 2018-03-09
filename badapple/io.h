@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <stdio.h>
+#include "video.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -79,7 +80,7 @@ typedef struct {
     int XY[32]; // interleaved x,y
 } ST_NICCC_POLYGON;
 
-int st_niccc_read_frame(
+int st_niccc_read_frame( EVideoContext* vctx,
     ST_NICCC_IO* io, ST_NICCC_FRAME* frame
 );
 
