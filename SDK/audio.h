@@ -22,6 +22,7 @@ enum EAPUBufferSize
 	ABS_512Bytes  = 1,	// 128 16bit stereo samples
 	ABS_1024Bytes = 2,	// 256 16bit stereo samples
 	ABS_2048Bytes = 3,	// 512 16bit stereo samples
+	ABS_4096Bytes = 4,	// 1024 16bit stereo samples
 };
 
 struct EAudioContext
