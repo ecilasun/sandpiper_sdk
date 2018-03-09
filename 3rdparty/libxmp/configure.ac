@@ -1,16 +1,13 @@
-m4_define([libxmp_VERSION_MAJOR_m4], [4])
-m4_define([libxmp_VERSION_MINOR_m4], [6])
-m4_define([libxmp_VERSION_PATCH_m4], [3])
-m4_define([libxmp_VERSION_m4], libxmp_VERSION_MAJOR_m4[.]libxmp_VERSION_MINOR_m4[.]libxmp_VERSION_PATCH_m4)
+m4_define([libxmplite_VERSION_MAJOR_m4], [4])
+m4_define([libxmplite_VERSION_MINOR_m4], [6])
+m4_define([libxmplite_VERSION_PATCH_m4], [3])
+m4_define([libxmplite_VERSION_m4], libxmplite_VERSION_MAJOR_m4[.]libxmplite_VERSION_MINOR_m4[.]libxmplite_VERSION_PATCH_m4)
 
 AC_PREREQ(2.60)
-AC_INIT([libxmp],libxmp_VERSION_m4)
-AC_ARG_ENABLE(depackers, [  --disable-depackers     Don't build depackers])
-AC_ARG_ENABLE(prowizard, [  --disable-prowizard     Don't build ProWizard])
+AC_INIT([libxmp-lite],libxmplite_VERSION_m4)
+AC_ARG_ENABLE(it,        [  --disable-it            Don't build IT format support])
 AC_ARG_ENABLE(static,    [  --enable-static         Build static library])
 AC_ARG_ENABLE(shared,    [  --disable-shared        Don't build shared library])
-AC_ARG_ENABLE(lite,      [  --enable-lite           Build lite version of the library])
-AC_ARG_ENABLE(it,        [  --disable-it            Disable IT format in libxmp-lite])
 AC_SUBST(LD_VERSCRIPT)
 AC_SUBST(LIBM)
 AC_SUBST(DARWIN_VERSION)
@@ -84,29 +81,25 @@ dnl Skip this on platforms where it is just simply busted.
 esac
 
 if test "${enable_static}" = yes; then
-  STATIC="static"
-  if test "${enable_lite}" = yes; then
-     STATIC="$STATIC static-lite"
-  fi
-  AC_SUBST(STATIC)
+  AC_SUBST(STATIC,static)
 fi
 if test "${enable_shared}" != no; then
   AC_CHECK_DEFINED(_WIN32,[
-    SHARED="dll"
+    AC_SUBST(SHARED,dll)
     CFLAGS_SHARED="-DBUILDING_DLL"
   ],[
     CFLAGS_SHARED="-fPIC"
     AC_CHECK_DEFINED(__APPLE__,[
-      SHARED="dylib"
+      AC_SUBST(SHARED,dylib)
     ],[
-      SHARED="shared"
+      AC_SUBST(SHARED,shared)
     ])
   ])
-  if test "${enable_lite}" = yes; then
-     SHARED="$SHARED $SHARED-lite"
-  fi
-  AC_SUBST(SHARED)
   AC_SUBST(CFLAGS_SHARED)
+fi
+
+if test "${enable_it}" = no; then
+  CFLAGS="${CFLAGS} -DLIBXMP_CORE_DISABLE_IT"
 fi
 
 XMP_TRY_COMPILE(whether compiler understands -Wall,
@@ -222,25 +215,6 @@ XMP_TRY_COMPILE(whether compiler understands -Wunknown-warning-option,
   int main(void){return 0;}],
   CFLAGS="${CFLAGS} -Wno-unknown-warning-option")
 
-if test "${enable_lite}" = yes &&\
-   test "${enable_it}" = no; then
-  CFLAGS="${CFLAGS} -DLIBXMP_CORE_DISABLE_IT"
-fi
-
-if test "${enable_depackers}" != no; then
-  DEPACKER_OBJS='$(DEPACKER_OBJS)'
-else
-  CFLAGS="${CFLAGS} -DLIBXMP_NO_DEPACKERS"
-fi
-AC_SUBST(DEPACKER_OBJS)
-
-if test "${enable_prowizard}" != no; then
-  PROWIZARD_OBJS='$(PROWIZARD_OBJS)'
-else
-  CFLAGS="${CFLAGS} -DLIBXMP_NO_PROWIZARD"
-fi
-AC_SUBST(PROWIZARD_OBJS)
-
 LIBM=
 case "${host_os}" in
 dnl These systems don't have libm or don't need it (list based on libtool)
@@ -255,46 +229,17 @@ dnl djgpp has all c89 math funcs in libc.a
 esac
 AC_CHECK_FUNCS(powf)
 
-AC_MSG_CHECKING(for dirent)
-AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <dirent.h>]], [[
-  DIR *dirp = opendir(".");
-  struct dirent *d = readdir(dirp);
-  (void)d; closedir(dirp);]])],
- [have_dirent=yes
-  AC_DEFINE(HAVE_DIRENT,1,[ ])],
- [have_dirent=no])
-AC_MSG_RESULT($have_dirent)
-
-AC_CHECK_FUNCS(popen mkstemp fnmatch umask)
-dnl fork, execv & co don't work with djgpp
-case "${host_os}" in
-*djgpp|mingw*|riscos*)
-  ;;
-*) AC_CHECK_FUNCS(wait pipe fork execvp dup2)
-  ;;
-esac
-
-case "${host_os}" in
-amigaos*|aros*|morphos*)
-  AC_CHECK_HEADERS(proto/xfdmaster.h)
-  ;;
-esac
-
 # FIXME: Make out-of-tree builds work.
-CPPFLAGS="$CPPFLAGS -Iinclude"
+CPPFLAGS="$CPPFLAGS -Iinclude/libxmp-lite"
 CPPFLAGS="$CPPFLAGS -D_REENTRANT"
+CPPFLAGS="$CPPFLAGS -DLIBXMP_CORE_PLAYER"
 
-AC_SUBST([libxmp_VERSION_MAJOR],libxmp_VERSION_MAJOR_m4)
-AC_SUBST([libxmp_VERSION_MINOR],libxmp_VERSION_MINOR_m4)
-AC_SUBST([libxmp_VERSION_PATCH],libxmp_VERSION_PATCH_m4)
-AC_SUBST([libxmp_VERSION],libxmp_VERSION_m4)
-AC_SUBST([libxmplite_VERSION],libxmp_VERSION_m4)
+AC_SUBST([libxmplite_VERSION_MAJOR],libxmplite_VERSION_MAJOR_m4)
+AC_SUBST([libxmplite_VERSION_MINOR],libxmplite_VERSION_MINOR_m4)
+AC_SUBST([libxmplite_VERSION_PATCH],libxmplite_VERSION_PATCH_m4)
+AC_SUBST([libxmplite_VERSION],libxmplite_VERSION_m4)
 
 AC_CONFIG_FILES([Makefile])
-AC_CONFIG_FILES([libxmp.pc])
-AC_CONFIG_FILES([libxmp-config-version.cmake.autotools])
-if test "${enable_lite}" = yes; then
-   AC_CONFIG_FILES([libxmp-lite.pc:src/lite/libxmp-lite.pc.in])
-   AC_CONFIG_FILES([libxmp-lite-config-version.cmake.autotools:src/lite/libxmp-lite-config-version.cmake.autotools.in])
-fi
+AC_CONFIG_FILES([libxmp-lite.pc])
+AC_CONFIG_FILES([libxmp-lite-config-version.cmake.autotools])
 AC_OUTPUT

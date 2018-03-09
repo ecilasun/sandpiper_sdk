@@ -1,8 +1,8 @@
-VERSION_MAJOR	= @libxmp_VERSION_MAJOR@
-VERSION_MINOR	= @libxmp_VERSION_MINOR@
-VERSION_RELEASE	= @libxmp_VERSION_PATCH@
+VERSION_MAJOR	= @libxmplite_VERSION_MAJOR@
+VERSION_MINOR	= @libxmplite_VERSION_MINOR@
+VERSION_RELEASE	= @libxmplite_VERSION_PATCH@
 
-VERSION		= @libxmp_VERSION@
+VERSION		= @libxmplite_VERSION@
 
 # This dylib will support anything linked against COMPAT_VERSION through VERSION
 COMPAT_VERSION	= $(VERSION_MAJOR)
@@ -26,35 +26,26 @@ datarootdir	= @datarootdir@
 BINDIR		= @bindir@
 LIBDIR		= @libdir@
 MANDIR		= @mandir@/man3
-INCLUDEDIR	= @includedir@
+INCLUDEDIR	= @includedir@/libxmp-lite
 LD_VERSCRIPT	= @LD_VERSCRIPT@
 SHELL		= /bin/sh
 
-DIST		= libxmp-$(VERSION)
+DIST		= libxmp-lite-$(VERSION)
 DFILES		= README INSTALL install-sh configure configure.ac config.sub config.guess  \
 		  Makefile.in Makefile.vc Makefile.dos Makefile.os2 Makefile.w32 watcom.mif \
-		  CMakeLists.txt aclocal.m4 autogen.sh libxmp.map libxmp.pc.in libxmp-config.cmake \
-		  libxmp-config.cmake.autotools libxmp-config-version.cmake.autotools.in
-DDIRS		= docs include src loaders prowiz depackers lhasa lite test cmake m4
+		  CMakeLists.txt aclocal.m4 autogen.sh libxmp.map libxmp-lite.pc.in Changelog \
+		  libxmp-lite-config.cmake libxmp-lite-config.cmake.autotools \
+		  libxmp-lite-config-version.cmake.autotools.in
+DDIRS		= include src loaders test cmake m4
 V		= 0
-LIB		= libxmp.a
-SOLIB		= libxmp.so
+LIB		= libxmp-lite.a
+SOLIB		= libxmp-lite.so
 SHLIB		= $(SOLIB).$(VERSION)
 SONAME		= $(SOLIB).$(VERSION_MAJOR)
-DLL		= libxmp.dll
-IMPLIB		= libxmp.dll.a
-DYLIB		= libxmp.$(VERSION_MAJOR).dylib
-GCLIB		= libxmp-gc.a
-
-LIB_LITE	= libxmp-lite.a
-SOLIB_LITE	= libxmp-lite.so
-SHLIB_LITE	= $(SOLIB_LITE).$(VERSION)
-SONAME_LITE	= $(SOLIB_LITE).$(VERSION_MAJOR)
-DLL_LITE	= libxmp-lite.dll
-IMPLIB_LITE	= libxmp-lite.dll.a
-DYLIB_LITE	= libxmp-lite.$(VERSION_MAJOR).dylib
-GCLIB_LITE	= libxmp-lite-gc.a
-
+DLL		= libxmp-lite.dll
+IMPLIB		= libxmp-lite.dll.a
+DYLIB		= libxmp-lite.$(VERSION_MAJOR).dylib
+GCLIB		= libxmp-lite-gc.a
 DYLIB_COMPAT	= -compatibility_version,$(COMPAT_VERSION),
 
 DARWIN_VERSION	= @DARWIN_VERSION@
@@ -68,27 +59,16 @@ endif
 
 all: @STATIC@ @SHARED@
 
-include include/Makefile
+include include/libxmp-lite/Makefile
 include cmake/Makefile
 include m4/Makefile
 include src/Makefile
 include src/loaders/Makefile
-include src/loaders/prowizard/Makefile
-include src/depackers/Makefile
-include src/depackers/lhasa/Makefile
-include src/lite/Makefile
 include test/Makefile
-include docs/Makefile
 
-ALL_OBJS=$(OBJS) @PROWIZARD_OBJS@ @DEPACKER_OBJS@
+LOBJS = $(OBJS:.o=.lo)
 
-LOBJS = $(ALL_OBJS:.o=.lo)
-
-GCOBJS = $(ALL_OBJS:.o=.gco)
-
-LOBJS_LITE = $(LITE_OBJS:.o=.lo)
-
-GCOBJS_LITE = $(LITE_OBJS:.o=.gco)
+GCOBJS = $(OBJS:.o=.gco)
 
 .SUFFIXES: .c .o .lo .a .so .dll .in .gco .gcda .gcno
 
@@ -117,19 +97,9 @@ dll: lib/$(DLL)
 
 dylib: lib/$(DYLIB)
 
-static-lite: lib/$(LIB_LITE)
-
-shared-lite: lib/$(SHLIB_LITE)
-
-coverage-lite: lib/$(GCLIB_LITE)
-
-dll-lite: lib/$(DLL_LITE)
-
-dylib-lite: lib/$(DYLIB_LITE)
-
-lib/$(LIB): $(ALL_OBJS)
+lib/$(LIB): $(OBJS)
 	@mkdir -p lib
-	@CMD='$(AR) r $@ $(ALL_OBJS)'; \
+	@CMD='$(AR) r $@ $(OBJS)'; \
 	if [ "$(V)" -gt 0 ]; then echo $$CMD; else echo AR $@ ; fi; \
 	eval $$CMD
 	$(RANLIB) $@
@@ -144,28 +114,7 @@ lib/$(SHLIB): $(LOBJS)
 
 lib/$(DLL): $(LOBJS)
 	@mkdir -p lib
-	@CMD='$(LD) $(LDFLAGS) -shared -Wl,--output-def,lib/libxmp.def,--out-implib,lib/$(IMPLIB) -o $@ $(LOBJS) $(LIBS)'; \
-	if [ "$(V)" -gt 0 ]; then echo $$CMD; else echo LD $@ ; fi; \
-	eval $$CMD
-
-lib/$(LIB_LITE): $(LITE_OBJS)
-	@mkdir -p lib
-	@CMD='$(AR) r $@ $(LITE_OBJS)'; \
-	if [ "$(V)" -gt 0 ]; then echo $$CMD; else echo AR $@ ; fi; \
-	eval $$CMD
-	$(RANLIB) $@
-
-lib/$(SHLIB_LITE): $(LOBJS_LITE)
-	@mkdir -p lib
-	@CMD='$(LD) $(LDFLAGS) -shared -Wl,-soname,$(SONAME_LITE) $(LD_VERSCRIPT) -o $@ $(LOBJS_LITE) $(LIBS)'; \
-	if [ "$(V)" -gt 0 ]; then echo $$CMD; else echo LD $@ ; fi; \
-	eval $$CMD
-	ln -sf $(SHLIB_LITE) lib/$(SONAME_LITE)
-	ln -sf $(SONAME_LITE) lib/$(SOLIB_LITE)
-
-lib/$(DLL_LITE): $(LOBJS_LITE)
-	@mkdir -p lib
-	@CMD='$(LD) $(LDFLAGS) -shared -Wl,--output-def,lib/libxmp-lite.def,--out-implib,lib/$(IMPLIB_LITE) -o $@ $(LOBJS_LITE) $(LIBS)'; \
+	@CMD='$(LD) $(LDFLAGS) -shared -Wl,--output-def,lib/libxmp-lite.def,--out-implib,lib/$(IMPLIB) -o $@ $(LOBJS) $(LIBS)'; \
 	if [ "$(V)" -gt 0 ]; then echo $$CMD; else echo LD $@ ; fi; \
 	eval $$CMD
 
@@ -179,7 +128,7 @@ lib/$(DYLIB): $(LOBJS)
 	@CMD='$(LD) $(LDFLAGS) -dynamiclib -Wl,-headerpad_max_install_names,$(DYLIB_COMPAT)-current_version,$(VERSION),-install_name,$(prefix)/lib/$(DYLIB) -o $@ $(LOBJS) $(LIBS)'; \
 	if [ "$(V)" -gt 0 ]; then echo $$CMD; else echo LD $@ ; fi; \
 	eval $$CMD
-	ln -sf $(DYLIB) lib/libxmp.dylib
+	ln -sf $(DYLIB) lib/libxmp-lite.dylib
 
 lib/$(GCLIB): $(GCOBJS)
 	@mkdir -p lib
@@ -188,30 +137,12 @@ lib/$(GCLIB): $(GCOBJS)
 	eval $$CMD
 	$(RANLIB) $@
 
-lib/$(DYLIB_LITE): $(LOBJS_LITE)
-	@mkdir -p lib
-	@CMD='$(LD) $(LDFLAGS) -dynamiclib -Wl,-headerpad_max_install_names,$(DYLIB_COMPAT)-current_version,$(VERSION),-install_name,$(prefix)/lib/$(DYLIB_LITE) -o $@ $(LOBJS_LITE) $(LIBS)'; \
-	if [ "$(V)" -gt 0 ]; then echo $$CMD; else echo LD $@ ; fi; \
-	eval $$CMD
-	ln -sf $(DYLIB) lib/libxmp-lite.dylib
-
-lib/$(GCLIB_LITE): $(GCOBJS_LITE)
-	@mkdir -p lib
-	@CMD='$(AR) r $@ $(GCOBJS_LITE)'; \
-	if [ "$(V)" -gt 0 ]; then echo $$CMD; else echo AR $@ ; fi; \
-	eval $$CMD
-	$(RANLIB) $@
-
-docs: all-docs
-
 clean:
-	@rm -f $(ALL_OBJS) $(LOBJS) $(T_OBJS)
-	@rm -f $(GCOBJS) $(ALL_OBJS:.o=.gcno) $(ALL_OBJS:.o=.gcda)
-	@rm -f $(LITE_OBJS) $(LOBJS_LITE) $(TLITE_OBJS)
-	@rm -f $(GCOBJS_LITE) $(LITE_OBJS:.o=.gcno) $(LITE_OBJS:.o=.gcda)
+	@rm -f $(OBJS) $(LOBJS)
+	@rm -f $(GCOBJS) $(OBJS:.o=.gcno) $(OBJS:.o=.gcda)
 
 distclean: clean
-	@rm -f config.log config.cache config.status *.pc *-version.cmake.autotools depend Makefile lib/* test/libxmp-test* test/libxmp-lite-test*
+	@rm -f config.log config.cache config.status libxmp-lite.pc depend Makefile lib/*
 
 install: all
 	@mkdir -p $(DESTDIR)$(BINDIR) $(DESTDIR)$(LIBDIR) $(DESTDIR)$(INCLUDEDIR)
@@ -222,7 +153,7 @@ install: all
 	@if [ -f lib/$(DYLIB) ]; then \
 		echo "Installing $(DYLIB)..."; \
 		$(INSTALL) -m755 lib/$(DYLIB) $(DESTDIR)$(LIBDIR); \
-		ln -sf $(DYLIB) $(DESTDIR)$(LIBDIR)/libxmp.dylib; \
+		ln -sf $(DYLIB) $(DESTDIR)$(LIBDIR)/libxmp-lite.dylib; \
 	fi
 	@if [ -f lib/$(DLL) ]; then \
 		echo "Installing $(DLL)..."; \
@@ -235,94 +166,45 @@ install: all
 		ln -sf $(SHLIB) $(DESTDIR)$(LIBDIR)/$(SONAME); \
 		ln -sf $(SONAME) $(DESTDIR)$(LIBDIR)/$(SOLIB); \
 	fi
-	@if [ -f lib/$(LIB_LITE) ]; then \
-		echo "Installing $(LIB_LITE)..."; \
-		$(INSTALL) -m644 lib/$(LIB_LITE) $(DESTDIR)$(LIBDIR); \
-	fi
-	@if [ -f lib/$(DYLIB_LITE) ]; then \
-		echo "Installing $(DYLIB_LITE)..."; \
-		$(INSTALL) -m755 lib/$(DYLIB_LITE) $(DESTDIR)$(LIBDIR); \
-		ln -sf $(DYLIB_LITE) $(DESTDIR)$(LIBDIR_LITE)/libxmp-lite.dylib; \
-	fi
-	@if [ -f lib/$(DLL_LITE) ]; then \
-		echo "Installing $(DLL_LITE)..."; \
-		$(INSTALL) -m644 lib/$(DLL_LITE) $(DESTDIR)$(BINDIR); \
-		$(INSTALL) -m644 lib/$(IMPLIB_LITE) $(DESTDIR)$(LIBDIR); \
-	fi
-	@if [ -f lib/$(SHLIB_LITE) ]; then \
-		echo "Installing $(SHLIB_LITE)..."; \
-		$(INSTALL) -m755 lib/$(SHLIB_LITE) $(DESTDIR)$(LIBDIR); \
-		ln -sf $(SHLIB_LITE) $(DESTDIR)$(LIBDIR)/$(SONAME_LITE); \
-		ln -sf $(SONAME_LITE) $(DESTDIR)$(LIBDIR)/$(SOLIB_LITE); \
-	fi
 	@echo "Installing xmp.h..."
-	@$(INSTALL) -m644 include/xmp.h $(DESTDIR)$(INCLUDEDIR)
-	@echo "Installing libxmp.pc..."
+	@$(INSTALL) -m644 include/libxmp-lite/xmp.h $(DESTDIR)$(INCLUDEDIR)
+	@echo "Installing libxmp-lite.pc..."
 	@mkdir -p $(DESTDIR)$(LIBDIR)/pkgconfig
-	@$(INSTALL) -m644 libxmp.pc $(DESTDIR)$(LIBDIR)/pkgconfig/
-	@echo "Installing libxmp-config.cmake..."
-	@mkdir -p $(DESTDIR)$(LIBDIR)/cmake/libxmp
-	@$(INSTALL) -m644 libxmp-config.cmake.autotools $(DESTDIR)$(LIBDIR)/cmake/libxmp/libxmp-config.cmake
-	@$(INSTALL) -m644 libxmp-config-version.cmake.autotools $(DESTDIR)$(LIBDIR)/cmake/libxmp/libxmp-config-version.cmake
-	@if [ -f libxmp-lite.pc ]; then \
-		echo "Installing libxmp-lite/xmp.h..."; \
-		mkdir -p $(DESTDIR)$(INCLUDEDIR)/libxmp-lite; \
-		$(INSTALL) -m644 include/xmp.h $(DESTDIR)$(INCLUDEDIR)/libxmp-lite; \
-		echo "Installing libxmp-lite.pc..."; \
-		mkdir -p $(DESTDIR)$(LIBDIR)/pkgconfig; \
-		$(INSTALL) -m644 libxmp-lite.pc $(DESTDIR)$(LIBDIR)/pkgconfig/; \
-		echo "Installing libxmp-lite-config.cmake..."; \
-		mkdir -p $(DESTDIR)$(LIBDIR)/cmake/libxmp-lite; \
-		$(INSTALL) -m644 src/lite/libxmp-lite-config.cmake.autotools $(DESTDIR)$(LIBDIR)/cmake/libxmp-lite/libxmp-lite-config.cmake; \
-		$(INSTALL) -m644 libxmp-lite-config-version.cmake.autotools $(DESTDIR)$(LIBDIR)/cmake/libxmp-lite/libxmp-lite-config-version.cmake; \
-	fi
+	@$(INSTALL) -m644 libxmp-lite.pc $(DESTDIR)$(LIBDIR)/pkgconfig/
+	@echo "Installing libxmp-lite-config.cmake..."
+	@mkdir -p $(DESTDIR)$(LIBDIR)/cmake/libxmp-lite
+	@$(INSTALL) -m644 libxmp-lite-config.cmake.autotools $(DESTDIR)$(LIBDIR)/cmake/libxmp-lite/libxmp-lite-config.cmake
+	@$(INSTALL) -m644 libxmp-lite-config-version.cmake.autotools $(DESTDIR)$(LIBDIR)/cmake/libxmp-lite/libxmp-lite-config-version.cmake
 
 #FIXME: do better?
 depend:
 	@echo Building dependencies...
 	@echo > $@
-	@for i in $(ALL_OBJS) $(LITE_OBJS) $(T_OBJS) $(TLITE_OBJS); do \
+	@for i in $(OBJS) $(T_OBJS); do \
 	    c="$${i%.o}.c"; l="$${i%.o}.lo"; \
 	    $(CC) $(CFLAGS) $(CPPFLAGS) -MM $$c | \
 		sed "s!^.*\.o:!$$i $$l:!" >> $@ ; \
 	done
 
-dist: version-prepare all-docs dist-prepare dist-jni dist-subdirs
+dist: version-prepare dist-prepare dist-jni dist-subdirs
 
 dist-jni:
 	mkdir $(DIST)/jni
 	cp jni/Android.mk jni/Application.mk $(DIST)/jni
 
-dist-prepare: cmake-prepare vc-prepare watcom-prepare
+dist-prepare: vc-prepare watcom-prepare
 	./config.status
 	rm -Rf $(DIST) $(DIST).tar.gz
 	mkdir -p $(DIST)
 	cp -RPp $(DFILES) $(DIST)/
 
-space := $(eval) $(eval)
-cmake-prepare:
-	@echo Generate cmake/libxmp-sources.cmake
-	@sed -e 's!@SRCS@!\n$(subst $(space),    , $(OBJS:.o=.c\n))!' \
-	     -e 's!@PSRCS@!\n$(subst $(space),    , $(PROWIZARD_OBJS:.o=.c\n))!' \
-	     -e 's!@DSRCS@!\n$(subst $(space),    , $(DEPACKER_OBJS:.o=.c\n))!' \
-	     -e 's!@LITE_SRCS@!\n$(subst $(space),    , $(LITE_OBJS:.o=.c\n))!' \
-	     cmake/libxmp-sources.cmake.in > cmake/libxmp-sources.cmake
-
 vc-prepare:
 	@echo Generate Makefile.vc
-	@sed -e 's!@OBJS@!\\\r\n $(subst /,\\,$(OBJS:.o=.obj \\\r\n))!' \
-	     -e 's!@POBJS@!\\\r\n $(subst /,\\,$(PROWIZARD_OBJS:.o=.obj \\\r\n))!' \
-	     -e 's!@DOBJS@!\\\r\n $(subst /,\\,$(DEPACKER_OBJS:.o=.obj \\\r\n))!' \
-	     -e 's!@LITE_OBJS@!\\\r\n $(subst /,\\,$(LITE_OBJS:.o=.obj \\\r\n))!' \
-	     Makefile.vc.in > Makefile.vc
+	@sed -e 's!@OBJS@!\\\r\n $(subst /,\\,$(OBJS:.o=.obj \\\r\n))!' Makefile.vc.in > Makefile.vc
 
 watcom-prepare:
 	@echo Generate watcom.mif
-	@sed -e 's!@OBJS@! \&\n $(OBJS:.o=.obj \&\n)!' \
-	     -e 's!@POBJS@! \&\n $(PROWIZARD_OBJS:.o=.obj \&\n)!' \
-	     -e 's!@DOBJS@! \&\n $(DEPACKER_OBJS:.o=.obj \&\n)!' \
-	     -e 's!@LITE_OBJS@! \&\n $(LITE_OBJS:.o=.obj \&\n)!' \
-	     watcom.mif.in > watcom.mif
+	@sed -e 's!@OBJS@! \&\n $(OBJS:.o=.obj \&\n)!' watcom.mif.in > watcom.mif
 
 dist-subdirs: $(addprefix dist-,$(DDIRS))
 	chmod -R u+w $(DIST)/*
@@ -333,7 +215,7 @@ dist-subdirs: $(addprefix dist-,$(DDIRS))
 distcheck:
 	rm -Rf $(DIST)
 	tar xf $(DIST).tar.gz
-	(cd $(DIST); ./configure --enable-lite --enable-static --prefix=`pwd`/test-install; make; make check check-lite; make install; find test-install)
+	(cd $(DIST); ./configure --enable-static --prefix=`pwd`/test-install; make; make check; make install; find test-install)
 
 devcheck:
 	$(MAKE) -C test-dev
@@ -342,20 +224,16 @@ covercheck: coverage
 	$(MAKE) -C test-dev covercheck
 
 coverclean:
-	@rm -f $(ALL_OBJS:.o=.gco) $(ALL_OBJS:.o=.gcno) $(ALL_OBJS:.o=.gcda)
+	rm -f $(OBJS:.o=.gco) $(OBJS:.o=.gcno) $(OBJS:.o=.gcda)
 	$(MAKE) -C test-dev coverclean
 
-$(ALL_OBJS): Makefile
-
-$(LITE_OBJS): Makefile
+$(OBJS): Makefile
 
 $(LOBJS): Makefile
 
-$(LOBJS_LITE): Makefile
-
 version-prepare:
 	vercode=`printf "0x%02x%02x%02x" $(VERSION_MAJOR) $(VERSION_MINOR) $(VERSION_RELEASE)`; \
-	sed -i -e "s/\(^#define XMP_VERSION\).*/\1 \"$(VERSION)\"/;s/\(^#define XMP_VERCODE\).*/\1 $$vercode/;s/\(^#define XMP_VER_MAJOR\).*/\1 $(VERSION_MAJOR)/;s/\(^#define XMP_VER_MINOR\).*/\1 $(VERSION_MINOR)/;s/\(^#define XMP_VER_RELEASE\).*/\1 $(VERSION_RELEASE)/" include/xmp.h
+	sed -i -e "s/\(^#define XMP_VERSION\).*/\1 \"$(VERSION)\"/;s/\(^#define XMP_VERCODE\).*/\1 $$vercode/;s/\(^#define XMP_VER_MAJOR\).*/\1 $(VERSION_MAJOR)/;s/\(^#define XMP_VER_MINOR\).*/\1 $(VERSION_MINOR)/;s/\(^#define XMP_VER_RELEASE\).*/\1 $(VERSION_RELEASE)/" include/libxmp-lite/xmp.h
 	./config.status
 
 sinclude depend

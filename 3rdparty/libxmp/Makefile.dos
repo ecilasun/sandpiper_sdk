@@ -1,21 +1,12 @@
 # Makefile for MS-DOS using Watcom compiler.
 #
 # wmake -f Makefile.dos
-# - builds the static library xmp_static.lib
+# - builds the static library xmplite_static.lib
 #
-# To disable module depacker functionality:
-#	wmake -f Makefile.dos USE_DEPACKERS=0
+# To disable Impulse Tracker support :
+#	wmake -f Makefile.dos DISABLE_IT=1
 #
-# To disable ProWizard functionality:
-#	wmake -f Makefile.dos USE_PROWIZARD=0
-#
-# To build the lite version of the library:
-#	wmake -f Makefile.dos lite
-
 target = static
-
-USE_PROWIZARD	= 1
-USE_DEPACKERS	= 1
 
 CC = wcc386
 # SYSTEM can be dos32a, causeway or dos4g:
