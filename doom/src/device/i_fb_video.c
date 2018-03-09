@@ -94,9 +94,9 @@ void I_SetPalette (byte* palette)
 	// set the X colormap entries
 	for (int i=0 ; i<256 ; i++)
 	{
-		r = gammatable[usegamma][*palette++]>>4;
-		g = gammatable[usegamma][*palette++]>>4;
-		b = gammatable[usegamma][*palette++]>>4;
+		r = gammatable[usegamma][*palette++];
+		g = gammatable[usegamma][*palette++];
+		b = gammatable[usegamma][*palette++];
 		VPUSetPal(&s_vctx, i, r, g, b);
 	}
 }
