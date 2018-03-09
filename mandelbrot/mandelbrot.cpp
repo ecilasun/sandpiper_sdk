@@ -67,8 +67,8 @@ int tiley = 0;
 
 void mandelbrotFloat(float ox, float oy, float sx)
 {
-	uint32_t stride = VPUGetStride(EVM_320_Wide, ECM_8bit_Indexed);
-	uint8_t* framebuffer = (uint8_t*)sc.writepage;
+	uint32_t stride = VPUGetStride(EVM_320_Wide, ECM_16bit_RGB);
+	uint16_t* framebuffer = (uint16_t*)sc.writepage;
 
 	// http://blog.recursiveprocess.com/2014/04/05/mandelbrot-fractal-v2/
 	int R = int(27.71f-5.156f*logf(sx));
@@ -81,9 +81,9 @@ void mandelbrotFloat(float ox, float oy, float sx)
 			int col = x + tilex*16;
 
 			int M = evalMandel(R, col, row, ox, oy, sx);
-			float ratio = float(M) / float(R);
-			int c = int(ratio*255.f);
-			framebuffer[col + (row*stride)] = c;
+			//float ratio = float(M) / float(R);
+			//int c = int(ratio*65535.f);
+			framebuffer[col + (row*stride>>1)] = int(16384.f*M/64.f);
 		}
 	}
 
@@ -100,7 +100,7 @@ int main()
 	VPUInitVideo(&vx, &platform);
 
 	// Grab video buffer
-	uint32_t stride = VPUGetStride(EVM_320_Wide, ECM_8bit_Indexed);
+	uint32_t stride = VPUGetStride(EVM_320_Wide, ECM_16bit_RGB);
 	framebuffer.size = stride*240;
 	SPAllocateBuffer(&platform, &framebuffer);
 
@@ -110,21 +110,14 @@ int main()
 	signal(SIGTERM, &sigint_handler);
 
 	// Set up the video mode and frame pointers
-	VPUSetVideoMode(&vx, EVM_320_Wide, ECM_8bit_Indexed, EVS_Enable);
+	VPUSetVideoMode(&vx, EVM_320_Wide, ECM_16bit_RGB, EVS_Enable);
 	sc.cycle = 0;
 	sc.framebufferA = &framebuffer; // Not double-buffering
 	sc.framebufferB = &framebuffer;
 	VPUSwapPages(&vx, &sc);
-	VPUClear(&vx, 0x03030303);
+	VPUClear(&vx, 0x00000000);
 
-	// Grayscale palette
-	for (uint32_t i=0; i<256; ++i)
-	{
-		int j = (255-i)>>4;
-		VPUSetPal(&vx, i, j, j, j);
-	}
-
-	float R = 4.0E-5f + 0.01f; // Step once to see some detail due to adaptive code
+	float R = 4.0E-6f + 0.01f; // Step once to see some detail due to adaptive code
 	float X = -0.235125f;
 	float Y = 0.827215f;
 
@@ -146,7 +139,7 @@ int main()
 		{
 			tiley = 0;
 			// Zoom
-			R += 0.001f;
+			R += 0.0002f;
 		}
 	}
 

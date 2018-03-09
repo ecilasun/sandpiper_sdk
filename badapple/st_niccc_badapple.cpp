@@ -28,9 +28,9 @@ uint8_t *filedata;
 #define MIN(x,y) ((x) < (y) ? (x) : (y))
 #define MAX(x,y) ((x) > (y) ? (x) : (y))
 
-#define VIDEO_MODE      EVM_320_Wide
+#define VIDEO_MODE      EVM_640_Wide
 #define VIDEO_COLOR     ECM_8bit_Indexed
-#define VIDEO_HEIGHT    240
+#define VIDEO_HEIGHT    480
 
 struct EVideoContext s_vctx;
 struct EVideoSwapContext s_sctx;
