@@ -55,6 +55,9 @@ void I_InitGraphics (void)
 	SPAllocateBuffer(&s_platform, &frameBufferA);
 	SPAllocateBuffer(&s_platform, &frameBufferB);
 
+	memset((uint8_t*)frameBufferA.cpuAddress, 0, stride*VIDEO_HEIGHT);
+	memset((uint8_t*)frameBufferB.cpuAddress, 0, stride*VIDEO_HEIGHT);
+
 	atexit(shutdowncleanup);
 	signal(SIGINT, &sigint_handler);
 

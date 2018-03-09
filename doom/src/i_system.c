@@ -27,6 +27,8 @@ rcsid[] = "$Id: m_bbox.c,v 1.1 1997/02/03 22:45:10 b1 Exp $";
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdint.h>
+#include <time.h>
 
 #include <stdarg.h>
 #include <sys/time.h>
@@ -88,17 +90,12 @@ byte* I_ZoneBase (int*	size)
 // returns time in 1/70th second tics
 //
 int  I_GetTime (void)
-{
-    struct timeval	tp;
-    struct timezone	tzp;
-    int			newtics;
-    static int		basetime=0;
-  
-    gettimeofday(&tp, &tzp);
-    if (!basetime)
-	basetime = tp.tv_sec;
-    newtics = (tp.tv_sec-basetime)*TICRATE + tp.tv_usec*TICRATE/1000000;
-    return newtics;
+{ 
+    static int secbase = 0;
+    uint64_t cur_time = (uint64_t) clock();
+    if(!secbase)
+        secbase = cur_time;
+    return (cur_time-secbase)*TICRATE/CLOCKS_PER_SEC;
 }
 
 
