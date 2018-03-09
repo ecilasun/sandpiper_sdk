@@ -1,5 +1,5 @@
 #include "keyboard.h"
-//#include <assert.h>
+#include <assert.h>
 
 int KPUInitKeyboard(struct EKeyboardContext* _context, struct SPPlatform* _platform)
 {
@@ -17,6 +17,7 @@ void KPUShutdownKeyboard(struct EKeyboardContext* _context)
 
 void KPUScanMatrix(struct EKeyboardContext* _context)
 {
+	assert(_context != NULL && "null device context\n");
 	// Stash previous key states
 	_context->m_previousKeyStates = _context->m_keyStates;
 

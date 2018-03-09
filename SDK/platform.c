@@ -36,7 +36,7 @@ int SPInitPlatform(struct SPPlatform* _platform)
 
 	metal_set_log_level(METAL_LOG_CRITICAL);
 
-	// Map the 128 MBytes reserved region for CPU usage
+	// Map the 32MByte reserved region for CPU usage
 	_platform->mapped_memory = (uint8_t*)mmap(NULL, RESERVED_MEMORY_SIZE, PROT_READ|PROT_WRITE, MAP_SHARED, _platform->memfd, RESERVED_MEMORY_ADDRESS);
 	if (_platform->mapped_memory == (uint8_t*)MAP_FAILED)
 	{
@@ -53,6 +53,7 @@ int SPInitPlatform(struct SPPlatform* _platform)
 		perror("can't open video device");
 		return -1;
 	}
+	printf("video device: 0x%08X, io regions:%d\n", _platform->videodevice, _platform->videodevice->num_regions);
 
 	_platform->videoio = metal_device_io_region(_platform->videodevice, 0);
 	if (_platform->videoio == NULL)
@@ -60,6 +61,7 @@ int SPInitPlatform(struct SPPlatform* _platform)
 		perror("can't get video module io region");
 		return -1;
 	}
+	printf("video io: virt: 0x%08X phys: 0x%08X\n", _platform->videoio->virt, _platform->videoio->physmap[0]);
 
 	// Gain access to the APU command FIFO
 	ret = metal_device_open("platform", "40000000.audiomodule", &_platform->audiodevice);
@@ -68,6 +70,7 @@ int SPInitPlatform(struct SPPlatform* _platform)
 		perror("can't open audio device");
 		return -1;
 	}
+	printf("audio device: 0x%08X, io regions:%d\n", _platform->audiodevice, _platform->audiodevice->num_regions);
 
 	_platform->audioio = metal_device_io_region(_platform->audiodevice, 0);
 	if (_platform->audioio == NULL)
@@ -75,6 +78,7 @@ int SPInitPlatform(struct SPPlatform* _platform)
 		perror("can't get audio module io region");
 		return -1;
 	}
+	printf("audio io: virt: 0x%08X phys: 0x%08X\n", _platform->audioio->virt, _platform->audioio->physmap[0]);
 
 	// Gain access to the KPU command FIFO
 	ret = metal_device_open("platform", "40002000.keyboardmodule", &_platform->keyboarddevice);
@@ -83,6 +87,7 @@ int SPInitPlatform(struct SPPlatform* _platform)
 		perror("can't open keyboard device");
 		return -1;
 	}
+	printf("keyboard device: 0x%08X, io regions:%d\n", _platform->keyboarddevice, _platform->keyboarddevice->num_regions);
 
 	_platform->keyboardio = metal_device_io_region(_platform->keyboarddevice, 0);
 	if (_platform->keyboardio == NULL)
@@ -90,6 +95,7 @@ int SPInitPlatform(struct SPPlatform* _platform)
 		perror("can't get keyboard module io region");
 		return -1;
 	}
+	printf("keyboard io: virt: 0x%08X phys: 0x%08X\n", _platform->keyboardio->virt, _platform->keyboardio->physmap[0]);
 
 	_platform->ready = 1;
 

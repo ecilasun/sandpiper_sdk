@@ -6,6 +6,7 @@
 #include "../SDK/core.h"
 #include "../SDK/platform.h"
 #include "../SDK/video.h"
+#include "../SDK/keyboard.h"
 
 #define VIDEO_MODE      EVM_640_Wide
 #define VIDEO_COLOR     ECM_8bit_Indexed
@@ -13,6 +14,7 @@
 
 static struct EVideoContext s_vctx;
 static struct EVideoSwapContext s_sctx;
+static struct EKeyboardContext s_kctx;
 struct SPSizeAlloc frameBufferA;
 struct SPSizeAlloc frameBufferB;
 static struct SPPlatform s_platform;
@@ -24,6 +26,8 @@ void shutdowncleanup()
 
 	// Yield physical memory and reset video routines
 	VPUShutdownVideo();
+
+	KPUShutdownKeyboard(&s_kctx);
 
 	// Release allocations
 	SPFreeBuffer(&s_platform, &frameBufferB);
@@ -48,6 +52,9 @@ int main(int argc, char** argv)
 
 	VPUInitVideo(&s_vctx, &s_platform);
 	printf("started video system\n");
+
+	KPUInitKeyboard(&s_kctx, &s_platform);
+	printf("started keyboard\n");
 
 	uint32_t stride = VPUGetStride(VIDEO_MODE, VIDEO_COLOR);
 	printf("stride: %d, height: %d\n", stride, VIDEO_HEIGHT);
@@ -104,6 +111,7 @@ int main(int argc, char** argv)
 		if (s_sctx.cycle % 30 == 0) // When we wait for vysync this makes a half second interval
 		{
 			s_vctx.m_caretBlink ^= 1;
+//			KPUScanMatrix(&s_kctx);
 		}
 
 		VPUWaitVSync(&s_vctx); // This and other reads from VPU cause a hardware freeze, figure out why

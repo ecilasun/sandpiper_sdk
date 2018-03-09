@@ -6,8 +6,10 @@
 #include <metal/io.h>
 #include <sys/mman.h>
 
+// Device reserved memory start
 #define RESERVED_MEMORY_ADDRESS	0x18000000
-#define RESERVED_MEMORY_SIZE	0x8000000
+// 32Mbytes reserved for device access
+#define RESERVED_MEMORY_SIZE	0x2000000
 
 struct SPSizeAlloc
 {
