@@ -19,8 +19,9 @@ struct SPSizeAlloc framebuffer;
 
 void shutdowncleanup()
 {
-	// Turn off video scan-out
-	VPUSetVideoMode(&vx, EVM_320_Wide, ECM_8bit_Indexed, EVS_Disable);
+	// Back to fbcon
+	VPUSetScanoutAddress(&vx, 0x18000000);
+	VPUSetVideoMode(&vx, EVM_640_Wide, ECM_16bit_RGB, EVS_Enable);
 
 	// Yield physical memory and reset video routines
 	VPUShutdownVideo();
