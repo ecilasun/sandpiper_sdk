@@ -34,6 +34,8 @@ int SPInitPlatform(struct SPPlatform* _platform)
 		return -1;
 	}
 
+	metal_set_log_level(METAL_LOG_CRITICAL);
+
 	// Map the 128 MBytes reserved region for CPU usage
 	_platform->mapped_memory = (uint8_t*)mmap(NULL, RESERVED_MEMORY_SIZE, PROT_READ|PROT_WRITE, MAP_SHARED, _platform->memfd, RESERVED_MEMORY_ADDRESS);
 	if (_platform->mapped_memory == (uint8_t*)MAP_FAILED)

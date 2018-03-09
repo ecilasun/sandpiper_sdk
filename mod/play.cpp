@@ -26,7 +26,9 @@ struct SPSizeAlloc bufferB;
 
 // Number of 16bit stereo samples (valid values are 1024, 512, 256, 128 or 64)
 #define BUFFER_SAMPLE_COUNT 1024
-#define BUFFER_BYTE_COUNT (BUFFER_SAMPLE_COUNT*sizeof(uint16_t)*2)
+#define BUFFER_CHANNEL_COUNT 2
+#define BUFFER_SAMPLE_SIZE sizeof(short)
+#define BUFFER_BYTE_COUNT (BUFFER_SAMPLE_COUNT*BUFFER_SAMPLE_SIZE*BUFFER_CHANNEL_COUNT)
 
 std::complex<float> outputL[BUFFER_SAMPLE_COUNT];
 std::complex<float> outputR[BUFFER_SAMPLE_COUNT];
@@ -205,18 +207,13 @@ void *PlayXMP(void *data)
 
 			// Wait for the APU to be done with current read buffer which is still playing
 			volatile uint32_t currframe;
-			//int iterations = 0;
 			do
 			{
 				// APU will return a different 'frame' as soon as the current buffer reaches the end
 				currframe = APUFrame(&ax);
-				//++iterations;
 			} while (currframe == prevframe);
 
 			// Once we reach this point, the APU has switched to the other buffer we just filled, and playback resumes uninterrupted
-
-			//draw_wave();
-			//printf("%d:%d\n", currframe, iterations);
 
 			// Remember this frame
 			prevframe = currframe;

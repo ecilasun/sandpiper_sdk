@@ -42,7 +42,7 @@ int main(int argc, char**argv)
 
 	apubuffer.size = BUFFER_SAMPLES*NUM_CHANNELS*SAMPLE_WIDTH;
 	SPAllocateBuffer(&platform, &apubuffer);
-	printf("APU mix buffer at 0x%.4x\n", (unsigned int)apubuffer.cpuAddress);
+	printf("APU mix buffer @ 0x%08X <- 0x%08X\n", (unsigned int)apubuffer.cpuAddress, (uint32_t)apubuffer.dmaAddress);
 
 	atexit(shutdowncleanup);
 	signal(SIGINT, &sigint_handler);
@@ -53,6 +53,7 @@ int main(int argc, char**argv)
 
 	float offset = 0.f;
 	short *buf = (short*)apubuffer.cpuAddress;
+	do{
 		// Generate individual waves for each channel
 		for (uint32_t i=0; i<BUFFER_SAMPLES; ++i)
 		{
@@ -60,7 +61,6 @@ int main(int argc, char**argv)
 			buf[i*NUM_CHANNELS+1] = short(16384.f*cosf(offset+2.f*3.1415927f*float(i*2)/38.f));
 		}
 
-	do{
 		// Fill current write buffer with new mix data
 		APUStartDMA(&ax, (uint32_t)apubuffer.dmaAddress);
 
