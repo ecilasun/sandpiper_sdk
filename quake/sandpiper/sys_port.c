@@ -19,7 +19,7 @@
 #include <quakembd.h>
 
 #define DEFAULT_MEM_SIZE (8 * 1024 * 1024)
-#define DEFAULT_BASEDIR "quakembd"
+#define DEFAULT_BASEDIR "."
 #define DEFAULT_CACHEDIR "/tmp"
 
 qboolean isDedicated;
