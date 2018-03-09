@@ -11,8 +11,8 @@
 
 struct SPSizeAlloc
 {
-	uint32_t* cpuAddress;
-	uint32_t* dmaAddress;
+	uint8_t* cpuAddress;
+	uint8_t* dmaAddress;
 	uint32_t size;
 };
 
@@ -22,8 +22,8 @@ struct SPPlatform
 	struct metal_device *audiodevice;
 	struct metal_io_region *videoio;
 	struct metal_io_region *audioio;
-	uint32_t* mapped_memory;
-	uint32_t alloc_cursor;
+	uint8_t* mapped_memory;
+	uint8_t alloc_cursor;
 	int memfd;
 	int ready;
 };

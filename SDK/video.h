@@ -83,8 +83,8 @@ struct EVideoSwapContext
 	// Swap cycle counter
 	uint32_t cycle;
 	// Current read and write pages based on cycle
-	uint32_t *readpage;	// CPU address
-	uint32_t *writepage;	// VPU address
+	uint8_t *readpage;	// CPU address
+	uint8_t *writepage;	// VPU address
 	// Frame buffers to toggle between
 	struct SPSizeAlloc *framebufferA;
 	struct SPSizeAlloc *framebufferB;

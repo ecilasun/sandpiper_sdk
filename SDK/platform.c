@@ -14,7 +14,7 @@ int SPInitPlatform(struct SPPlatform* _platform)
 {
 	_platform->videodevice = NULL;
 	_platform->videoio = NULL;
-	_platform->mapped_memory = (uint32_t*)MAP_FAILED;
+	_platform->mapped_memory = (uint8_t*)MAP_FAILED;
 	_platform->alloc_cursor = 0;
 	_platform->memfd = -1;
 	_platform->ready = 0;
@@ -22,8 +22,8 @@ int SPInitPlatform(struct SPPlatform* _platform)
 	_platform->memfd = open("/dev/mem", O_RDWR);
 	if (_platform->memfd < 1)
 	{
-			perror("can't open /dev/mem");
-			return -1;
+		perror("can't open /dev/mem");
+		return -1;
 	}
 
 	struct metal_init_params init_param = METAL_INIT_DEFAULTS;
@@ -35,8 +35,8 @@ int SPInitPlatform(struct SPPlatform* _platform)
 	}
 
 	// Map the 128 MBytes reserved region for CPU usage
-	_platform->mapped_memory = (uint32_t*)mmap(NULL, RESERVED_MEMORY_SIZE, PROT_READ|PROT_WRITE, MAP_SHARED, _platform->memfd, RESERVED_MEMORY_ADDRESS);
-	if (_platform->mapped_memory == (uint32_t*)MAP_FAILED)
+	_platform->mapped_memory = (uint8_t*)mmap(NULL, RESERVED_MEMORY_SIZE, PROT_READ|PROT_WRITE, MAP_SHARED, _platform->memfd, RESERVED_MEMORY_ADDRESS);
+	if (_platform->mapped_memory == (uint8_t*)MAP_FAILED)
 	{
 		perror("can't map reserved region for CPU");
 		return -1;
@@ -97,11 +97,12 @@ void SPShutdownPlatform(struct SPPlatform* _platform)
 
 void SPAllocateBuffer(struct SPPlatform* _platform, struct SPSizeAlloc *_sizealloc)
 {
-	if (_platform->mapped_memory != (uint32_t*)MAP_FAILED)
+	if (_platform->mapped_memory != (uint8_t*)MAP_FAILED)
 	{
+		uint32_t alignedSize = E32AlignUp(_sizealloc->size, 128);
 		_sizealloc->cpuAddress = _platform->mapped_memory + _platform->alloc_cursor;
-		_sizealloc->dmaAddress = (uint32_t*)RESERVED_MEMORY_ADDRESS + _platform->alloc_cursor;
-		_platform->alloc_cursor += E32AlignUp(_sizealloc->size, 128);
+		_sizealloc->dmaAddress = (uint8_t*)RESERVED_MEMORY_ADDRESS + _platform->alloc_cursor;
+		_platform->alloc_cursor += alignedSize;
 	}
 	else
 	{

@@ -59,21 +59,21 @@ int main(int argc, char** argv)
 	atexit(shutdowncleanup);
 	signal(SIGINT, &sigint_handler);
 
-	printf("framebufferA: 0x%08X <- 0x%08X\n", frameBufferA.cpuAddress, frameBufferA.dmaAddress);
-	printf("framebufferB: 0x%08X <- 0x%08X\n", frameBufferB.cpuAddress, frameBufferB.dmaAddress);
+	printf("stride: %d, height: %d\n", stride, VIDEO_HEIGHT);
+	printf("framebufferA: 0x%08X <- 0x%08X - %dbytes\n", frameBufferA.cpuAddress, frameBufferA.dmaAddress, frameBufferA.size);
+	printf("framebufferB: 0x%08X <- 0x%08X - %dbytes\n", frameBufferB.cpuAddress, frameBufferB.dmaAddress, frameBufferB.size);
 
 	// Write random pattern into both buffers
-	/*
 	uint32_t* memA = (uint32_t*)frameBufferA.cpuAddress;
 	uint32_t* memB = (uint32_t*)frameBufferB.cpuAddress;
 	for (uint32_t i=0; i<stride*VIDEO_HEIGHT/4; i++)
 	{
-		memA[i] = (i/320) ^ (i%64);
-		memB[i] = (i/320) ^ (i%64);
+		memA[i] = (i/640) ^ (i%64);
+		memB[i] = (i/640) ^ (i%64);
 	}
 	DCACHE_FLUSH();
 
-	printf("buffers set to random values\n");*/
+	printf("buffers set to random values\n");
 
 	VPUSetWriteAddress(&s_vctx, (uint32_t)frameBufferA.cpuAddress);
 	VPUSetScanoutAddress(&s_vctx, (uint32_t)frameBufferB.dmaAddress);
