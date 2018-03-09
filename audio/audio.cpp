@@ -47,13 +47,12 @@ int main(int argc, char**argv)
 	atexit(shutdowncleanup);
 	signal(SIGINT, &sigint_handler);
 
-	APUSetBufferSize(&ax, ABS_2048Bytes);
-	APUSetSampleRate(&ax, ASR_44_100_Hz);
+	APUSetBufferSize(&ax, ABS_4096Bytes);
+	APUSetSampleRate(&ax, ASR_22_050_Hz);
 	volatile uint32_t prevframe = APUFrame(&ax);
 
 	float offset = 0.f;
 	short *buf = (short*)apubuffer.cpuAddress;
-	do{
 		// Generate individual waves for each channel
 		for (uint32_t i=0; i<BUFFER_SAMPLES; ++i)
 		{
@@ -61,18 +60,19 @@ int main(int argc, char**argv)
 			buf[i*NUM_CHANNELS+1] = short(16384.f*cosf(offset+2.f*3.1415927f*float(i*2)/38.f));
 		}
 
+	do{
 		// Fill current write buffer with new mix data
 		APUStartDMA(&ax, (uint32_t)apubuffer.dmaAddress);
 
 		// Wait for the APU to finish playing back current read buffer
 		volatile uint32_t currframe = APUFrame(&ax);
-		int iterations = 0;
+		//int iterations = 0;
 		while(currframe == prevframe)
 		{
 			currframe = APUFrame(&ax);
-			++iterations;
+			//++iterations;
 		};
-		printf("%d:%d\n", currframe, iterations);
+		//printf("%d:%d\n", currframe, iterations);
 
 		// Once we reach this point, the APU has switched to the other buffer we just filled, and playback resumes uninterrupted
 
