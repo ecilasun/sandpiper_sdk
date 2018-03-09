@@ -111,7 +111,7 @@ int main(int argc, char** argv)
 		if (s_sctx.cycle % 30 == 0) // When we wait for vysync this makes a half second interval
 		{
 			s_vctx.m_caretBlink ^= 1;
-//			KPUScanMatrix(&s_kctx);
+			KPUScanMatrix(&s_kctx);
 		}
 
 		VPUWaitVSync(&s_vctx); // This and other reads from VPU cause a hardware freeze, figure out why
