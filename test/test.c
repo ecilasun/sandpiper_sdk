@@ -1,7 +1,7 @@
 #include <stdint.h>
+#include <stdlib.h>
 #include <stdio.h>
-#include <fcntl.h>
-#include <sys/mman.h>
+#include <signal.h>
 
 #include "../SDK/core.h"
 #include "../SDK/video.h"
@@ -11,6 +11,27 @@
 #define VIDEO_HEIGHT    240
 static struct EVideoContext s_vctx;
 static struct EVideoSwapContext s_sctx;
+struct EVPUSizeAlloc frameBufferA;
+struct EVPUSizeAlloc frameBufferB;
+
+void vpucleanup()
+{
+	// Turn off video scan-out
+	VPUSetVideoMode(&s_vctx, VIDEO_MODE, VIDEO_COLOR, EVS_Disable);
+
+	// Release our allocations
+	VPUFreeBuffer(&frameBufferB);
+	VPUFreeBuffer(&frameBufferA);
+
+	// Yield physical memory and reset video routines
+	VPUShutdownVideo();
+}
+
+void sigint_handler(int s)
+{
+	vpucleanup();
+	exit(0);
+}
 
 int main(int argc, char** argv)
 {
@@ -23,11 +44,12 @@ int main(int argc, char** argv)
 
 	uint32_t stride = VPUGetStride(VIDEO_MODE, VIDEO_COLOR);
 
-	struct EVPUSizeAlloc frameBufferA;
-	struct EVPUSizeAlloc frameBufferB;
 	frameBufferB.size = frameBufferA.size = stride*VIDEO_HEIGHT;
 	VPUAllocateBuffer(&frameBufferA);
 	VPUAllocateBuffer(&frameBufferB);
+
+	atexit(vpucleanup);
+	signal(SIGINT, &sigint_handler);
 
 	printf("framebufferA: 0x%08X <- 0x%08X\n", frameBufferA.cpuAddress, frameBufferA.vpuAddress);
 	printf("framebufferB: 0x%08X <- 0x%08X\n", frameBufferB.cpuAddress, frameBufferB.vpuAddress);
@@ -55,7 +77,6 @@ int main(int argc, char** argv)
 	s_sctx.cycle = 0;
 	s_sctx.framebufferA = &frameBufferA;
 	s_sctx.framebufferB = &frameBufferB;
-	VPUSwapPages(&s_vctx, &s_sctx);
 
 	s_vctx.m_caretX = s_vctx.m_cursorX;
 	s_vctx.m_caretY = s_vctx.m_cursorY;
@@ -68,25 +89,10 @@ int main(int argc, char** argv)
 	do
 	{
 		VPUConsoleResolve(&s_vctx);
-		VPUSwapPages(&s_vctx, &s_sctx);		
+		// VPUWaitVSync(); - This and other reads from VPU cause a hardware freeze
+		VPUSwapPages(&s_vctx, &s_sctx);
 		count++;
 	} while(count < 512);
-
-//	for (int i=0;i<1000;++i)
-//		printf("%d ", VPUGetScanline());
-
-	VPUSetVideoMode(&s_vctx, VIDEO_MODE, VIDEO_COLOR, EVS_Disable);
-
-	printf("video off\n");
-
-	VPUFreeBuffer(&frameBufferB);
-	VPUFreeBuffer(&frameBufferA);
-
-	printf("handing back buffers\n");
-
-	VPUShutdownVideo();
-
-	printf("video test done\n");
 
 	return 0;
 }
