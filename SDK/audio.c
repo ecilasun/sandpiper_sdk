@@ -26,7 +26,7 @@ void APUSetSampleRate(struct EAudioContext* _context, enum EAPUSampleRate sample
 uint32_t APUFrame(struct EAudioContext* _context)
 {
 	//rx_addr_offset = SHM_DESC_OFFSET_RX + SHM_DESC_ADDR_ARRAY_OFFSET;
-	return metal_io_read32(_context->m_platform->audioio, 0);
+	return metal_io_read32(_context->m_platform->audioio, 0) & 1;
 }
 
 int APUInitAudio(struct EAudioContext* _context, struct SPPlatform* _platform)

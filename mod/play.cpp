@@ -23,8 +23,8 @@ static SPSizeAlloc apubuffer;
 struct SPSizeAlloc bufferA;
 struct SPSizeAlloc bufferB;
 
-// Number of 16bit stereo samples
-#define BUFFER_SAMPLE_COUNT 1024
+// Number of 16bit stereo samples (valid values are 512,256,128 or 64)
+#define BUFFER_SAMPLE_COUNT 512
 #define BUFFER_BYTE_COUNT (BUFFER_SAMPLE_COUNT*sizeof(uint16_t)*2)
 
 std::complex<float> outputL[BUFFER_SAMPLE_COUNT*2];
