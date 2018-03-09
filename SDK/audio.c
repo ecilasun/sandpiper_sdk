@@ -17,7 +17,7 @@ void APUStartDMA(struct EAudioContext* _context, uint32_t _audioBufferAddress16b
 
 void APUSetSampleRate(struct EAudioContext* _context, enum EAPUSampleRate _sampleRate)
 {
-	_context->m_sampleRate = sampleRate;
+	_context->m_sampleRate = _sampleRate;
 	metal_io_write32(_context->m_platform->audioio, 0, APUCMD_SETRATE);
 	metal_io_write32(_context->m_platform->audioio, 0, (uint32_t)_sampleRate);
 }
