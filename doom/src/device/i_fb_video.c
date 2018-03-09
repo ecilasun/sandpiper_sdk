@@ -64,9 +64,10 @@ void I_InitGraphics (void)
 	VPUSetDefaultPalette(&s_vctx);
 	VPUSetVideoMode(&s_vctx, VIDEO_MODE, VIDEO_COLOR, EVS_Enable);
 
-	printf("mode:320x240x8bpp stride: %d\n", stride);
-	printf("A: 0x%08X 0x%08X\n", (uint32_t)frameBufferA.cpuAddress, (uint32_t)frameBufferA.dmaAddress);
-	printf("B: 0x%08X 0x%08X\n", (uint32_t)frameBufferB.cpuAddress, (uint32_t)frameBufferB.dmaAddress);
+	// DEBUG
+//	printf("mode:320x240x8bpp stride: %d\n", stride);
+//	printf("A: 0x%08X 0x%08X\n", (uint32_t)frameBufferA.cpuAddress, (uint32_t)frameBufferA.dmaAddress);
+//	printf("B: 0x%08X 0x%08X\n", (uint32_t)frameBufferB.cpuAddress, (uint32_t)frameBufferB.dmaAddress);
 
 	s_sctx.cycle = 0;
 	s_sctx.framebufferA = &frameBufferA;

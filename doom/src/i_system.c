@@ -91,13 +91,13 @@ byte* I_ZoneBase (int*	size)
 //
 int  I_GetTime (void)
 { 
-    /*static int secbase = 0;
+    static int secbase = 0;
     uint64_t cur_time = (uint64_t) clock();
     if(!secbase)
         secbase = cur_time;
-    return (cur_time-secbase)*TICRATE/CLOCKS_PER_SEC;*/
+    return (cur_time-secbase)*TICRATE/CLOCKS_PER_SEC;
 
-    struct timeval	tp;
+    /*struct timeval	tp;
     struct timezone	tzp;
     int			newtics;
     static int		basetime=0;
@@ -106,7 +106,7 @@ int  I_GetTime (void)
     if (!basetime)
 	basetime = tp.tv_sec;
     newtics = (tp.tv_sec-basetime)*TICRATE + tp.tv_usec*TICRATE/1000000;
-    return newtics;
+    return newtics;*/
 }
 
 

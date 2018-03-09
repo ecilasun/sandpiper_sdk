@@ -6,6 +6,8 @@ int KPUInitKeyboard(struct EKeyboardContext* _context, struct SPPlatform* _platf
 	_context->m_platform = _platform;
 	_context->m_keyStates = 0;
 	_context->m_previousKeyStates = 0;
+
+	return 0;
 }
 
 void KPUShutdownKeyboard(struct EKeyboardContext* _context)
