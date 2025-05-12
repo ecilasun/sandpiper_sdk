@@ -46,7 +46,7 @@ int main(int argc, char** argv)
 
 	printf("started platform\n");
 
-	VPUInitVideo();
+	VPUInitVideo(&s_vctx, &platform);
 	VPUSetDefaultPalette();
 
 	printf("started video system\n");

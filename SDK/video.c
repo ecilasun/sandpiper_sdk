@@ -968,26 +968,28 @@ void VPURemoveCharacter(struct EVideoContext *_context, uint16_t _x, uint16_t _y
 {
 	uint8_t *characterBase = character_buffer;
 	uint8_t *colorBase = color_buffer;
-    uint32_t stride = _context->m_consoleWidth;
-    const uint16_t W = _context->m_consoleWidth;
+	uint32_t stride = _context->m_consoleWidth;
+	const uint16_t W = _context->m_consoleWidth;
 
-    for (uint16_t x=_x; x<W; x++)
-    {
-        if (x+1 < W)
-        {
-            characterBase[_y*stride+x] = characterBase[_y*stride+x+1];
-            colorBase[_y*stride+x] = colorBase[_y*stride+x+1];
-        }
-        else
-        {
-            characterBase[_y*stride+x] = ' ';
-            colorBase[_y*stride+x] = _context->m_consoleColor;
-        }
-    }
+	for (uint16_t x=_x; x<W; x++)
+	{
+		if (x+1 < W)
+		{
+			characterBase[_y*stride+x] = characterBase[_y*stride+x+1];
+			colorBase[_y*stride+x] = colorBase[_y*stride+x+1];
+		}
+		else
+		{
+			characterBase[_y*stride+x] = ' ';
+			colorBase[_y*stride+x] = _context->m_consoleColor;
+		}
+	}
 }
 
-void VPUInitVideo()
+void VPUInitVideo(struct EVideoContext* _context, struct  SPPlatform* _platform)
 {
+	_context.m_platform = _platform;
+
 	// Allocate character and color buffers
 	color_buffer = malloc(640*480+128);
 	character_buffer = malloc(640*480+128);

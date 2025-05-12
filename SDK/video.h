@@ -60,6 +60,7 @@ enum EVideoScanoutEnable
 
 struct EVideoContext
 {
+	SPPlatform *m_platform;
 	enum EVideoMode m_vmode;
 	enum EColorMode m_cmode;
 	enum EVideoScanoutEnable m_scanEnable;
@@ -89,7 +90,7 @@ struct EVideoSwapContext
 	struct SPSizeAlloc *framebufferB;
 };
 
-void VPUInitVideo();
+void VPUInitVideo(struct EVideoContext* _context, struct SPPlatform* _platform);
 void VPUShutdownVideo();
 
 uint32_t VPUGetStride(const enum EVideoMode _mode, const enum EColorMode _cmode);
