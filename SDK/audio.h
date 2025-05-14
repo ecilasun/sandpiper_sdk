@@ -1,6 +1,6 @@
 #pragma once
 
-#include <inttypes.h>
+#include "platform.h"
 
 #define APUCMD_BUFFERSIZE  0x00000000
 #define APUCMD_START       0x00000001
@@ -16,10 +16,17 @@ enum EAPUSampleRate
 	ASR_Halt = 3,		// Halt
 };
 
-// Utilities
-uint8_t *APUAllocateBuffer(const uint32_t _size);
+struct EAPUContext
+{
+	struct SPPlatform *m_platform;
+	enum EAPUSampleRate m_sampleRate;
+	uint32_t m_bufferSize;
+};
 
-void APUSetBufferSize(uint32_t audioBufferSize);
-void APUStartDMA(uint32_t audioBufferAddress16byteAligned);
-void APUSetSampleRate(enum EAPUSampleRate sampleRate);
-uint32_t APUFrame();
+int APUInit(struct EAPUContext* _context, struct SPPlatform* _platform);
+void APUShutdown(struct EAPUContext* _context);
+
+void APUSetBufferSize(struct EAPUContext* _context, uint32_t audioBufferSize);
+void APUStartDMA(struct EAPUContext* _context, uint32_t audioBufferAddress16byteAligned);
+void APUSetSampleRate(struct EAPUContext* _context, enum EAPUSampleRate sampleRate);
+uint32_t APUFrame(struct EAPUContext* _context, );
