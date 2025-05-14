@@ -5,21 +5,10 @@
 #include <stdlib.h>
 #include <fcntl.h>
 #include <unistd.h>
-#include <metal/io.h>
-#include <metal/sys.h>
-#include <metal/device.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <fcntl.h>
-#include <sys/mman.h>
 
-//#include <linux/dma-mapping.h>
-
-static struct metal_device *videodevice = NULL;
-static struct metal_io_region *videoio = NULL;
-static int s_memfd = -1;
-static uint32_t* mapped_memory = MAP_FAILED;
-static uint32_t alloc_cursor = 0;
 static uint8_t* color_buffer;
 static uint8_t* character_buffer;
 
@@ -396,7 +385,7 @@ void VPUSwapPages(struct EVideoContext* _vx, struct EVideoSwapContext *_sc)
 	_sc->writepage = ((_sc->cycle)%2) ? _sc->framebufferB->cpuAddress : _sc->framebufferA->cpuAddress;
 	VPUSetWriteAddress(_vx, (uint32_t)_sc->writepage);
 	VPUSetScanoutAddress(_vx, (uint32_t)_sc->readpage);
-	_sc->cycle = _sc->cycle+1;
+	_sc->cycle = _sc->cycle + 1;
 }
 
 /** @brief Wait for vertical blanking interval
@@ -788,37 +777,6 @@ void VPUConsolePrint(struct EVideoContext *_context, const char *_message, int _
 }
 
 /**
- * @brief Allocate buffer for VPU use
- * 
- * VPU buffers are allocated aligned to 128 byte boundaries to ensure hardware can access it without issues
- * 
- * @param _sizealloc CPU/VPU address and allocation size
- * @return Pointer to the allocated buffer
- */
-void VPUAllocateBuffer(struct EVPUSizeAlloc *_sizealloc)
-{
-	if (mapped_memory != MAP_FAILED)
-	{
-		// A very simple heap allocator
-		// TODO: use an allocation table on CPU side to do this properly
-		_sizealloc->cpuAddress = mapped_memory + alloc_cursor;
-		_sizealloc->vpuAddress = (uint32_t*)0x18000000 + alloc_cursor;
-		alloc_cursor += _sizealloc->size;
-	}
-	else
-	{
-		_sizealloc->cpuAddress = NULL;
-		_sizealloc->vpuAddress = (uint32_t*)0x18000000; // TODO: not sure if we should pass NULL to VPU here
-	}
-}
-
-void VPUFreeBuffer(struct EVPUSizeAlloc *_sizealloc)
-{
-	// TODO: Release allocated block from shared heap
-	//alloc_cursor = ?;
-}
-
-/**
  * @brief Get dimensions for given video mode
  * 
  * @param _mode Video mode
@@ -1030,56 +988,14 @@ void VPURemoveCharacter(struct EVideoContext *_context, uint16_t _x, uint16_t _y
 
 void VPUInitVideo()
 {
-        s_memfd = open("/dev/mem", O_RDWR);
-        if (s_memfd < 1)
-        {
-                perror("can't open /dev/mem");
-                return;
-        }
-
-	// 128 MBytes
-	mapped_memory = (uint32_t*)mmap(NULL, 0x8000000, PROT_READ|PROT_WRITE, MAP_SHARED, s_memfd, 0x18000000);
-	if (mapped_memory == MAP_FAILED)
-	{
-		perror("can't map region");
-		return;
-	}
-
-	struct metal_init_params init_param = METAL_INIT_DEFAULTS;
-	int ret = metal_init(&init_param);
-	if (ret)
-	{
-		perror("metal init failed");
-		return;
-	}
-
-	// We use metal to talk to video device's FIFO
-	// NOTE: devices are listed under /sys/bus/platform/devices/
-	ret = metal_device_open("platform", "40001000.videomodule", &videodevice);
-	if (ret)
-	{
-		perror("can't open device");
-		return;
-	}
-
-	videoio = metal_device_io_region(videodevice, 0);
-	if (videoio == NULL)
-	{
-		perror("can't get io region");
-		return;
-	}
-
-	color_buffer = malloc(640*480+16);
-	character_buffer = malloc(640*480+16);
+	// Allocate character and color buffers
+	color_buffer = malloc(640*480+128);
+	character_buffer = malloc(640*480+128);
 }
 
 void VPUShutdownVideo()
 {
+	// Release character and color buffers
 	free(character_buffer);
 	free(color_buffer);
-
-        munmap(mapped_memory, 0x8000000);
-	
-	close(s_memfd);
-	metal_finish();
 }

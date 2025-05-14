@@ -1,6 +1,6 @@
 #pragma once
 
-#include <stdint.h>
+#include "platform.h"
 
 #define VPUCMD_SETVPAGE		0x00000000
 #define VPUCMD_SETPAL		0x00000001
@@ -77,13 +77,6 @@ struct EVideoContext
     uint8_t m_caretType;
 };
 
-struct EVPUSizeAlloc
-{
-	uint32_t* cpuAddress;
-	uint32_t* vpuAddress;
-	uint32_t size;
-};
-
 struct EVideoSwapContext
 {
 	// Swap cycle counter
@@ -92,15 +85,13 @@ struct EVideoSwapContext
 	uint32_t *readpage;	// CPU address
 	uint32_t *writepage;	// VPU address
 	// Frame buffers to toggle between
-	struct EVPUSizeAlloc *framebufferA;
-	struct EVPUSizeAlloc *framebufferB;
+	struct SPSizeAlloc *framebufferA;
+	struct SPSizeAlloc *framebufferB;
 };
 
 void VPUInitVideo();
 void VPUShutdownVideo();
 
-void VPUAllocateBuffer(struct EVPUSizeAlloc *_sizealloc);
-void VPUFreeBuffer(struct EVPUSizeAlloc *_sizealloc);
 uint32_t VPUGetStride(const enum EVideoMode _mode, const enum EColorMode _cmode);
 void VPUGetDimensions(const enum EVideoMode _mode, uint32_t *_width, uint32_t *_height);
 

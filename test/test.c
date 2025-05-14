@@ -4,6 +4,7 @@
 #include <signal.h>
 
 #include "../SDK/core.h"
+#include "../SDK/platform.h"
 #include "../SDK/video.h"
 
 #define VIDEO_MODE      EVM_320_Wide
@@ -13,18 +14,22 @@ static struct EVideoContext s_vctx;
 static struct EVideoSwapContext s_sctx;
 struct EVPUSizeAlloc frameBufferA;
 struct EVPUSizeAlloc frameBufferB;
+static SPPlatform platform;
 
 void vpucleanup()
 {
 	// Turn off video scan-out
 	VPUSetVideoMode(&s_vctx, VIDEO_MODE, VIDEO_COLOR, EVS_Disable);
 
-	// Release our allocations
-	VPUFreeBuffer(&frameBufferB);
-	VPUFreeBuffer(&frameBufferA);
-
 	// Yield physical memory and reset video routines
 	VPUShutdownVideo();
+
+	// Release allocations
+	SPFreeBuffer(&frameBufferB);
+	SPFreeBuffer(&frameBufferA);
+
+	// Shutdown platform
+	SPShutdownPlatform(&platform);
 }
 
 void sigint_handler(int s)
@@ -37,6 +42,10 @@ int main(int argc, char** argv)
 {
 	printf("Hello, video\n");
 
+	VPUInitPlatform(&platform);
+
+	printf("started platform\n");
+
 	VPUInitVideo();
 	VPUSetDefaultPalette();
 
@@ -45,8 +54,8 @@ int main(int argc, char** argv)
 	uint32_t stride = VPUGetStride(VIDEO_MODE, VIDEO_COLOR);
 
 	frameBufferB.size = frameBufferA.size = stride*VIDEO_HEIGHT;
-	VPUAllocateBuffer(&frameBufferA);
-	VPUAllocateBuffer(&frameBufferB);
+	SPAllocateBuffer(&frameBufferA);
+	SPAllocateBuffer(&frameBufferB);
 
 	atexit(vpucleanup);
 	signal(SIGINT, &sigint_handler);
@@ -55,13 +64,17 @@ int main(int argc, char** argv)
 	printf("framebufferB: 0x%08X <- 0x%08X\n", frameBufferB.cpuAddress, frameBufferB.vpuAddress);
 
 	// Write random pattern into both buffers
-	/*for (uint32_t i=0; i<stride*VIDEO_HEIGHT/4; i++)
+	/*
+	uint32_t* memA = (uint32_t*)frameBufferA.cpuAddress;
+	uint32_t* memB = (uint32_t*)frameBufferB.cpuAddress;
+	for (uint32_t i=0; i<stride*VIDEO_HEIGHT/4; i++)
 	{
-		frameBufferA[i] = (i/320) ^ (i%64);
-		frameBufferB[i] = (i/320) ^ (i%64);
+		memA[i] = (i/320) ^ (i%64);
+		memB[i] = (i/320) ^ (i%64);
 	}
 	DCACHE_FLUSH();
-	printf("buffers set to random value\n");*/
+
+	printf("buffers set to random values\n");*/
 
 	VPUSetWriteAddress(&s_vctx, (uint32_t)frameBufferA.cpuAddress);
 	VPUSetScanoutAddress(&s_vctx, (uint32_t)frameBufferB.vpuAddress);
@@ -72,7 +85,7 @@ int main(int argc, char** argv)
 
 	VPUConsoleSetColors(&s_vctx, CONSOLEDEFAULTFG, CONSOLEDEFAULTBG);
 	VPUConsoleClear(&s_vctx);
-	VPUConsolePrint(&s_vctx, "ready\n", 16); // Including the new line
+	VPUConsolePrint(&s_vctx, "sandpiper ready\n", VPU_AUTO);
 
 	s_sctx.cycle = 0;
 	s_sctx.framebufferA = &frameBufferA;
@@ -85,14 +98,13 @@ int main(int argc, char** argv)
 
 	printf("looping a short while...\n");
 
-	int count = 0;
 	do
 	{
 		VPUConsoleResolve(&s_vctx);
-		// VPUWaitVSync(); - This and other reads from VPU cause a hardware freeze
+
+		// VPUWaitVSync(); - This and other reads from VPU cause a hardware freeze, figure out why
 		VPUSwapPages(&s_vctx, &s_sctx);
-		count++;
-	} while(count < 512);
+	} while(s_sctx.cycle < 4096);
 
 	return 0;
 }
