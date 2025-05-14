@@ -20,6 +20,7 @@ struct SPPlatform platform;
 
 static xmp_context ctx;
 static EVideoContext vx;
+static EAudioContext ax;
 static EVideoSwapContext sc;
 static SPSizeAlloc apubuffer;
 struct SPSizeAlloc bufferA;
@@ -33,11 +34,11 @@ int16_t barsR[256];
 void shutdowncleanup()
 {
 	// Turn off video scan-out
-	VPUSetVideoMode(&s_vctx, EVM_320_Wide, ECM_8bit_Indexed, EVS_Disable);
+	VPUSetVideoMode(&vx, EVM_320_Wide, ECM_8bit_Indexed, EVS_Disable);
 
 	// Yield physical memory and reset video routines
 	VPUShutdownVideo();
-	VPUShutdownAudio();
+	APUShutdownAudio(&ax);
 
 	// Release allocations
 	SPFreeBuffer(&platform, &bufferB);
@@ -171,8 +172,8 @@ void PlayXMP(const char *fname)
 		return;
 	}
 
-	APUSetBufferSize(BUFFER_WORD_COUNT); // word count = sample count/2 (i.e. number of stereo sample pairs)
-	APUSetSampleRate(ASR_22_050_Hz);
+	APUSetBufferSize(&ax, BUFFER_WORD_COUNT); // word count = sample count/2 (i.e. number of stereo sample pairs)
+	APUSetSampleRate(&ax, ASR_22_050_Hz);
 	uint32_t prevframe = APUFrame();
 
 	if (xmp_start_player(ctx, 22050, 0) == 0)
@@ -190,7 +191,7 @@ void PlayXMP(const char *fname)
 			CFLUSH_D_L1();
 
 			// Fill current write buffer with new mix data
-			APUStartDMA((uint32_t)buf.dmaAddress);
+			APUStartDMA(&ax, (uint32_t)buf.dmaAddress);
 
 			// Wait for the APU to be done with current read buffer which is still playing
 			uint32_t currframe;
@@ -217,6 +218,9 @@ void PlayXMP(const char *fname)
 int main(int argc, char *argv[])
 {
 	SPInitPlatform(&platform);
+
+	VPUInitVideo(&vx, &platform);
+	APUInitAudio(&ax, &platform);
 
 	apubuffer.size = BUFFER_SIZE_IN_BYTES;
 	SPAllocateBuffer(&platform, &apubuffer);

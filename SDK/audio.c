@@ -28,7 +28,7 @@ uint32_t APUFrame(struct EAPUContext* _context)
 	return metal_io_read32(_context->m_platform->audioio, 0);
 }
 
-int APUInit(struct EAPUContext* _context, struct SPPlatform* _platform)
+int APUInitAudio(struct EAPUContext* _context, struct SPPlatform* _platform)
 {
 	_context->m_platform = _platform;
 	_context->m_sampleRate = ASR_44_100_Hz;
@@ -37,7 +37,7 @@ int APUInit(struct EAPUContext* _context, struct SPPlatform* _platform)
 	return 0;
 }
 
-void APUShutdown(struct EAPUContext* _context)
+void APUShutdownAudio(struct EAPUContext* _context)
 {
 	// TODO:
 }

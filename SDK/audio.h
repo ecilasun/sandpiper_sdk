@@ -23,8 +23,8 @@ struct EAPUContext
 	uint32_t m_bufferSize;
 };
 
-int APUInit(struct EAPUContext* _context, struct SPPlatform* _platform);
-void APUShutdown(struct EAPUContext* _context);
+int APUInitAudio(struct EAPUContext* _context, struct SPPlatform* _platform);
+void APUShutdownAudio(struct EAPUContext* _context);
 
 void APUSetBufferSize(struct EAPUContext* _context, uint32_t audioBufferSize);
 void APUStartDMA(struct EAPUContext* _context, uint32_t audioBufferAddress16byteAligned);
