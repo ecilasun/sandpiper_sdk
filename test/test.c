@@ -42,7 +42,7 @@ int main(int argc, char** argv)
 {
 	printf("Hello, video\n");
 
-	VPUInitPlatform(&platform);
+	SPInitPlatform(&platform);
 
 	printf("started platform\n");
 
