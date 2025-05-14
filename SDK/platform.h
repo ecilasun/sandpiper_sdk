@@ -25,7 +25,7 @@ struct SPPlatform
 	int ready;
 };
 
-bool SPInitPlatform(struct SPPlatform* _platform);
+int SPInitPlatform(struct SPPlatform* _platform);
 void SPShutdownPlatform(struct SPPlatform* _platform);
 
 void SPAllocateBuffer(struct SPPlatform* _platform, struct SPSizeAlloc *_sizealloc);

@@ -10,7 +10,7 @@
 #include <fcntl.h>
 #include <metal/sys.h>
 
-void SPInitPlatform(struct SPPlatform* _platform)
+int SPInitPlatform(struct SPPlatform* _platform)
 {
 	_platform->videodevice = NULL;
 	_platform->videoio = NULL;
@@ -23,7 +23,7 @@ void SPInitPlatform(struct SPPlatform* _platform)
 	if (_platform->memfd < 1)
 	{
 			perror("can't open /dev/mem");
-			return;
+			return -1;
 	}
 
 	struct metal_init_params init_param = METAL_INIT_DEFAULTS;
@@ -31,7 +31,7 @@ void SPInitPlatform(struct SPPlatform* _platform)
 	if (ret)
 	{
 		perror("libmetal init failed");
-		return;
+		return -1;
 	}
 
 	// Map the 128 MBytes reserved region for CPU usage
@@ -39,7 +39,7 @@ void SPInitPlatform(struct SPPlatform* _platform)
 	if (_platform->mapped_memory == MAP_FAILED)
 	{
 		perror("can't map reserved region for CPU");
-		return;
+		return -1;
 	}
 
 	// Gain access to the VPU command FIFO
@@ -49,17 +49,19 @@ void SPInitPlatform(struct SPPlatform* _platform)
 	if (ret)
 	{
 		perror("can't open device");
-		return;
+		return -1;
 	}
 
 	_platform->videoio = metal_device_io_region(_platform->videodevice, 0);
 	if (_platform->videoio == NULL)
 	{
 		perror("can't get video module io region");
-		return;
+		return -1;
 	}
 
 	_platform->ready = 1;
+
+	return 0;
 }
 
 void SPShutdownPlatform(struct SPPlatform* _platform)
