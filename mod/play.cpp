@@ -8,8 +8,8 @@
 
 #include "core.h"
 #include "platform.h"
-#include "apu.h"
-#include "vpu.h"
+#include "audio.h"
+#include "video.h"
 
 #include "xmp.h"
 
