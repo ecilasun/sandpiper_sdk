@@ -16,7 +16,7 @@ struct SPSizeAlloc frameBufferA;
 struct SPSizeAlloc frameBufferB;
 static struct SPPlatform platform;
 
-void vpucleanup()
+void shutdowncleanup()
 {
 	// Turn off video scan-out
 	VPUSetVideoMode(&s_vctx, VIDEO_MODE, VIDEO_COLOR, EVS_Disable);
@@ -34,7 +34,7 @@ void vpucleanup()
 
 void sigint_handler(int s)
 {
-	vpucleanup();
+	shutdowncleanup();
 	exit(0);
 }
 
@@ -56,11 +56,11 @@ int main(int argc, char** argv)
 	SPAllocateBuffer(&platform, &frameBufferA);
 	SPAllocateBuffer(&platform, &frameBufferB);
 
-	atexit(vpucleanup);
+	atexit(shutdowncleanup);
 	signal(SIGINT, &sigint_handler);
 
-	printf("framebufferA: 0x%08X <- 0x%08X\n", frameBufferA.cpuAddress, frameBufferA.vpuAddress);
-	printf("framebufferB: 0x%08X <- 0x%08X\n", frameBufferB.cpuAddress, frameBufferB.vpuAddress);
+	printf("framebufferA: 0x%08X <- 0x%08X\n", frameBufferA.cpuAddress, frameBufferA.dmaAddress);
+	printf("framebufferB: 0x%08X <- 0x%08X\n", frameBufferB.cpuAddress, frameBufferB.dmaAddress);
 
 	// Write random pattern into both buffers
 	/*
@@ -76,7 +76,7 @@ int main(int argc, char** argv)
 	printf("buffers set to random values\n");*/
 
 	VPUSetWriteAddress(&s_vctx, (uint32_t)frameBufferA.cpuAddress);
-	VPUSetScanoutAddress(&s_vctx, (uint32_t)frameBufferB.vpuAddress);
+	VPUSetScanoutAddress(&s_vctx, (uint32_t)frameBufferB.dmaAddress);
 	VPUSetDefaultPalette(&s_vctx);
 	VPUSetVideoMode(&s_vctx, VIDEO_MODE, VIDEO_COLOR, EVS_Enable);
 

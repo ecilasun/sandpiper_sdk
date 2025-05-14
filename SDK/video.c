@@ -270,7 +270,7 @@ uint32_t VPUGetScanline(struct EVideoContext *_context)
 
 void VPUSwapPages(struct EVideoContext* _context, struct EVideoSwapContext *_sc)
 {
-	_sc->readpage = ((_sc->cycle)%2) ? _sc->framebufferA->vpuAddress : _sc->framebufferB->vpuAddress;
+	_sc->readpage = ((_sc->cycle)%2) ? _sc->framebufferA->dmaAddress : _sc->framebufferB->dmaAddress;
 	_sc->writepage = ((_sc->cycle)%2) ? _sc->framebufferB->cpuAddress : _sc->framebufferA->cpuAddress;
 	VPUSetWriteAddress(_context, (uint32_t)_sc->writepage);
 	VPUSetScanoutAddress(_context, (uint32_t)_sc->readpage);

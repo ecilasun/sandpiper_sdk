@@ -100,13 +100,13 @@ void SPAllocateBuffer(struct SPPlatform* _platform, struct SPSizeAlloc *_sizeall
 	if (_platform->mapped_memory != MAP_FAILED)
 	{
 		_sizealloc->cpuAddress = _platform->mapped_memory + _platform->alloc_cursor;
-		_sizealloc->vpuAddress = (uint32_t*)RESERVED_MEMORY_ADDRESS + _platform->alloc_cursor;
+		_sizealloc->dmaAddress = (uint32_t*)RESERVED_MEMORY_ADDRESS + _platform->alloc_cursor;
 		_platform->alloc_cursor += _sizealloc->size;
 	}
 	else
 	{
 		_sizealloc->cpuAddress = NULL;
-		_sizealloc->vpuAddress = NULL;
+		_sizealloc->dmaAddress = NULL;
 	}
 }
 

@@ -11,7 +11,7 @@
 struct SPSizeAlloc
 {
 	uint32_t* cpuAddress;
-	uint32_t* vpuAddress;
+	uint32_t* dmaAddress;
 	uint32_t size;
 };
 
