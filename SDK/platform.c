@@ -70,7 +70,7 @@ void SPShutdownPlatform(struct SPPlatform* _platform)
 
 	metal_finish();
 
-	munmap(_platform->allocator.mapped_memory, RESERVED_MEMORY_SIZE);
+	munmap(_platform->mapped_memory, RESERVED_MEMORY_SIZE);
 	close(_platform->memfd);
 
 	_platform->ready = 0;
@@ -78,12 +78,12 @@ void SPShutdownPlatform(struct SPPlatform* _platform)
 
 void SPAllocateBuffer(struct SPPlatform* _platform, struct SPSizeAlloc *_sizealloc)
 {
-	if (allocator.mapped_memory != MAP_FAILED)
+	if (_platform->mapped_memory != MAP_FAILED)
 	{
 		// A very simple heap allocator
-		_sizealloc->cpuAddress = allocator.mapped_memory + allocator.alloc_cursor;
-		_sizealloc->vpuAddress = (uint32_t*)RESERVED_MEMORY_ADDRESS + allocator.alloc_cursor;
-		allocator.alloc_cursor += _sizealloc->size;
+		_sizealloc->cpuAddress = _platform->mapped_memory + _platform->alloc_cursor;
+		_sizealloc->vpuAddress = (uint32_t*)RESERVED_MEMORY_ADDRESS + _platform->alloc_cursor;
+		_platform->alloc_cursor += _sizealloc->size;
 	}
 	else
 	{
