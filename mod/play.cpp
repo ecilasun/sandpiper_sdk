@@ -217,6 +217,12 @@ void PlayXMP(const char *fname)
 
 int main(int argc, char *argv[])
 {
+	if (argc < 2)
+	{
+		printf("Usage: %s <modulefilename>\n", argv[0]);
+		return -1;
+	}
+
 	SPInitPlatform(&platform);
 
 	VPUInitVideo(&vx, &platform);
@@ -232,19 +238,6 @@ int main(int argc, char *argv[])
 
 	atexit(shutdowncleanup);
 	signal(SIGINT, &sigint_handler);
-
-	char currpath[48] = "sd:/";
-	if (getcwd(currpath, 48))
-		printf("Working directory:%s\n", currpath);
-
-	char fullpath[128];
-	strcpy(fullpath, currpath);
-	strcat(fullpath, "/");
-
-	if (argc<=1)
-		strcat(fullpath, "test.mod");
-	else
-		strcat(fullpath, argv[1]);
 
 	uint32_t stride = VPUGetStride(EVM_320_Wide, ECM_8bit_Indexed);
 	bufferB.size = bufferA.size = stride*240;
@@ -264,7 +257,7 @@ int main(int argc, char *argv[])
 	memset(barsL, 0, 256*sizeof(int16_t));
 	memset(barsR, 0, 256*sizeof(int16_t));
 
-	PlayXMP(fullpath);
+	PlayXMP(argv[1]);
 
 	printf("Playback complete\n");
 
