@@ -25,8 +25,8 @@ void vpucleanup()
 	VPUShutdownVideo();
 
 	// Release allocations
-	SPFreeBuffer(&frameBufferB);
-	SPFreeBuffer(&frameBufferA);
+	SPFreeBuffer(&platform, &frameBufferB);
+	SPFreeBuffer(&platform, &frameBufferA);
 
 	// Shutdown platform
 	SPShutdownPlatform(&platform);
@@ -54,8 +54,8 @@ int main(int argc, char** argv)
 	uint32_t stride = VPUGetStride(VIDEO_MODE, VIDEO_COLOR);
 
 	frameBufferB.size = frameBufferA.size = stride*VIDEO_HEIGHT;
-	SPAllocateBuffer(&frameBufferA);
-	SPAllocateBuffer(&frameBufferB);
+	SPAllocateBuffer(&platform, &frameBufferA);
+	SPAllocateBuffer(&platform, &frameBufferB);
 
 	atexit(vpucleanup);
 	signal(SIGINT, &sigint_handler);
