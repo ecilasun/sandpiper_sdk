@@ -12,8 +12,8 @@
 #define VIDEO_HEIGHT    240
 static struct EVideoContext s_vctx;
 static struct EVideoSwapContext s_sctx;
-struct EVPUSizeAlloc frameBufferA;
-struct EVPUSizeAlloc frameBufferB;
+struct SPSizeAlloc frameBufferA;
+struct SPSizeAlloc frameBufferB;
 static SPPlatform platform;
 
 void vpucleanup()
