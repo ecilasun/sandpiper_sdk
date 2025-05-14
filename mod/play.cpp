@@ -152,7 +152,7 @@ void draw_wave()
 		}
 	}
 
-	CFLUSH_D_L1();
+	DCACHE_FLUSH();
 
 	//VPUWaitVSync();
 	VPUSwapPages(&vx, &sc);
@@ -174,7 +174,7 @@ void PlayXMP(const char *fname)
 
 	APUSetBufferSize(&ax, BUFFER_WORD_COUNT); // word count = sample count/2 (i.e. number of stereo sample pairs)
 	APUSetSampleRate(&ax, ASR_22_050_Hz);
-	uint32_t prevframe = APUFrame();
+	uint32_t prevframe = APUFrame(&ax);
 
 	if (xmp_start_player(ctx, 22050, 0) == 0)
 	{
@@ -198,7 +198,7 @@ void PlayXMP(const char *fname)
 			do
 			{
 				// APU will return a different 'frame' as soon as the current buffer reaches the end
-				currframe = APUFrame();
+				currframe = APUFrame(&ax);
 			} while (currframe == prevframe);
 
 			// Once we reach this point, the APU has switched to the other buffer we just filled, and playback resumes uninterrupted
@@ -251,7 +251,7 @@ int main(int argc, char *argv[])
 	SPAllocateBuffer(&platform, &bufferB);
 	SPAllocateBuffer(&platform, &bufferA);
 
-	VPUSetVideoMode(&s_vctx, EVM_320_Wide, ECM_8bit_Indexed, EVS_Enable);
+	VPUSetVideoMode(&vx, EVM_320_Wide, ECM_8bit_Indexed, EVS_Enable);
 
 	sc.cycle = 0;
 	sc.framebufferA = &bufferA;
