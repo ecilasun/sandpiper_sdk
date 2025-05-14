@@ -122,7 +122,7 @@ static int get_temp_dir(char *buf, size_t size)
 #endif
 
 
-/*FILE *make_temp_file(char **filename) {
+FILE *make_temp_file(char **filename) {
 	char tmp[XMP_MAXPATH];
 	FILE *temp;
 	int fd;
@@ -152,7 +152,7 @@ static int get_temp_dir(char *buf, size_t size)
 	free(*filename);
     err:
 	return NULL;
-}*/
+}
 
 /*
  * Windows doesn't allow you to unlink an open file, so we changed the
