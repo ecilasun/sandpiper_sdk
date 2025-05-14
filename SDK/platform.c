@@ -97,7 +97,7 @@ void SPShutdownPlatform(struct SPPlatform* _platform)
 
 void SPAllocateBuffer(struct SPPlatform* _platform, struct SPSizeAlloc *_sizealloc)
 {
-	if (_platform->mapped_memory != MAP_FAILED)
+	if ((uint32_t)_platform->mapped_memory != MAP_FAILED)
 	{
 		_sizealloc->cpuAddress = _platform->mapped_memory + _platform->alloc_cursor;
 		_sizealloc->dmaAddress = (uint32_t*)RESERVED_MEMORY_ADDRESS + _platform->alloc_cursor;
