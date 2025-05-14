@@ -16,17 +16,17 @@ enum EAPUSampleRate
 	ASR_Halt = 3,		// Halt
 };
 
-struct EAPUContext
+struct EAudioContext
 {
 	struct SPPlatform *m_platform;
 	enum EAPUSampleRate m_sampleRate;
 	uint32_t m_bufferSize;
 };
 
-int APUInitAudio(struct EAPUContext* _context, struct SPPlatform* _platform);
-void APUShutdownAudio(struct EAPUContext* _context);
+int APUInitAudio(struct EAudioContext* _context, struct SPPlatform* _platform);
+void APUShutdownAudio(struct EAudioContext* _context);
 
-void APUSetBufferSize(struct EAPUContext* _context, uint32_t audioBufferSize);
-void APUStartDMA(struct EAPUContext* _context, uint32_t audioBufferAddress16byteAligned);
-void APUSetSampleRate(struct EAPUContext* _context, enum EAPUSampleRate sampleRate);
-uint32_t APUFrame(struct EAPUContext* _context);
+void APUSetBufferSize(struct EAudioContext* _context, uint32_t audioBufferSize);
+void APUStartDMA(struct EAudioContext* _context, uint32_t audioBufferAddress16byteAligned);
+void APUSetSampleRate(struct EAudioContext* _context, enum EAPUSampleRate sampleRate);
+uint32_t APUFrame(struct EAudioContext* _context);
