@@ -14,7 +14,7 @@ static struct EVideoContext s_vctx;
 static struct EVideoSwapContext s_sctx;
 struct SPSizeAlloc frameBufferA;
 struct SPSizeAlloc frameBufferB;
-static SPPlatform platform;
+static struct SPPlatform platform;
 
 void vpucleanup()
 {
@@ -47,7 +47,6 @@ int main(int argc, char** argv)
 	printf("started platform\n");
 
 	VPUInitVideo(&s_vctx, &platform);
-	VPUSetDefaultPalette();
 
 	printf("started video system\n");
 
