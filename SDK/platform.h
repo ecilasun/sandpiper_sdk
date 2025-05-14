@@ -15,17 +15,12 @@ struct SPSizeAlloc
 	uint32_t size;
 };
 
-struct SPAllocator
-{
-	uint32_t* mapped_memory;
-	uint32_t alloc_cursor;
-};
-
 struct SPPlatform
 {
-	struct SPAllocator allocator;
 	struct metal_device *videodevice;
 	struct metal_io_region *videoio;
+	uint32_t* mapped_memory;
+	uint32_t alloc_cursor;
 	int memfd;
 	int ready;
 };

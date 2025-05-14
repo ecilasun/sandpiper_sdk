@@ -14,8 +14,8 @@ void SPInitPlatform(struct SPPlatform* _platform)
 {
 	_platform->videodevice = NULL;
 	_platform->videoio = NULL;
-	_platform->allocator.mapped_memory = MAP_FAILED;
-	_platform->allocator.alloc_cursor = 0;
+	_platform->mapped_memory = MAP_FAILED;
+	_platform->alloc_cursor = 0;
 	_platform->memfd = -1;
 	_platform->ready = 0;
 
@@ -35,8 +35,8 @@ void SPInitPlatform(struct SPPlatform* _platform)
 	}
 
 	// Map the 128 MBytes reserved region for CPU usage
-	_platform->allocator.mapped_memory = (uint32_t*)mmap(NULL, RESERVED_MEMORY_SIZE, PROT_READ|PROT_WRITE, MAP_SHARED, _platform->memfd, RESERVED_MEMORY_ADDRESS);
-	if (_platform->allocator.mapped_memory == MAP_FAILED)
+	_platform->mapped_memory = (uint32_t*)mmap(NULL, RESERVED_MEMORY_SIZE, PROT_READ|PROT_WRITE, MAP_SHARED, _platform->memfd, RESERVED_MEMORY_ADDRESS);
+	if (_platform->mapped_memory == MAP_FAILED)
 	{
 		perror("can't map reserved region for CPU");
 		return;
@@ -80,7 +80,6 @@ void SPAllocateBuffer(struct SPPlatform* _platform, struct SPSizeAlloc *_sizeall
 {
 	if (_platform->mapped_memory != MAP_FAILED)
 	{
-		// A very simple heap allocator
 		_sizealloc->cpuAddress = _platform->mapped_memory + _platform->alloc_cursor;
 		_sizealloc->vpuAddress = (uint32_t*)RESERVED_MEMORY_ADDRESS + _platform->alloc_cursor;
 		_platform->alloc_cursor += _sizealloc->size;
