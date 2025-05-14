@@ -33,7 +33,7 @@ int16_t barsR[256];
 void shutdowncleanup()
 {
 	// Turn off video scan-out
-	VPUSetVideoMode(&s_vctx, VIDEO_MODE, VIDEO_COLOR, EVS_Disable);
+	VPUSetVideoMode(&s_vctx, EVM_320_Wide, ECM_8bit_Indexed, EVS_Disable);
 
 	// Yield physical memory and reset video routines
 	VPUShutdownVideo();
@@ -247,17 +247,15 @@ int main(int argc, char *argv[])
 	SPAllocateBuffer(&platform, &bufferB);
 	SPAllocateBuffer(&platform, &bufferA);
 
-    vx.m_vmode = EVM_320_Wide;
-    vx.m_cmode = ECM_8bit_Indexed;
-	VPUSetVMode(&vx, EVS_Enable);
+	VPUSetVideoMode(&s_vctx, EVM_320_Wide, ECM_8bit_Indexed, EVS_Enable);
 
 	sc.cycle = 0;
 	sc.framebufferA = &bufferA;
 	sc.framebufferB = &bufferB;
-	VPUSwapPages(&vx, &sc);
-	VPUClear(&vx, 0x00000000);
-	VPUSwapPages(&vx, &sc);
-	VPUClear(&vx, 0x00000000);
+	//VPUSwapPages(&vx, &sc);
+	//VPUClear(&vx, 0x00000000);
+	//VPUSwapPages(&vx, &sc);
+	//VPUClear(&vx, 0x00000000);
 
 	memset(barsL, 0, 256*sizeof(int16_t));
 	memset(barsR, 0, 256*sizeof(int16_t));
