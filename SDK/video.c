@@ -255,34 +255,34 @@ void VPUClear(struct EVideoContext *_context, const uint32_t _colorWord)
 	DCACHE_FLUSH();
 }
 
-uint32_t VPUReadVBlankCounter()
+uint32_t VPUReadVBlankCounter(struct EVideoContext *_context)
 {
 	// vblank counter lives at this address
 	//return (*VPUIO) & 0x00000001;
 	return metal_io_read32(_context->m_platform->videoio, 0) & 0x1;
 }
 
-uint32_t VPUGetScanline()
+uint32_t VPUGetScanline(struct EVideoContext *_context)
 {
 	//return ((*VPUIO) & 0x000007FE) >> 1;
 	return (metal_io_read32(_context->m_platform->videoio, 0) & 0x7FE) >> 1;
 }
 
-void VPUSwapPages(struct EVideoContext* _vx, struct EVideoSwapContext *_sc)
+void VPUSwapPages(struct EVideoContext* _context, struct EVideoSwapContext *_sc)
 {
 	_sc->readpage = ((_sc->cycle)%2) ? _sc->framebufferA->vpuAddress : _sc->framebufferB->vpuAddress;
 	_sc->writepage = ((_sc->cycle)%2) ? _sc->framebufferB->cpuAddress : _sc->framebufferA->cpuAddress;
-	VPUSetWriteAddress(_vx, (uint32_t)_sc->writepage);
-	VPUSetScanoutAddress(_vx, (uint32_t)_sc->readpage);
+	VPUSetWriteAddress(_context, (uint32_t)_sc->writepage);
+	VPUSetScanoutAddress(_context, (uint32_t)_sc->readpage);
 	_sc->cycle = _sc->cycle + 1;
 }
 
-void VPUWaitVSync()
+void VPUWaitVSync(struct EVideoContext *_context)
 {
-	uint32_t prevvsync = VPUReadVBlankCounter();
+	uint32_t prevvsync = VPUReadVBlankCounter(_context);
 	uint32_t currentvsync;
 	do {
-		currentvsync = VPUReadVBlankCounter();
+		currentvsync = VPUReadVBlankCounter(_context);
 	} while (currentvsync == prevvsync);
 }
 
