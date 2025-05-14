@@ -197,6 +197,15 @@ void VPUSetDefaultPalette(struct EVideoContext *_context)
 	}
 }
 
+void VPUClear(struct EVideoContext *_context, const uint32_t _colorWord)
+{
+	uint32_t *vramBaseAsWord = (uint32_t*)_context->m_cpuWriteAddressCacheAligned;
+	uint32_t W = _context->m_graphicsHeight * _context->m_strideInWords;
+	for (uint32_t i=0; i<W; ++i)
+		vramBaseAsWord[i] = _colorWord;
+	DCACHE_FLUSH();
+}
+
 void VPUSetVideoMode(struct EVideoContext *_context, const enum EVideoMode _mode, const enum EColorMode _cmode, const enum EVideoScanoutEnable _scanEnable)
 {
     // Store for later

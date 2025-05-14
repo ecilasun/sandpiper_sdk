@@ -96,6 +96,7 @@ void VPUShutdownVideo();
 uint32_t VPUGetStride(const enum EVideoMode _mode, const enum EColorMode _cmode);
 void VPUGetDimensions(const enum EVideoMode _mode, uint32_t *_width, uint32_t *_height);
 
+void VPUClear(struct EVideoContext *_context, const uint32_t _colorWord);
 void VPUSetDefaultPalette(struct EVideoContext *_context);
 void VPUSetVideoMode(struct EVideoContext *_context, const enum EVideoMode _mode, const enum EColorMode _cmode, const enum EVideoScanoutEnable _scanEnable);
 void VPUSetScanoutAddress(struct EVideoContext *_context, const uint32_t _scanOutAddress64ByteAligned);

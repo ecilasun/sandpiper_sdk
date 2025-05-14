@@ -188,7 +188,7 @@ void PlayXMP(const char *fname)
 			playing = xmp_play_buffer(ctx, buf, BUFFER_SIZE_IN_BYTES, 0) == 0;
 
 			// Make sure the writes are visible by the DMA
-			CFLUSH_D_L1();
+			DCACHE_FLUSH();
 
 			// Fill current write buffer with new mix data
 			APUStartDMA(&ax, (uint32_t)buf.dmaAddress);
