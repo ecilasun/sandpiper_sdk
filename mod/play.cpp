@@ -252,8 +252,8 @@ int main(int argc, char *argv[])
 	VPUSetVMode(&vx, EVS_Enable);
 
 	sc.cycle = 0;
-	sc.framebufferA = bufferA;
-	sc.framebufferB = bufferB;
+	sc.framebufferA = &bufferA;
+	sc.framebufferB = &bufferB;
 	VPUSwapPages(&vx, &sc);
 	VPUClear(&vx, 0x00000000);
 	VPUSwapPages(&vx, &sc);
@@ -262,11 +262,6 @@ int main(int argc, char *argv[])
 	memset(barsL, 0, 256*sizeof(int16_t));
 	memset(barsR, 0, 256*sizeof(int16_t));
 
-	// Always do this from main thread
-	struct STaskContext *taskctx1 = TaskGetContext(1);
-	uint32_t* stackAddress = new uint32_t[1024];
-	int taskID1 = TaskAdd(taskctx1, "draw_wave", draw_wave, TS_RUNNING, QUARTER_MILLISECOND_IN_TICKS, (uint32_t)stackAddress);
-	
 	PlayXMP(fullpath);
 
 	printf("Playback complete\n");
