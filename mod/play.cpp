@@ -33,16 +33,20 @@ int16_t barsR[256];
 
 void shutdowncleanup()
 {
+	// Stop audio
+	APUSetSampleRate(&ax, ASR_Halt);
+
 	// Turn off video scan-out
-	VPUSetVideoMode(&vx, EVM_320_Wide, ECM_8bit_Indexed, EVS_Disable);
+//	VPUSetVideoMode(&vx, EVM_320_Wide, ECM_8bit_Indexed, EVS_Disable);
 
 	// Yield physical memory and reset video routines
-	VPUShutdownVideo();
+//	VPUShutdownVideo();
 	APUShutdownAudio(&ax);
 
 	// Release allocations
-	SPFreeBuffer(&platform, &bufferB);
-	SPFreeBuffer(&platform, &bufferA);
+	SPFreeBuffer(&platform, &apubuffer);
+//	SPFreeBuffer(&platform, &bufferB);
+//	SPFreeBuffer(&platform, &bufferA);
 
 	// Shutdown platform
 	SPShutdownPlatform(&platform);
@@ -203,7 +207,7 @@ void PlayXMP(const char *fname)
 
 			// Once we reach this point, the APU has switched to the other buffer we just filled, and playback resumes uninterrupted
 
-			draw_wave();
+//			draw_wave();
 
 			// Remember this frame
 			prevframe = currframe;
@@ -217,15 +221,15 @@ void PlayXMP(const char *fname)
 
 int main(int argc, char *argv[])
 {
-	if (argc < 2)
-	{
-		printf("Usage: %s <modulefilename>\n", argv[0]);
-		return -1;
-	}
+//	if (argc < 2)
+//	{
+//		printf("Usage: %s <modulefilename>\n", argv[0]);
+//		return -1;
+//	}
 
 	SPInitPlatform(&platform);
 
-	VPUInitVideo(&vx, &platform);
+//	VPUInitVideo(&vx, &platform);
 	APUInitAudio(&ax, &platform);
 
 	apubuffer.size = BUFFER_SIZE_IN_BYTES;
@@ -239,16 +243,16 @@ int main(int argc, char *argv[])
 	atexit(shutdowncleanup);
 	signal(SIGINT, &sigint_handler);
 
-	uint32_t stride = VPUGetStride(EVM_320_Wide, ECM_8bit_Indexed);
-	bufferB.size = bufferA.size = stride*240;
-	SPAllocateBuffer(&platform, &bufferB);
-	SPAllocateBuffer(&platform, &bufferA);
+//	uint32_t stride = VPUGetStride(EVM_320_Wide, ECM_8bit_Indexed);
+//	bufferB.size = bufferA.size = stride*240;
+//	SPAllocateBuffer(&platform, &bufferB);
+//	SPAllocateBuffer(&platform, &bufferA);
 
-	VPUSetVideoMode(&vx, EVM_320_Wide, ECM_8bit_Indexed, EVS_Enable);
+//	VPUSetVideoMode(&vx, EVM_320_Wide, ECM_8bit_Indexed, EVS_Enable);
 
-	sc.cycle = 0;
-	sc.framebufferA = &bufferA;
-	sc.framebufferB = &bufferB;
+//	sc.cycle = 0;
+//	sc.framebufferA = &bufferA;
+//	sc.framebufferB = &bufferB;
 	//VPUSwapPages(&vx, &sc);
 	//VPUClear(&vx, 0x00000000);
 	//VPUSwapPages(&vx, &sc);
@@ -257,7 +261,7 @@ int main(int argc, char *argv[])
 	memset(barsL, 0, 256*sizeof(int16_t));
 	memset(barsR, 0, 256*sizeof(int16_t));
 
-	PlayXMP(argv[1]);
+	PlayXMP("test.mod");//argv[1]);
 
 	printf("Playback complete\n");
 

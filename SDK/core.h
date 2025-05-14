@@ -73,5 +73,5 @@ struct SElfSectionHeader32
 #if defined(VITIS_BUILD)
 #define DCACHE_FLUSH() do{ Xil_DCacheFlush(); } while(0)
 #else
-#define DCACHE_FLUSH() do{ /*__builtin___clear_cache();*/ } while(0)
+#define DCACHE_FLUSH() do{ __sync_synchronize(); } while(0)
 #endif

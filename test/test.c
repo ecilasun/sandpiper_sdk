@@ -101,7 +101,7 @@ int main(int argc, char** argv)
 	{
 		VPUConsoleResolve(&s_vctx);
 
-		// VPUWaitVSync(); - This and other reads from VPU cause a hardware freeze, figure out why
+		VPUWaitVSync(&s_vctx); // This and other reads from VPU cause a hardware freeze, figure out why
 		VPUSwapPages(&s_vctx, &s_sctx);
 	} while(s_sctx.cycle < 4096);
 
