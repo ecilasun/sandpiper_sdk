@@ -1,45 +1,31 @@
-/**
- * @file audio.c
- * 
- * @brief Audio Processing Unit (APU) interface.
- *
- * This file provides functions for interacting with the Audio Processing Unit (APU).
- * It includes functions for allocating buffers, setting buffer size, starting audio DMA, and setting the sample rate.
- */
-
-#include "audio.h"
 #include "core.h"
-#include <stdlib.h>
+#include "audio.h"
 
 void APUSetBufferSize(struct EAPUContext* _context, uint32_t audioBufferSize)
 {
-	//_context->m_platform->audioio
-    *APUIO = APUCMD_BUFFERSIZE;
-    *APUIO = audioBufferSize-1;
+	metal_io_write32(_context->m_platform->audioio, 0, APUCMD_BUFFERSIZE);
+	metal_io_write32(_context->m_platform->audioio, 0, audioBufferSize-1);
 
 	_context->m_bufferSize = audioBufferSize;
 }
 
 void APUStartDMA(struct EAPUContext* _context, uint32_t audioBufferAddress16byteAligned)
 {
-	//_context->m_platform->audioio
-    *APUIO = APUCMD_START;
-    *APUIO = audioBufferAddress16byteAligned;
+	metal_io_write32(_context->m_platform->audioio, 0, APUCMD_START);
+	metal_io_write32(_context->m_platform->audioio, 0, audioBufferAddress16byteAligned);
 }
 
 void APUSetSampleRate(struct EAPUContext* _context, enum EAPUSampleRate sampleRate)
 {
-	//_context->m_platform->audioio
-    *APUIO = APUCMD_SETRATE;
-    *APUIO = (uint32_t)sampleRate;
+	metal_io_write32(_context->m_platform->audioio, 0, APUCMD_SETRATE);
+	metal_io_write32(_context->m_platform->audioio, 0, (uint32_t)sampleRate);
 
 	_context->m_sampleRate = sampleRate;
 }
 
 uint32_t APUFrame(struct EAPUContext* _context)
 {
-	//_context->m_platform->audioio
-    return *APUIO;
+	return metal_io_read32(_context->m_platform->audioio, 0);
 }
 
 int APUInit(struct EAPUContext* _context, struct SPPlatform* _platform)

@@ -18,7 +18,9 @@ struct SPSizeAlloc
 struct SPPlatform
 {
 	struct metal_device *videodevice;
+	struct metal_device *audiodevice;
 	struct metal_io_region *videoio;
+	struct metal_io_region *audioio;
 	uint32_t* mapped_memory;
 	uint32_t alloc_cursor;
 	int memfd;

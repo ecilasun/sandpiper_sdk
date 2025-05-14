@@ -42,13 +42,13 @@ int SPInitPlatform(struct SPPlatform* _platform)
 		return -1;
 	}
 
+	// NOTE: All of our devices are listed under /sys/bus/platform/devices/
+
 	// Gain access to the VPU command FIFO
-	// We use metal to talk to video device's FIFO
-	// NOTE: devices are listed under /sys/bus/platform/devices/
 	ret = metal_device_open("platform", "40001000.videomodule", &_platform->videodevice);
 	if (ret)
 	{
-		perror("can't open device");
+		perror("can't open video device");
 		return -1;
 	}
 
@@ -59,6 +59,21 @@ int SPInitPlatform(struct SPPlatform* _platform)
 		return -1;
 	}
 
+	// Gain access to the APU command FIFO
+	ret = metal_device_open("platform", "40000000.audiomodule", &_platform->audiodevice);
+	if (ret)
+	{
+		perror("can't open audio device");
+		return -1;
+	}
+
+	_platform->audioio = metal_device_io_region(_platform->audiodevice, 0);
+	if (_platform->audioio == NULL)
+	{
+		perror("can't get audio module io region");
+		return -1;
+	}
+
 	_platform->ready = 1;
 
 	return 0;
@@ -66,8 +81,10 @@ int SPInitPlatform(struct SPPlatform* _platform)
 
 void SPShutdownPlatform(struct SPPlatform* _platform)
 {
-	// Do we need to do these?
+	// Do we have to do these?
+	//metal_io_region_close(_platform->audioio);
 	//metal_io_region_close(_platform->videoio);
+	//metal_device_close(_platform->audiodevice);
 	//metal_device_close(_platform->videodevice);
 
 	metal_finish();
