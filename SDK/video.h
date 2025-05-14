@@ -60,7 +60,7 @@ enum EVideoScanoutEnable
 
 struct EVideoContext
 {
-	SPPlatform *m_platform;
+	struct SPPlatform *m_platform;
 	enum EVideoMode m_vmode;
 	enum EColorMode m_cmode;
 	enum EVideoScanoutEnable m_scanEnable;
