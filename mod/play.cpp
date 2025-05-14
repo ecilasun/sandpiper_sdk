@@ -191,7 +191,7 @@ void PlayXMP(const char *fname)
 			DCACHE_FLUSH();
 
 			// Fill current write buffer with new mix data
-			APUStartDMA(&ax, (uint32_t)buf.dmaAddress);
+			APUStartDMA(&ax, (uint32_t)apubuffer.dmaAddress);
 
 			// Wait for the APU to be done with current read buffer which is still playing
 			uint32_t currframe;
