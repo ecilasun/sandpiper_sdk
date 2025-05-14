@@ -29,4 +29,4 @@ void APUShutdown(struct EAPUContext* _context);
 void APUSetBufferSize(struct EAPUContext* _context, uint32_t audioBufferSize);
 void APUStartDMA(struct EAPUContext* _context, uint32_t audioBufferAddress16byteAligned);
 void APUSetSampleRate(struct EAPUContext* _context, enum EAPUSampleRate sampleRate);
-uint32_t APUFrame(struct EAPUContext* _context, );
+uint32_t APUFrame(struct EAPUContext* _context);
