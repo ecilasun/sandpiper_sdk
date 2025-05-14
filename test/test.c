@@ -7,9 +7,9 @@
 #include "../SDK/platform.h"
 #include "../SDK/video.h"
 
-#define VIDEO_MODE      EVM_320_Wide
+#define VIDEO_MODE      EVM_640_Wide
 #define VIDEO_COLOR     ECM_8bit_Indexed
-#define VIDEO_HEIGHT    240
+#define VIDEO_HEIGHT    480
 static struct EVideoContext s_vctx;
 static struct EVideoSwapContext s_sctx;
 struct SPSizeAlloc frameBufferA;
@@ -100,6 +100,9 @@ int main(int argc, char** argv)
 	do
 	{
 		VPUConsoleResolve(&s_vctx);
+
+		if (s_sctx.cycle % 30 == 0)
+			s_vctx.m_caretBlink ^= 1;
 
 		VPUWaitVSync(&s_vctx); // This and other reads from VPU cause a hardware freeze, figure out why
 		VPUSwapPages(&s_vctx, &s_sctx);
