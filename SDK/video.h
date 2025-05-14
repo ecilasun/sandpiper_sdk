@@ -96,11 +96,11 @@ void VPUShutdownVideo();
 uint32_t VPUGetStride(const enum EVideoMode _mode, const enum EColorMode _cmode);
 void VPUGetDimensions(const enum EVideoMode _mode, uint32_t *_width, uint32_t *_height);
 
-void VPUSetDefaultPalette();
+void VPUSetDefaultPalette(struct EVideoContext *_context);
 void VPUSetVideoMode(struct EVideoContext *_context, const enum EVideoMode _mode, const enum EColorMode _cmode, const enum EVideoScanoutEnable _scanEnable);
 void VPUSetScanoutAddress(struct EVideoContext *_context, const uint32_t _scanOutAddress64ByteAligned);
 void VPUSetWriteAddress(struct EVideoContext *_context, const uint32_t _cpuWriteAddress64ByteAligned);
-void VPUSetPal(const uint8_t _paletteIndex, const uint32_t _red, const uint32_t _green, const uint32_t _blue);
+void VPUSetPal(struct EVideoContext *_context, const uint8_t _paletteIndex, const uint32_t _red, const uint32_t _green, const uint32_t _blue);
 uint32_t VPUReadVBlankCounter();
 uint32_t VPUGetScanline();
 void VPUSwapPages(struct EVideoContext* _vx, struct EVideoSwapContext *_sc);
