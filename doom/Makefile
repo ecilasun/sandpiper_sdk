@@ -2,7 +2,7 @@
 
 TOPTARGETS := all clean
 
-SUBDIRS := src/riscv/.
+SUBDIRS := src/sandpiper/.
 
 $(TOPTARGETS): $(SUBDIRS)
 $(SUBDIRS):

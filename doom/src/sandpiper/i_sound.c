@@ -30,7 +30,7 @@ rcsid[] = "$Id: i_unix.c,v 1.5 1997/02/03 22:45:10 b1 Exp $";
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
-#include "apu.h"
+#include "audio.h"
 
 #include <math.h>
 
@@ -116,12 +116,12 @@ int             lengths[NUMSFX];
 // Basically, samples from all active internal channels
 //  are modifed and added, and stored in the buffer
 //  that is submitted to the audio device.
-signed short    *mixbuffer;
-signed short    *playbackbuffer;
+//signed short    *mixbuffer;
+//signed short    *playbackbuffer;
 // Double-buffered
-int currentmixbuffer = 0;
-signed short    *mixbufferA;
-signed short    *mixbufferB;
+//int currentmixbuffer = 0;
+//signed short    *mixbufferA;
+//signed short    *mixbufferB;
 
 
 // The channel step amount...
@@ -548,7 +548,7 @@ int I_SoundIsPlaying(int handle)
 // This function currently supports only 16bit.
 //
 void I_UpdateSound( void )
-{
+{/*
 #ifdef SNDINTR
   // Debug. Count buffer misses with interrupt.
   static int misses = 0;
@@ -666,6 +666,7 @@ void I_UpdateSound( void )
     // Increment flag for update.
     flag++;
 #endif
+*/
 }
 
 
@@ -686,7 +687,7 @@ I_SubmitSound(void)
   /*for(int i=0;i<SAMPLECOUNT;++i)
     *IO_AUDIOOUT = (mixbuffer[i*2+1]<<16) | mixbuffer[i*2+0];*/
 
-  uint32_t cbuf = APUFrame();
+  /*uint32_t cbuf = APUFrame();
   if (cbuf != pbuf)
   {
     pbuf = cbuf;
@@ -696,7 +697,7 @@ I_SubmitSound(void)
 
     // Fill current write buffer with new mix data
     APUStartDMA((uint32_t)playbackbuffer);
-  }
+  }*/
 }
 
 
@@ -821,12 +822,12 @@ I_InitSound()
     fprintf(stderr, "Could not play signed 16 data\n");*/
 
   // swap: mixbuffer = (currentmixbuffer%2)==0 ?  mixbufferA : mixbufferB;
-  mixbufferA = (short*)APUAllocateBuffer(MIXBUFFERSIZE);
+  /*mixbufferA = (short*)APUAllocateBuffer(MIXBUFFERSIZE);
   mixbufferB = (short*)APUAllocateBuffer(MIXBUFFERSIZE); // Size of mix buffer in bytes (16-bit stereo)
   mixbuffer = mixbufferA;
   playbackbuffer = mixbufferB;
   APUSetBufferSize(SAMPLECOUNT); // Number of stereo sample pairs in buffer
-  APUSetSampleRate(ASR_11_025_Hz);
+  APUSetSampleRate(ASR_11_025_Hz);*/
 
   fprintf(stderr, " configured audio device\n" );
 
@@ -852,11 +853,11 @@ I_InitSound()
   fprintf( stderr, " pre-cached all sound data\n");
 
   // Now initialize mix buffers with zero.
-  for ( i = 0; i< SAMPLECOUNT*SAMPLESTEREO; i++ )
+/*  for ( i = 0; i< SAMPLECOUNT*SAMPLESTEREO; i++ )
   {
     mixbufferA[i] = 0;
     mixbufferB[i] = 0;
-  }
+  }*/
 
   // Finished initialization.
   fprintf(stderr, "I_InitSound: sound module ready\n");

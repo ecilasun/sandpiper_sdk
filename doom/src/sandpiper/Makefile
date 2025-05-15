@@ -1,6 +1,6 @@
 
 CC = gcc
-CFLAGS = -std=gnu99 -O1 -flto -mcpu=cortex-a9 -mfpu=vfpv3 -mfloat-abi=hard -ffunction-sections -fdata-sections -Wl,-gc-sections -Wl,--strip-all -I.. -I../../../SDK/
+CFLAGS = -O1 -funsigned-char -flto -mcpu=cortex-a9 -mfpu=vfpv3 -mfloat-abi=hard -ffunction-sections -fdata-sections -Wl,-gc-sections -Wl,--strip-all -I.. -I../../../SDK/
 
 CFLAGS += \
 	-DNORMALUNIX \

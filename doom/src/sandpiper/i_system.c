@@ -23,6 +23,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/time.h>
 
 #include "doomdef.h"
 #include "doomstat.h"
@@ -35,19 +36,13 @@
 
 #include "i_system.h"
 
-#include "basesystem.h"
-#include "core.h"
-#include "serialinringbuffer.h"
-#include "task.h"
-#include "keyboard.h"
-#include "joystick.h"
+
+//#include "keyboard.h"
 
 void
 I_Init(void)
 {
 	I_InitSound();
-
-	struct STaskContext* taskctx = TaskGetContext(0);
 }
 
 
@@ -63,13 +58,22 @@ I_ZoneBase(int *size)
 int
 I_GetTime (void)
 {
-	return (ClockToMs(E32ReadTime())*TICRATE)/1000;
+    struct timeval      tp;
+    struct timezone     tzp;
+    int                 newtics;
+    static int          basetime=0;
+
+    gettimeofday(&tp, &tzp);
+    if (!basetime)
+        basetime = tp.tv_sec;
+    newtics = (tp.tv_sec-basetime)*TICRATE + tp.tv_usec*TICRATE/1000000;
+    return newtics;
 }
 
 static void
 I_GetRemoteEvent(void)
 {
-	static uint32_t oldcountKey = 0xAAAABBBB;
+	/*static uint32_t oldcountKey = 0xAAAABBBB;
 	static uint32_t oldcountJoystick = 0xAAAABBBB;
 
 	volatile struct SKeyboardState* keyState = KeyboardGetState();
@@ -127,7 +131,7 @@ I_GetRemoteEvent(void)
 		event.data2 = (int)joystickState->axis[0];
 		event.data3 = (int)joystickState->axis[1];
 		D_PostEvent(&event);
-	}
+	}*/
 }
 
 void

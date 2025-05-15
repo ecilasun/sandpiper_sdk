@@ -27,33 +27,68 @@
 #include "../v_video.h"
 #include "../i_video.h"
 
-#include "basesystem.h"
 #include "core.h"
-#include "vpu.h"
+#include "video.h"
+#include "platform.h"
 
-uint8_t *framebuffer;
-struct EVideoContext g_vctx;
+struct SPSizeAlloc frameBufferA;
+struct SPSizeAlloc frameBufferB;
+
+struct EVideoContext s_vctx;
+static struct EVideoSwapContext s_sctx;
+static struct SPPlatform platform;
+
+void shutdowncleanup()
+{
+	// Turn off video scan-out
+	VPUSetVideoMode(&s_vctx, EVM_320_Wide, ECM_8bit_Indexed, EVS_Disable);
+
+	// Yield physical memory and reset video routines
+	VPUShutdownVideo();
+
+	// Release allocations
+	SPFreeBuffer(&platform, &frameBufferB);
+	SPFreeBuffer(&platform, &frameBufferA);
+
+	// Shutdown platform
+	SPShutdownPlatform(&platform);
+}
+
+void sigint_handler(int s)
+{
+	shutdowncleanup();
+	exit(0);
+}
 
 void
 I_InitGraphics(void)
 {
 	usegamma = 1;
 
-	// Allocate 40 pixel more since out video output is 240 vs the default 200 pixels here
-	framebuffer = VPUAllocateBuffer(SCREENWIDTH*(SCREENHEIGHT+40));
-	memset(framebuffer, 0x0, SCREENWIDTH*(SCREENHEIGHT+40));
+	SPInitPlatform(&platform);
 
-	g_vctx.m_cmode = ECM_8bit_Indexed;
-	g_vctx.m_vmode = EVM_320_Wide;
-	VPUSetVMode(&g_vctx, EVS_Enable);
-	VPUSetWriteAddress(&g_vctx, (uint32_t)framebuffer);
-	VPUSetScanoutAddress(&g_vctx, (uint32_t)framebuffer);
+	uint32_t stride = VPUGetStride(EVM_320_Wide, ECM_8bit_Indexed);
+	frameBufferB.size = frameBufferA.size = stride*240;
+	SPAllocateBuffer(&platform, &frameBufferA);
+	SPAllocateBuffer(&platform, &frameBufferB);
+
+	atexit(shutdowncleanup);
+	signal(SIGINT, &sigint_handler);
+
+	VPUSetWriteAddress(&s_vctx, (uint32_t)frameBufferA.cpuAddress);
+	VPUSetScanoutAddress(&s_vctx, (uint32_t)frameBufferA.dmaAddress);
+
+	VPUSetVideoMode(&s_vctx, EVM_320_Wide, ECM_8bit_Indexed, EVS_Enable);
+
+	s_sctx.cycle = 0;
+	s_sctx.framebufferA = &frameBufferA;
+	s_sctx.framebufferB = &frameBufferB;
 }
 
 void
 I_ShutdownGraphics(void)
 {
-	VPUSetVMode(&g_vctx, EVS_Disable);
+	VPUSetVideoMode(&s_vctx, EVM_320_Wide, ECM_8bit_Indexed, EVS_Disable);
 }
 
 void
@@ -65,7 +100,7 @@ I_SetPalette(byte* palette)
 		r = gammatable[usegamma][*palette++]>>4;
 		g = gammatable[usegamma][*palette++]>>4;
 		b = gammatable[usegamma][*palette++]>>4;
-		VPUSetPal(i, r, g, b);
+		VPUSetPal(&s_vctx, i, r, g, b);
 	}
 }
 
@@ -80,9 +115,15 @@ void
 I_FinishUpdate (void)
 {
 	// Copy screen to framebuffer
-	memcpy(framebuffer, screens[0], SCREENWIDTH*SCREENHEIGHT);
+	uint32_t stride = VPUGetStride(EVM_320_Wide, ECM_8bit_Indexed);
+	uint8_t* fb = (uint8_t*)s_vctx.m_cpuWriteAddressCacheAligned;
+	for (int i=0;i<SCREENHEIGHT;i++)
+		memcpy(fb+i*stride, screens[0], 320);
+
 	// Write pending data to memory to ensure all writes are visible to scan-out
-	CFLUSH_D_L1();
+	//DATACACHE_FLUSH();
+
+	VPUSwapPages(&s_vctx, &s_sctx);
 }
 
 
@@ -90,7 +131,7 @@ void
 I_WaitVBL(int count)
 {
 	// Wait until we exit current frame's vbcounter and enter the next one
-	VPUWaitVSync();
+	VPUWaitVSync(&s_vctx);
 }
 
 void
@@ -99,3 +140,4 @@ I_ReadScreen(byte* scr)
 	// Copy what's on screen
 	memcpy (scr, screens[0], SCREENWIDTH*SCREENHEIGHT);
 }
+

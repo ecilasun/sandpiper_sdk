@@ -39,9 +39,6 @@ rcsid[] = "$Id: v_video.c,v 1.5 1997/02/03 22:45:13 b1 Exp $";
 
 #include "v_video.h"
 
-#include "core.h"
-#include "vpu.h"
-
 // Each screen is [SCREENWIDTH*SCREENHEIGHT];
 byte*                           screens[5];
 
@@ -491,7 +488,6 @@ void V_Init (void)
     // Pad each screen with 128bytes
     base = I_AllocLow ((SCREENWIDTH*SCREENHEIGHT+128)*4);
 
-    // Make sure each screen is 64 byte aligned
     for (i=0 ; i<4 ; i++)
-        screens[i] = (uint8_t*)E32AlignUp((uint32_t)(base + i*SCREENWIDTH*SCREENHEIGHT), 64);
+        screens[i] = (base + i*SCREENWIDTH*SCREENHEIGHT);
 }
