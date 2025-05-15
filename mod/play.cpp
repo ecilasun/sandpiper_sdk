@@ -15,9 +15,6 @@
 
 struct SPPlatform platform;
 
-#define BUFFER_WORD_COUNT 1024		// buffer size (max: 2048 bytes i.e. 1024 words)
-#define BUFFER_SIZE_IN_BYTES (BUFFER_WORD_COUNT*2*sizeof(short))
-
 static xmp_context ctx;
 static EVideoContext vx;
 static EAudioContext ax;
@@ -26,8 +23,11 @@ static SPSizeAlloc apubuffer;
 struct SPSizeAlloc bufferA;
 struct SPSizeAlloc bufferB;
 
-std::complex<float> outputL[BUFFER_WORD_COUNT*2];
-std::complex<float> outputR[BUFFER_WORD_COUNT*2];
+// Number of 16bit stereo samples
+#define BUFFER_SAMPLE_COUNT 1024
+
+std::complex<float> outputL[BUFFER_SAMPLE_COUNT*2];
+std::complex<float> outputR[BUFFER_SAMPLE_COUNT*2];
 int16_t barsL[256];
 int16_t barsR[256];
 
@@ -60,7 +60,7 @@ void sigint_handler(int s)
 
 void fft(std::complex<float>* data)
 {
-    const size_t N = BUFFER_WORD_COUNT;
+    const size_t N = BUFFER_SAMPLE_COUNT;
     const float PI = 3.14159265358979323846f;
 
     // Bit-reversal permutation
@@ -100,7 +100,7 @@ void draw_wave()
 	VPUClear(&vx, 0x00000000);
 
 	short* buf = (short*)apubuffer.cpuAddress;
-	for (size_t i = 0; i < BUFFER_WORD_COUNT; ++i)
+	for (size_t i = 0; i < BUFFER_SAMPLE_COUNT; ++i)
 	{
 		outputL[i] = std::complex<float>(buf[i*2+0]>>15, 0.0f);
 		outputR[i] = std::complex<float>(buf[i*2+1]>>15, 0.0f);
@@ -109,7 +109,7 @@ void draw_wave()
 	fft(outputL);
 	fft(outputR);		
 
-	for (uint32_t i=0; i<BUFFER_WORD_COUNT/2; i+=4)
+	for (uint32_t i=0; i<256; i+=4)
 	{
 		int16_t L0 = 200 - (int16_t)std::abs(outputL[i+0]);
 		int16_t L1 = 200 - (int16_t)std::abs(outputL[i+1]);
@@ -176,7 +176,7 @@ void PlayXMP(const char *fname)
 		return;
 	}
 
-	APUSetBufferSize(&ax, BUFFER_WORD_COUNT); // word count = sample count/2 (i.e. number of stereo sample pairs)
+	APUSetBufferSize(&ax, ABS_2048Bytes);
 	APUSetSampleRate(&ax, ASR_22_050_Hz);
 	uint32_t prevframe = APUFrame(&ax);
 
@@ -187,9 +187,9 @@ void PlayXMP(const char *fname)
 
 		int playing = 1;
 		short* buf = (short*)apubuffer.cpuAddress;
-		while (playing) // size == 2*BUFFER_WORD_COUNT, in bytes
+		while (playing)
 		{
-			playing = xmp_play_buffer(ctx, buf, BUFFER_SIZE_IN_BYTES, 0) == 0;
+			playing = xmp_play_buffer(ctx, buf, BUFFER_SAMPLE_COUNT*2, 0) == 0;
 
 			// Make sure the writes are visible by the DMA
 			DCACHE_FLUSH();
@@ -232,11 +232,11 @@ int main(int argc, char *argv[])
 //	VPUInitVideo(&vx, &platform);
 	APUInitAudio(&ax, &platform);
 
-	apubuffer.size = BUFFER_SIZE_IN_BYTES;
+	apubuffer.size = BUFFER_SAMPLE_COUNT*2;
 	SPAllocateBuffer(&platform, &apubuffer);
 	{
 		short* buf = (short*)apubuffer.cpuAddress;
-		memset(buf, 0, BUFFER_SIZE_IN_BYTES);
+		memset(buf, 0, BUFFER_SAMPLE_COUNT*2);
 	}
 	printf("\nAPU mix buffer: 0x%08X <-0x%08X \n", (unsigned int)apubuffer.cpuAddress, (unsigned int)apubuffer.dmaAddress);
 

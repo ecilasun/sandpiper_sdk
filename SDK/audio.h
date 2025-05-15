@@ -16,6 +16,14 @@ enum EAPUSampleRate
 	ASR_Halt = 3,		// Halt
 };
 
+enum EAPUBufferSize
+{
+	ABS_512Bytes  = 0,	// 128 16bit stereo samples
+	ABS_1024Bytes = 1,	// 256 16bit stereo samples
+	ABS_1536Bytes = 2,	// 384 16bit stereo samples
+	ABS_2048Bytes = 3,	// 512 16bit stereo samples
+};
+
 struct EAudioContext
 {
 	struct SPPlatform *m_platform;
@@ -26,7 +34,7 @@ struct EAudioContext
 int APUInitAudio(struct EAudioContext* _context, struct SPPlatform* _platform);
 void APUShutdownAudio(struct EAudioContext* _context);
 
-void APUSetBufferSize(struct EAudioContext* _context, uint32_t audioBufferSize);
+void APUSetBufferSize(struct EAudioContext* _context, enum EAPUBufferSize _bufferSize);
 void APUStartDMA(struct EAudioContext* _context, uint32_t audioBufferAddress16byteAligned);
 void APUSetSampleRate(struct EAudioContext* _context, enum EAPUSampleRate sampleRate);
 uint32_t APUFrame(struct EAudioContext* _context);

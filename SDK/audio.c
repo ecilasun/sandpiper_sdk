@@ -1,12 +1,12 @@
 #include "core.h"
 #include "audio.h"
 
-void APUSetBufferSize(struct EAudioContext* _context, uint32_t audioBufferSize)
+void APUSetBufferSize(struct EAudioContext* _context, enum EAPUBufferSize _bufferSize)
 {
 	metal_io_write32(_context->m_platform->audioio, 0, APUCMD_BUFFERSIZE);
-	metal_io_write32(_context->m_platform->audioio, 0, audioBufferSize-1);
+	metal_io_write32(_context->m_platform->audioio, 0, (uint32_t)_bufferSize);
 
-	_context->m_bufferSize = audioBufferSize;
+	_context->m_bufferSize = 128 << (uint32_t)_bufferSize;
 }
 
 void APUStartDMA(struct EAudioContext* _context, uint32_t audioBufferAddress16byteAligned)
