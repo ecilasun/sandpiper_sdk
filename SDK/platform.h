@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdint.h>
+#include <linux/limits.h>
 #include <metal/device.h>
 #include <metal/io.h>
 #include <sys/mman.h>

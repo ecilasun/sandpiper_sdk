@@ -101,7 +101,7 @@ void SPAllocateBuffer(struct SPPlatform* _platform, struct SPSizeAlloc *_sizeall
 	{
 		_sizealloc->cpuAddress = _platform->mapped_memory + _platform->alloc_cursor;
 		_sizealloc->dmaAddress = (uint32_t*)RESERVED_MEMORY_ADDRESS + _platform->alloc_cursor;
-		_platform->alloc_cursor += _sizealloc->size;
+		_platform->alloc_cursor += E32AlignUp(_sizealloc->size, 128);
 	}
 	else
 	{

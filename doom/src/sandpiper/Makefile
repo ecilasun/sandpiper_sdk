@@ -1,12 +1,13 @@
 
 CC = gcc
-CFLAGS = -O0 -g -mcpu=cortex-a9 -mfpu=vfpv3 -mfloat-abi=hard -I.. -I../../../SDK/
+CFLAGS = -std=gnu99 -Ofast -flto -mcpu=cortex-a9 -mfpu=vfpv3 -mfloat-abi=hard -I.. -I../../../SDK/
 
 CFLAGS += \
 	-DNORMALUNIX \
+	-DLINUX \
 	$(NULL)
 
-CLIBS = -lgcc -lc -lm -lmetal
+CLIBS = -lgcc -lc -lm -lmetal -lrt
 
 include ../sources.mk
 

@@ -18,6 +18,7 @@
  * GNU General Public License for more details.
  */
 
+#define HAVE_STRUCT_TIMESPEC
 
 #include <stdarg.h>
 #include <stdio.h>
@@ -58,7 +59,7 @@ I_ZoneBase(int *size)
 int
 I_GetTime (void)
 {
-    struct timeval      tp;
+    /*struct timeval      tp;
     struct timezone     tzp;
     int                 newtics;
     static int          basetime=0;
@@ -67,7 +68,14 @@ I_GetTime (void)
     if (!basetime)
         basetime = tp.tv_sec;
     newtics = (tp.tv_sec-basetime)*TICRATE + tp.tv_usec*TICRATE/1000000;
-    return newtics;
+    return newtics;*/
+
+	struct timespec ts;
+	clock_gettime(1/*CLOCK_MONOTONIC*/, &ts);
+	static int basetime=0;
+	if (!basetime)
+		basetime = ts.tv_sec;
+	return (ts.tv_sec-basetime)*TICRATE;
 }
 
 static void
@@ -121,7 +129,7 @@ I_GetRemoteEvent(void)
 		}
 		event.type = keyState->state&1 ? ev_keydown : ev_keyup;
 		D_PostEvent(&event);
-	}
+	} 
 
 	if (oldcountJoystick != joystickState->count)
 	{
