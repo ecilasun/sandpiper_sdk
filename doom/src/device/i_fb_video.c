@@ -5,9 +5,9 @@
 #include "i_video.h"
 #include "v_video.h"
 
-#include "../SDK/core.h"
-#include "../SDK/platform.h"
-#include "../SDK/video.h"
+#include "core.h"
+#include "platform.h"
+#include "video.h"
 
 #define VIDEO_MODE      EVM_320_Wide
 #define VIDEO_COLOR     ECM_8bit_Indexed
@@ -64,6 +64,8 @@ void I_InitGraphics (void)
 	s_sctx.cycle = 0;
 	s_sctx.framebufferA = &frameBufferA;
 	s_sctx.framebufferB = &frameBufferB;
+
+	VPUSwapPages(&s_vctx, &s_sctx);
 }
 
 
@@ -99,12 +101,14 @@ void I_FinishUpdate (void)
 {
 	uint32_t stride = VPUGetStride(VIDEO_MODE, VIDEO_COLOR);
 
-	uint8_t* outmem = s_sctx.writepage;
+	uint8_t *vramBase = (uint8_t*)s_vctx.m_cpuWriteAddressCacheAligned;
 	for (uint32_t y=0; y<VIDEO_HEIGHT; y++)
 	{
-		memcpy(outmem, screens[0]+y*SCREENWIDTH, SCREENWIDTH);
-		outmem += stride;
+		memcpy(vramBase, screens[0]+y*SCREENWIDTH, SCREENWIDTH);
+		vramBase += stride;
 	}
+
+	VPUSwapPages(&s_vctx, &s_sctx);
 }
 
 void I_ReadScreen (byte* scr)

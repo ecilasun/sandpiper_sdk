@@ -1,41 +1,19 @@
-#CXX=g++
-#CC=aarch64-linux-gnu-gcc
+TARGET = doom.elf
 
-CC=gcc
+src_dir = ./src
+sdk_dir = ../SDK
 
-SOURCES = $(patsubst src/%, %, $(wildcard src/*.c))
-SOURCES += $(patsubst ../SDK/%, %, $(wildcard ../SDK/*.c))
-SOURCES += device/main.c device/i_fb_video.c device/i_no_sound.c device/i_no_music.c
-OBJECTS = $(patsubst %.c, %.o, $(SOURCES))
-TARGET_OBJS = $(patsubst %, build/%, $(OBJECTS))
-CCFLAGS = -DNORMALUNIX -std=gnu99
+CC = gcc
+GCC_OPTS += -std=gnu99 -O0 -g -mcpu=cortex-a9 -mfpu=vfpv3 -mfloat-abi=hard
+GCC_OPTS += -lgcc -lc -lm -lmetal
+GCC_OPTS += -DNORMALUNIX
 
-.PHONY:
-all: doom.elf
+incs  += -I$(src_dir) -I$(sdk_dir) $(addprefix -I$(src_dir)/, $(folders))
+libs += $(wildcard $(sdk_dir)/*.S) $(wildcard $(sdk_dir)/*.c)
 
-.PHONY: sources
-sources:
-	@echo $(SOURCES)
+$(TARGET):
+	$(CC) $(GCC_OPTS) $(incs) -o $(TARGET) $(wildcard $(src_dir)/*.c) $(wildcard $(src_dir)/device/*.c) $(libs)
 
-.PHONY: objects
-objects:
-	@echo $(TARGET_OBJS)
-
-build:
-	mkdir -p build/device
-
-build/%.o: src/%.c
-	@mkdir -p build/device
-	@echo "Compiling $<..."
-	@$(CC) -c $< -I src $(CCFLAGS) -g -o $@
-
-build/device/%.o: src/device/%.c
-	@echo "Compiling $<..."
-	@$(CC) -c $< -I src $(CCFLAGS) -g -o $@
-
-.PHONY:
-link: $(TARGET_OBJS)
-	@echo "Linking..."
-	@$(CC) -ggdb -o doom $(TARGET_OBJS)
-
-doom.elf: link
+.PHONY: clean
+clean:
+	rm $(TARGET)
