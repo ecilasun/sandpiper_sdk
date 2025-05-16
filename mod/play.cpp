@@ -25,6 +25,7 @@ struct SPSizeAlloc bufferB;
 
 // Number of 16bit stereo samples
 #define BUFFER_SAMPLE_COUNT 1024
+#define BUFFER_BYTE_COUNT (BUFFER_SAMPLE_COUNT*sizeof(uint16_t)*2)
 
 std::complex<float> outputL[BUFFER_SAMPLE_COUNT*2];
 std::complex<float> outputR[BUFFER_SAMPLE_COUNT*2];
@@ -37,16 +38,16 @@ void shutdowncleanup()
 	APUSetSampleRate(&ax, ASR_Halt);
 
 	// Turn off video scan-out
-//	VPUSetVideoMode(&vx, EVM_320_Wide, ECM_8bit_Indexed, EVS_Disable);
+	VPUSetVideoMode(&vx, EVM_320_Wide, ECM_8bit_Indexed, EVS_Disable);
 
 	// Yield physical memory and reset video routines
-//	VPUShutdownVideo();
+	VPUShutdownVideo();
 	APUShutdownAudio(&ax);
 
 	// Release allocations
 	SPFreeBuffer(&platform, &apubuffer);
-//	SPFreeBuffer(&platform, &bufferB);
-//	SPFreeBuffer(&platform, &bufferA);
+	SPFreeBuffer(&platform, &bufferB);
+	SPFreeBuffer(&platform, &bufferA);
 
 	// Shutdown platform
 	SPShutdownPlatform(&platform);
@@ -156,7 +157,7 @@ void draw_wave()
 		}
 	}
 
-	DCACHE_FLUSH();
+	//DCACHE_FLUSH();
 
 	//VPUWaitVSync();
 	VPUSwapPages(&vx, &sc);
@@ -189,7 +190,7 @@ void PlayXMP(const char *fname)
 		short* buf = (short*)apubuffer.cpuAddress;
 		while (playing)
 		{
-			playing = xmp_play_buffer(ctx, buf, BUFFER_SAMPLE_COUNT*sizeof(short)*2, 0) == 0;
+			playing = xmp_play_buffer(ctx, buf, BUFFER_BYTE_COUNT, 0) == 0;
 
 			// Make sure the writes are visible by the DMA
 			DCACHE_FLUSH();
@@ -207,7 +208,7 @@ void PlayXMP(const char *fname)
 
 			// Once we reach this point, the APU has switched to the other buffer we just filled, and playback resumes uninterrupted
 
-//			draw_wave();
+			draw_wave();
 
 			// Remember this frame
 			prevframe = currframe;
@@ -229,32 +230,34 @@ int main(int argc, char *argv[])
 
 	SPInitPlatform(&platform);
 
-//	VPUInitVideo(&vx, &platform);
+	VPUInitVideo(&vx, &platform);
 	APUInitAudio(&ax, &platform);
 
 	// 4Kbytes of space for the APU
 	// Total APU memory is 8Kbytes and it alternates between two halves each time we call APUStartDMA
-	apubuffer.size = BUFFER_SAMPLE_COUNT*sizeof(short)*2;
+	apubuffer.size = BUFFER_BYTE_COUNT;
 	SPAllocateBuffer(&platform, &apubuffer);
 	{
 		short* buf = (short*)apubuffer.cpuAddress;
-		memset(buf, 0, BUFFER_SAMPLE_COUNT*sizeof(short)*2);
+		memset(buf, 0, BUFFER_BYTE_COUNT);
 	}
 	printf("\nAPU mix buffer: 0x%08X <-0x%08X - %dbytes \n", (unsigned int)apubuffer.cpuAddress, (unsigned int)apubuffer.dmaAddress, apubuffer.size);
+
+	uint32_t stride = VPUGetStride(EVM_320_Wide, ECM_8bit_Indexed);
+	bufferB.size = bufferA.size = stride*240;
+	SPAllocateBuffer(&platform, &bufferB);
+	printf("\nVPU buffer: 0x%08X <-0x%08X - %dbytes \n", (unsigned int)bufferA.cpuAddress, (unsigned int)bufferA.dmaAddress, bufferB.size);
+	SPAllocateBuffer(&platform, &bufferA);
+	printf("\nVPU buffer: 0x%08X <-0x%08X - %dbytes \n", (unsigned int)bufferB.cpuAddress, (unsigned int)bufferB.dmaAddress, bufferB.size);
 
 	atexit(shutdowncleanup);
 	signal(SIGINT, &sigint_handler);
 
-//	uint32_t stride = VPUGetStride(EVM_320_Wide, ECM_8bit_Indexed);
-//	bufferB.size = bufferA.size = stride*240;
-//	SPAllocateBuffer(&platform, &bufferB);
-//	SPAllocateBuffer(&platform, &bufferA);
+	VPUSetVideoMode(&vx, EVM_320_Wide, ECM_8bit_Indexed, EVS_Enable);
 
-//	VPUSetVideoMode(&vx, EVM_320_Wide, ECM_8bit_Indexed, EVS_Enable);
-
-//	sc.cycle = 0;
-//	sc.framebufferA = &bufferA;
-//	sc.framebufferB = &bufferB;
+	sc.cycle = 0;
+	sc.framebufferA = &bufferA;
+	sc.framebufferB = &bufferB;
 	//VPUSwapPages(&vx, &sc);
 	//VPUClear(&vx, 0x00000000);
 	//VPUSwapPages(&vx, &sc);
