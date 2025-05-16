@@ -189,7 +189,7 @@ void PlayXMP(const char *fname)
 		short* buf = (short*)apubuffer.cpuAddress;
 		while (playing)
 		{
-			playing = xmp_play_buffer(ctx, buf, BUFFER_SAMPLE_COUNT*2, 0) == 0;
+			playing = xmp_play_buffer(ctx, buf, BUFFER_SAMPLE_COUNT*sizeof(short)*2, 0) == 0;
 
 			// Make sure the writes are visible by the DMA
 			DCACHE_FLUSH();
@@ -232,13 +232,15 @@ int main(int argc, char *argv[])
 //	VPUInitVideo(&vx, &platform);
 	APUInitAudio(&ax, &platform);
 
-	apubuffer.size = BUFFER_SAMPLE_COUNT*2;
+	// 4Kbytes of space for the APU
+	// Total APU memory is 8Kbytes and it alternates between two halves each time we call APUStartDMA
+	apubuffer.size = BUFFER_SAMPLE_COUNT*sizeof(short)*2;
 	SPAllocateBuffer(&platform, &apubuffer);
 	{
 		short* buf = (short*)apubuffer.cpuAddress;
-		memset(buf, 0, BUFFER_SAMPLE_COUNT*2);
+		memset(buf, 0, BUFFER_SAMPLE_COUNT*sizeof(short)*2);
 	}
-	printf("\nAPU mix buffer: 0x%08X <-0x%08X \n", (unsigned int)apubuffer.cpuAddress, (unsigned int)apubuffer.dmaAddress);
+	printf("\nAPU mix buffer: 0x%08X <-0x%08X - %dbytes \n", (unsigned int)apubuffer.cpuAddress, (unsigned int)apubuffer.dmaAddress, apubuffer.size);
 
 	atexit(shutdowncleanup);
 	signal(SIGINT, &sigint_handler);
