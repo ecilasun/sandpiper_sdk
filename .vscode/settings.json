@@ -4,6 +4,7 @@
 		"stdio.h": "c",
 		"platform.h": "c",
 		"signal.h": "c",
-		"stdint.h": "c"
+		"stdint.h": "c",
+		"doomdef.h": "c"
 	}
 }
