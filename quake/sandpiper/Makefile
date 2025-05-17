@@ -3,9 +3,6 @@ ARM_GCC = gcc
 ARM_GCC_OPTS = -std=c99 -O0 -g -mcpu=cortex-a9 -mfpu=vfpv3 -mfloat-abi=hard
 ARM_GCC_LIBS = -lgcc -lc -lm -lmetal
 
-src_dir = .
-corelib_dir = ../../SDK
-
 SOURCES_quake_arch := \
 	../../SDK/platform.c \
 	../../SDK/video.c \
@@ -82,11 +79,10 @@ SOURCES_quake_arch := \
 
 all: quake
 
-incs = -I. -I../include/ -I$(corelib_dir)/ -I../winquake/
-libs = $(wildcard $(corelib_dir)/*.S) $(wildcard $(corelib_dir)/*.c)
+incs = -I../../SDK -I../include -I../winquake -I.
 
 quake: $(addprefix ../,$(SOURCES_quake)) $(SOURCES_quake_arch)
-	$(ARM_GCC) $(ARM_GCC_OPTS) -o ../$@ $(addprefix ../,$(SOURCES_quake)) $(incs) $(libs) $(SOURCES_quake_arch) $(ARM_GCC_LIBS)
+	$(ARM_GCC) $(ARM_GCC_OPTS) -o ../$@ $(addprefix ../,$(SOURCES_quake)) $(incs) $(SOURCES_quake_arch) $(ARM_GCC_LIBS)
 
 clean:
 	rm -rf *.elf *.o *.gen.h
