@@ -100,8 +100,7 @@ static mouse_movement_t mouse_movement;
 
 uint64_t qembd_get_us_time()
 {
-	//uint64_t cur_time = (uint64_t) clock();
-	uint64_t cur_time = E32ReadTime();
+	uint64_t cur_time = (uint64_t) clock();
 	cur_time = ClockToUs(cur_time);
 	static int secbase;
 
@@ -144,8 +143,6 @@ int main(int c, char **v)
 	register int a7 asm("a7") = 0xc0de;
 	asm volatile("scall" : "+r"(a0) : "r"(a1), "r"(a2), "r"(a7));
 	qembd_set_relative_mode(true);*/
-
-	struct STaskContext* taskctx = TaskGetContext(0);
 
 	return qembd_main(c, v);
 }
