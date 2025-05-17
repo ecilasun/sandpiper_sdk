@@ -102,7 +102,7 @@ void I_FinishUpdate (void)
 	uint8_t* outmem = s_sctx.writepage;
 	for (uint32_t y=0; y<VIDEO_HEIGHT; y++)
 	{
-		memcpy(outmem, screens[0]+y*SCREENWIDTH, VIDEO_WIDTH);
+		memcpy(outmem, screens[0]+y*SCREENWIDTH, SCREENWIDTH);
 		outmem += stride;
 	}
 }
