@@ -4,6 +4,7 @@
 CC=gcc
 
 SOURCES = $(patsubst src/%, %, $(wildcard src/*.c))
+SOURCES += $(patsubst ../SDK/%, %, $(wildcard ../SDK/*.c))
 SOURCES += device/main.c device/i_fb_video.c device/i_no_sound.c device/i_no_music.c
 OBJECTS = $(patsubst %.c, %.o, $(SOURCES))
 TARGET_OBJS = $(patsubst %, build/%, $(OBJECTS))
