@@ -1,6 +1,9 @@
-/* Modified by Engin Cilasun to fit the E32 graphics architecture  */
-/* from Bruno Levy's original port of 2020                         */
+/* A port of Dmitry Sokolov's tiny raytracer to C and to FemtoRV32 */
+/* Displays on the small OLED display and/or HDMI                  */
+/* Bruno Levy, 2020                                                */
 /* Original tinyraytracer: https://github.com/ssloy/tinyraytracer  */
+/* Modified to fit custom architecture by Engin Cilasun            */
+/*******************************************************************/
 
 #include <math.h>
 #include "core.h"
@@ -8,16 +11,33 @@
 #include "vpu.h"
 #include <stdio.h>
 
-uint8_t *framebuffer = 0;
-EVideoContext vx;
+static struct EVideoContext s_vctx;
+static struct EVideoSwapContext s_sctx;
+struct SPSizeAlloc frameBufferA;
+struct SPSizeAlloc frameBufferB;
+static struct SPPlatform s_platform;
 
-/* A port of Dmitry Sokolov's tiny raytracer to C and to FemtoRV32 */
-/* Displays on the small OLED display and/or HDMI                  */
-/* Bruno Levy, 2020                                                */
-/* Original tinyraytracer: https://github.com/ssloy/tinyraytracer  */
-/* Modified to fit custom architecture by Engin Cilasun            */
+void shutdowncleanup()
+{
+	// Turn off video scan-out
+	VPUSetVideoMode(&s_vctx, VIDEO_MODE, VIDEO_COLOR, EVS_Disable);
 
-/*******************************************************************/
+	// Yield physical memory and reset video routines
+	VPUShutdownVideo();
+
+	// Release allocations
+	SPFreeBuffer(&s_platform, &frameBufferB);
+	SPFreeBuffer(&s_platform, &frameBufferA);
+
+	// Shutdown platform
+	SPShutdownPlatform(&s_platform);
+}
+
+void sigint_handler(int s)
+{
+	shutdowncleanup();
+	exit(0);
+}
 
 typedef int BOOL;
 
@@ -87,7 +107,7 @@ inline uint32_t ftoui4sat(float value)
 }
 
 // Replace with your own code.
-inline void graphics_set_pixel(int x, int y, float r, float g, float b) {
+inline void graphics_set_pixel(uint32_t addrs, uint32_t stride, int x, int y, float r, float g, float b) {
    // graphics output deactivated for bench run
    if(bench_run)
       return;
@@ -96,7 +116,7 @@ inline void graphics_set_pixel(int x, int y, float r, float g, float b) {
   uint32_t green = ftoui4sat(g);
   uint32_t blue = ftoui4sat(b);
 
-  uint16_t *pixel = (uint16_t*)(framebuffer + (x+y*vx.m_graphicsWidth)*2);
+  uint16_t *pixel = (uint16_t*)(addrs + (x+y*stride)*2);
   *pixel = (red<<8) | (green<<4) | blue;
 }
 
@@ -408,6 +428,7 @@ vec3 cast_ray(
 }
 
 static inline void render_pixel(
+	uint32_t addrs, uint32_t stride,
     int i, int j, Sphere* spheres, int nb_spheres, Light* lights, int nb_lights
 ) {
    const float fov  = 3.14159265358979323846/3.;
@@ -419,12 +440,13 @@ static inline void render_pixel(
        make_vec3(0,0,0), vec3_normalize(make_vec3(dir_x, dir_y, dir_z)),
        spheres, nb_spheres, lights, nb_lights, 0
    );
-   graphics_set_pixel(i,j,C.x,C.y,C.z);
+   graphics_set_pixel(addrs,stride,j,C.x,C.y,C.z);
    stats_end_pixel();
 }
 
 void render(Sphere* spheres, int nb_spheres, Light* lights, int nb_lights) {
-   stats_begin_frame();
+	stats_begin_frame();
+	uint32_t stride = VPUGetStride(EVM_320_Wide, ECM_16bit_RGB);
 #ifdef graphics_double_lines  
    for (int j = 0; j<graphics_height; j+=2) { 
       for (int i = 0; i<graphics_width; i++) {
@@ -435,10 +457,8 @@ void render(Sphere* spheres, int nb_spheres, Light* lights, int nb_lights) {
 #else
   for (int j = 0; j<graphics_height; j++) { 
     for (int i = 0; i<graphics_width; i++) {
-      render_pixel(i,j  ,spheres,nb_spheres,lights,nb_lights);
+      render_pixel((uint32_t)sc.writepage, stride, i,j ,spheres,nb_spheres,lights,nb_lights);
     }
-    // Flush scanline
-    CFLUSH_D_L1();
   }
 #endif
    stats_end_frame();
@@ -476,14 +496,25 @@ void init_scene() {
 
 int main()
 {
-	// Enable video output
-	vx.m_vmode = EVM_320_Wide;
-	vx.m_cmode = ECM_16bit_RGB;
-	VPUSetVMode(&vx, EVS_Enable);
+	// Initialize platform and video system
+	SPInitPlatform(&platform);
+	VPUInitVideo(&vx, &platform);
 
-	framebuffer = (uint8_t*)VPUAllocateBuffer(graphics_width * graphics_height * 2);
-	VPUSetWriteAddress(&vx, (uint32_t)framebuffer);
-	VPUSetScanoutAddress(&vx, (uint32_t)framebuffer);
+	// Grab video buffer
+	uint32_t stride = VPUGetStride(EVM_320_Wide, ECM_16bit_RGB);
+	framebuffer.size = stride*240;
+	SPAllocateBuffer(&platform, &framebuffer);
+
+	// Register exit handlers
+	atexit(shutdowncleanup);
+	signal(SIGINT, &sigint_handler);
+
+	// Set up the video mode and frame pointers
+	VPUSetVideoMode(&vx, EVM_320_Wide, ECM_16bit_RGB, EVS_Enable);
+	sc.cycle = 0;
+	sc.framebufferA = &framebuffer; // Not double-buffering
+	sc.framebufferB = &framebuffer;
+	VPUSwapPages(&vx, &sc);
 	VPUClear(&vx, 0x03030303);
 
 	init_scene();
@@ -498,11 +529,6 @@ int main()
 	graphics_width = 320;
 	graphics_height = 240;
 	render(spheres, nb_spheres, lights, nb_lights);
-
-	// Finalize all writes.
-	// VPU does not see CPU cache contents, so it needs
-	// all data to be present in memory to show an intact image.
-	CFLUSH_D_L1();
 
 	while(1){}
 
