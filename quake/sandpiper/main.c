@@ -101,7 +101,6 @@ static mouse_movement_t mouse_movement;
 uint64_t qembd_get_us_time()
 {
 	uint64_t cur_time = (uint64_t) clock();
-	cur_time = ClockToUs(cur_time);
 	static int secbase;
 
 	if (!secbase) {
