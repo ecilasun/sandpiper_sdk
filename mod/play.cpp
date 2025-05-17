@@ -159,8 +159,6 @@ void draw_wave()
 		}
 	}
 
-	//DCACHE_FLUSH();
-
 	VPUWaitVSync(&vx);
 	VPUSwapPages(&vx, &sc);
 }
@@ -193,9 +191,6 @@ void PlayXMP(const char *fname)
 		while (playing)
 		{
 			playing = xmp_play_buffer(ctx, buf, BUFFER_BYTE_COUNT, 0) == 0;
-
-			// Make sure the writes are visible by the DMA
-			//DCACHE_FLUSH();
 
 			// Fill current write buffer with new mix data
 			APUStartDMA(&ax, (uint32_t)apubuffer.dmaAddress);

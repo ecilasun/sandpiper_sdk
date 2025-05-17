@@ -251,8 +251,6 @@ void VPUClear(struct EVideoContext *_context, const uint32_t _colorWord)
 	uint32_t W = _context->m_graphicsHeight * _context->m_strideInWords;
 	for (uint32_t i=0; i<W; ++i)
 		vramBase[i] = _colorWord;
-
-	DCACHE_FLUSH(vramBase, vramBase+W*4);
 }
 
 uint32_t VPUReadVBlankCounter(struct EVideoContext *_context)
@@ -330,8 +328,6 @@ void VPUPrintString(struct EVideoContext *_context, const uint8_t _foregroundInd
 		// Next char position (2 words)
 		cx+=2;
 	}
-
-	DCACHE_FLUSH(vramBase, vramBase+_context->m_graphicsHeight*stride*4);
 }
 
 void VPUConsoleResolve(struct EVideoContext *_context)
@@ -426,8 +422,6 @@ void VPUConsoleResolve(struct EVideoContext *_context)
     }
 
 	_context->m_consoleUpdated = 0;
-
-	DCACHE_FLUSH(vramBase, vramBase+_context->m_graphicsHeight*stride*4);
 }
 
 void VPUConsoleScrollUp(struct EVideoContext *_context)

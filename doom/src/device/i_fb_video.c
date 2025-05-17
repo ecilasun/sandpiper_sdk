@@ -118,7 +118,7 @@ void I_FinishUpdate (void)
 		vramBase += stride;
 		scr += SCREENWIDTH;
 	}
-	DCACHE_FLUSH(vramBase,vramBase+stride*SCREENHEIGHT);
+
 	VPUSwapPages(&s_vctx, &s_sctx);
 }
 

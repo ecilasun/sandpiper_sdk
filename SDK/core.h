@@ -69,10 +69,3 @@ struct SElfSectionHeader32
 #pragma pack(pop)
 
 #define E32AlignUp(_x_, _align_) ((_x_ + (_align_ - 1)) & (~(_align_ - 1)))
-
-#if defined(VITIS_BUILD)
-#define DCACHE_FLUSH() do{ Xil_DCacheFlush(); } while(0)
-#else
-//#define DCACHE_FLUSH(_adrs, _end) do{ __clear_cache(_adrs, _end); } while(0)
-#define DCACHE_FLUSH(_adrs, _end) do { /*noop*/ } while(0)
-#endif
