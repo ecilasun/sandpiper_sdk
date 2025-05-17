@@ -18,9 +18,9 @@ enum EAPUSampleRate
 
 enum EAPUBufferSize
 {
-	ABS_512Bytes  = 0,	// 128 16bit stereo samples
-	ABS_1024Bytes = 1,	// 256 16bit stereo samples
-	ABS_1536Bytes = 2,	// 384 16bit stereo samples
+	ABS_256Bytes  = 0,	//  64 16bit stereo samples
+	ABS_512Bytes  = 1,	// 128 16bit stereo samples
+	ABS_1024Bytes = 2,	// 256 16bit stereo samples
 	ABS_2048Bytes = 3,	// 512 16bit stereo samples
 };
 
