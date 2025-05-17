@@ -1,6 +1,6 @@
 # Setup
 
-TARGET := play.elf
+TARGET := play
 
 default: $(TARGET)
 

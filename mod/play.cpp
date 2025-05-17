@@ -98,6 +98,8 @@ void fft(std::complex<float>* data)
 
 void draw_wave()
 {
+	uint32_t stride = VPUGetStride(EVM_320_Wide, ECM_8bit_Indexed);
+
 	VPUClear(&vx, 0x00000000);
 
 	short* buf = (short*)apubuffer.cpuAddress;
@@ -141,7 +143,7 @@ void draw_wave()
 			{
 				int16_t L = std::min<int16_t>(239, std::max<int16_t>(0, barsL[i]));
 				for (int16_t k=L; k<200; ++k)
-					sc.writepage[16 + logi+j + k*320] = 0x37;
+					sc.writepage[16 + logi+j + k*stride] = 0x37;
 			}
 		}
 
@@ -152,14 +154,14 @@ void draw_wave()
 			{
 				int16_t R = std::min<int16_t>(239, std::max<int16_t>(0, barsR[i]));
 				for (int16_t k=R; k<200; ++k)
-					sc.writepage[304 - logi-j + k*320] = 0x27;
+					sc.writepage[304 - logi-j + k*stride] = 0x27;
 			}
 		}
 	}
 
 	//DCACHE_FLUSH();
 
-	//VPUWaitVSync();
+	VPUWaitVSync(&vx);
 	VPUSwapPages(&vx, &sc);
 }
 
@@ -193,7 +195,7 @@ void PlayXMP(const char *fname)
 			playing = xmp_play_buffer(ctx, buf, BUFFER_BYTE_COUNT, 0) == 0;
 
 			// Make sure the writes are visible by the DMA
-			DCACHE_FLUSH();
+			//DCACHE_FLUSH();
 
 			// Fill current write buffer with new mix data
 			APUStartDMA(&ax, (uint32_t)apubuffer.dmaAddress);
@@ -245,9 +247,9 @@ int main(int argc, char *argv[])
 
 	uint32_t stride = VPUGetStride(EVM_320_Wide, ECM_8bit_Indexed);
 	bufferB.size = bufferA.size = stride*240;
-	SPAllocateBuffer(&platform, &bufferB);
-	printf("\nVPU buffer: 0x%08X <-0x%08X - %dbytes \n", (unsigned int)bufferA.cpuAddress, (unsigned int)bufferA.dmaAddress, bufferB.size);
 	SPAllocateBuffer(&platform, &bufferA);
+	printf("\nVPU buffer: 0x%08X <-0x%08X - %dbytes \n", (unsigned int)bufferA.cpuAddress, (unsigned int)bufferA.dmaAddress, bufferB.size);
+	SPAllocateBuffer(&platform, &bufferB);
 	printf("\nVPU buffer: 0x%08X <-0x%08X - %dbytes \n", (unsigned int)bufferB.cpuAddress, (unsigned int)bufferB.dmaAddress, bufferB.size);
 
 	atexit(shutdowncleanup);
@@ -258,7 +260,7 @@ int main(int argc, char *argv[])
 	sc.cycle = 0;
 	sc.framebufferA = &bufferA;
 	sc.framebufferB = &bufferB;
-	//VPUSwapPages(&vx, &sc);
+	VPUSwapPages(&vx, &sc);
 	//VPUClear(&vx, 0x00000000);
 	//VPUSwapPages(&vx, &sc);
 	//VPUClear(&vx, 0x00000000);

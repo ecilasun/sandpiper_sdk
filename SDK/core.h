@@ -73,5 +73,6 @@ struct SElfSectionHeader32
 #if defined(VITIS_BUILD)
 #define DCACHE_FLUSH() do{ Xil_DCacheFlush(); } while(0)
 #else
-#define DCACHE_FLUSH() do{ __sync_synchronize(); } while(0)
+//#define DCACHE_FLUSH(_adrs, _end) do{ __clear_cache(_adrs, _end); } while(0)
+#define DCACHE_FLUSH(_adrs, _end) do { /*noop*/ } while(0)
 #endif

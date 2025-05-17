@@ -19,7 +19,7 @@ int SPInitPlatform(struct SPPlatform* _platform)
 	_platform->memfd = -1;
 	_platform->ready = 0;
 
-	_platform->memfd = open("/dev/mem", O_RDWR);
+	_platform->memfd = open("/dev/mem", O_RDWR | O_SYNC);
 	if (_platform->memfd < 1)
 	{
 		perror("can't open /dev/mem");

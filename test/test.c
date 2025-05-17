@@ -73,7 +73,7 @@ int main(int argc, char** argv)
 		memA[i] = (i/640) ^ (i%64);
 		memB[i] = (i/640) ^ (i%64);
 	}
-	DCACHE_FLUSH();
+	//DCACHE_FLUSH();
 
 	printf("buffers set to random values\n");
 
