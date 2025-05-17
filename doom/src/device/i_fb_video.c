@@ -89,10 +89,6 @@ void I_UpdateNoBlit (void)
 {
 
 }
-int location(int x, int y)
-{
-    return (x+vinfo.xoffset) * (vinfo.bits_per_pixel/8) + (y+vinfo.yoffset) * finfo.line_length;
-}
 
 uint16_t colorTo16bit(struct Color col)
 {
