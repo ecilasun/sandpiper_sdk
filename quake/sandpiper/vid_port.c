@@ -22,7 +22,7 @@
 
 static byte *vid_buffer;
 static byte *surfcache;
-extern EVideoContext vx; 
+extern struct EVideoContext vx; 
 
 /* Global allocation for the renderer */
 unsigned short d_8to16table[256];

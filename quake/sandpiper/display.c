@@ -12,8 +12,8 @@
 //((DISPLAY_WIDTH * 9 + 8) / 16)
 
 struct SPPlatform platform;
-static EVideoContext vx;
-static EVideoSwapContext sc;
+struct EVideoContext vx;
+struct EVideoSwapContext sc;
 struct SPSizeAlloc framebuffer;
 
 void shutdowncleanup()
