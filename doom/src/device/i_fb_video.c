@@ -90,10 +90,9 @@ void I_UpdateNoBlit (void)
 
 }
 
-uint16_t colorTo16bit(struct Color col)
+void I_WaitVBL(int count)
 {
-    return  (col.r >> 3) << 11 | (col.g >> 2) << 5 | (col.b >> 3);
-    //return (col.b & 0x1F) << 10 | (col.g & 0x1F) << 5 | (col.r & 0x1F);
+	VPUWaitVSync(&s_vctx);
 }
 
 void I_FinishUpdate (void)
