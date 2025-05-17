@@ -1,86 +1,80 @@
-#include "i_video.h"
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
-#include <sys/ioctl.h>
-#include <fcntl.h>
-#include <linux/fb.h>
-#include <sys/mman.h>
-#include <stdint.h>
+#include <signal.h>
+#include "i_video.h"
 #include "v_video.h"
 
-static FILE* fbfd = 0;
-static struct fb_var_screeninfo vinfo;
-static struct fb_fix_screeninfo finfo;
-static long int screensize = 0;
-static char *fbp = 0;
-static uint8_t* gameScreen;
+#include "../SDK/core.h"
+#include "../SDK/platform.h"
+#include "../SDK/video.h"
 
+#define VIDEO_MODE      EVM_320_Wide
+#define VIDEO_COLOR     ECM_8bit_Indexed
+#define VIDEO_HEIGHT    240
+
+static struct EVideoContext s_vctx;
+static struct EVideoSwapContext s_sctx;
+struct SPSizeAlloc frameBufferA;
+struct SPSizeAlloc frameBufferB;
+static struct SPPlatform s_platform;
+
+void shutdowncleanup()
+{
+	// Turn off video scan-out
+	VPUSetVideoMode(&s_vctx, VIDEO_MODE, VIDEO_COLOR, EVS_Disable);
+
+	// Yield physical memory and reset video routines
+	VPUShutdownVideo();
+
+	// Release allocations
+	SPFreeBuffer(&s_platform, &frameBufferB);
+	SPFreeBuffer(&s_platform, &frameBufferA);
+
+	// Shutdown platform
+	SPShutdownPlatform(&s_platform);
+}
+
+void sigint_handler(int s)
+{
+	shutdowncleanup();
+	exit(0);
+}
 
 void I_InitGraphics (void)
 {
-    /* Open the file for reading and writing */
-    fbfd = open("/dev/fb0", O_RDWR);
-    if (!fbfd) {
-            printf("Error: cannot open framebuffer device.\n");
-            exit(1);
-    }
-    printf("The framebuffer device was opened successfully.\n");
+	SPInitPlatform(&s_platform);
 
-    /* Get fixed screen information */
-    if (ioctl(fbfd, FBIOGET_FSCREENINFO, &finfo)) {
-        printf("Error reading fixed information.\n");
-            exit(2);
-    }
+	VPUInitVideo(&s_vctx, &s_platform);
 
-    /* Get variable screen information */
-        if (ioctl(fbfd, FBIOGET_VSCREENINFO, &vinfo)) {
-                printf("Error reading variable information.\n");
-                exit(3);
-        }
+	uint32_t stride = VPUGetStride(VIDEO_MODE, VIDEO_COLOR);
+	frameBufferB.size = frameBufferA.size = stride*VIDEO_HEIGHT;
 
-    /* Figure out the size of the screen in bytes */
-    screensize = vinfo.xres * vinfo.yres * vinfo.bits_per_pixel / 8;
-    printf("Screen size is %d\n",screensize);
-    printf("Vinfo.bpp = %d\n",vinfo.bits_per_pixel);
+	SPAllocateBuffer(&s_platform, &frameBufferA);
+	SPAllocateBuffer(&s_platform, &frameBufferB);
 
-    /* Map the device to memory */
-    fbp = (char *)mmap(0, screensize, PROT_READ | PROT_WRITE, MAP_SHARED,fbfd, 0);
-    if ((int64_t)fbp == -1) {
-            printf("Error: failed to map framebuffer device to memory.\n");
-            exit(4);
-    }
-    printf("The framebuffer device was mapped to memory successfully.\n");
-        
+	atexit(shutdowncleanup);
+	signal(SIGINT, &sigint_handler);
+
+	VPUSetWriteAddress(&s_vctx, (uint32_t)frameBufferA.cpuAddress);
+	VPUSetScanoutAddress(&s_vctx, (uint32_t)frameBufferB.dmaAddress);
+	VPUSetDefaultPalette(&s_vctx);
+	VPUSetVideoMode(&s_vctx, VIDEO_MODE, VIDEO_COLOR, EVS_Enable);
+
+	s_sctx.cycle = 0;
+	s_sctx.framebufferA = &frameBufferA;
+	s_sctx.framebufferB = &frameBufferB;
 }
 
 
 void I_ShutdownGraphics(void)
 {
-    munmap(fbp, screensize);
-    close(fbfd);
 }
 
 void I_StartFrame (void)
 {
 
 }
-__attribute__((packed))
-struct Color
-{
-    uint8_t b;
-    uint8_t g;
-    uint8_t r;
-    uint8_t a;
-};
-
-union ColorInt
-{
-    struct Color col;
-    uint32_t raw;
-};
-
-static union ColorInt colors[256];
 
 // Takes full 8 bit values.
 void I_SetPalette (byte* palette)
@@ -88,14 +82,7 @@ void I_SetPalette (byte* palette)
     byte c;
     // set the X colormap entries
     for (int i=0 ; i<256 ; i++)
-    {
-        c = gammatable[usegamma][*palette++];
-        colors[i].col.r = (c<<8) + c;
-        c = gammatable[usegamma][*palette++];
-        colors[i].col.g = (c<<8) + c;
-        c = gammatable[usegamma][*palette++];
-        colors[i].col.b = (c<<8) + c;
-    }
+		VPUSetPal(&s_vctx, i, palette[0], palette[1], palette[2]);
 }
 
 void I_UpdateNoBlit (void)
@@ -115,21 +102,14 @@ uint16_t colorTo16bit(struct Color col)
 
 void I_FinishUpdate (void)
 {
-    for (int gy=0; gy<SCREENHEIGHT; gy++)
-    {
-        for (int gx=0; gx<SCREENWIDTH; gx++)
-        {
-            int fbPos = location(gx,gy);
-            if (vinfo.bits_per_pixel == 32)
-            {
-                *((uint32_t*)(fbp+fbPos + 0)) = colors[*(screens[0]+gy*SCREENWIDTH+gx)].raw;
-            }
-            else if (vinfo.bits_per_pixel == 16)
-            {
-                *((uint16_t*)(fbp+fbPos)) = colorTo16bit(colors[*(screens[0]+gy*SCREENWIDTH+gx)].col);
-            }
-        }
-    }
+	uint32_t stride = VPUGetStride(VIDEO_MODE, VIDEO_COLOR);
+
+	uint8_t* outmem = s_sctx.writepage;
+	for (uint32_t y=0; y<VIDEO_HEIGHT; y++)
+	{
+		memcpy(outmem, screens[0]+y*SCREENWIDTH, VIDEO_WIDTH);
+		outmem += stride;
+	}
 }
 
 void I_ReadScreen (byte* scr)
