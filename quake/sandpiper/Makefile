@@ -1,35 +1,9 @@
-ifeq ($(OS),Windows_NT)
-	ifeq ($(MSYSTEM), MINGW32)
-		UNAME := MSYS
-	else
-		UNAME := Windows
-	endif
-else
-	UNAME := $(shell uname)
-endif
+ARM_GCC = gcc
 
-ifeq ($(UNAME), Windows)
-CROSS ?= riscv32-unknown-elf-
-else
-CROSS ?= riscv64-unknown-elf-
-endif
+ARM_GCC_OPTS = -std=c++20 -O0 -g -mcpu=cortex-a9 -mfpu=vfpv3 -mfloat-abi=hard
+ARM_GCC_LIBS = -lgcc -lc -lm -lmetal
 
-CC = $(CROSS)gcc
-SIZE = $(CROSS)size
-
-ifeq ($(UNAME), Windows)
-CFLAGS = -mcmodel=medany --param "l1-cache-line-size=64" --param "l1-cache-size=16" -Wno-address-of-packed-member -Wdouble-promotion -fno-delete-null-pointer-checks -fno-common -Ofast -flto -mbranch-cost=4 -march=rv32im_zicsr_zifencei_zfinx -mabi=ilp32 -ffunction-sections -fdata-sections -Wl,-gc-sections -Wl,--strip-all -I../include/ -I../winquake/ -I../../../SDK/ -I../
-else
-CFLAGS = -mcmodel=medany --param "l1-cache-line-size=64" --param "l1-cache-size=16" -Wno-address-of-packed-member -Wdouble-promotion -fno-delete-null-pointer-checks -fno-common -Ofast -flto -mbranch-cost=4 -march=rv32im_zicsr_zifencei_zfinx -mabi=ilp32 -ffunction-sections -fdata-sections -Wl,-gc-sections -Wl,--strip-all -I../include/ -I../winquake/ -I../../../SDK/  -I../
-endif
-
-CFLAGS += \
-	-DNORMALUNIX \
-	$(NULL)
-
-CLIBS = -lgcc -lm
-
-RISCV_OBJDUMP ?= $(CROSS)objdump
+corelib_dir = ../SDK
 
 SOURCES_quake_arch := \
 	../../../SDK/core.c \
@@ -110,19 +84,15 @@ SOURCES_quake_arch := \
 	../winquake/net_none.c \
 	$(NULL)
 
-all: quake.elf
+all: quake
 
-quake.elf: $(addprefix ../,$(SOURCES_quake)) $(SOURCES_quake_arch)
-	$(CC) $(CFLAGS) -o ../$@ $(addprefix ../,$(SOURCES_quake)) $(SOURCES_quake_arch) $(CLIBS)
+incs  += -I$(src_dir) -I$(corelib_dir) $(addprefix -I$(src_dir)/, $(folders))
+libs += $(wildcard $(corelib_dir)/*.S) $(wildcard $(corelib_dir)/*.c)
 
-dump: quake.elf
-	$(RISCV_OBJDUMP) ../quake.elf -x -D -S >> ../quake.elf.txt
+quake: $(addprefix ../,$(SOURCES_quake)) $(SOURCES_quake_arch)
+	$(ARM_GCC) $(ARM_GCC_OPTS) -o ../$@ $(addprefix ../,$(SOURCES_quake)) $(SOURCES_quake_arch) $(ARM_GCC_LIBS)
 
 clean:
-ifeq ($(UNAME), Windows)
-	del *.elf *.o *.gen.h *.txt
-else
-	rm -rf *.elf *.o *.gen.h *.txt
-endif
+	rm -rf *.elf *.o *.gen.h
 
 .PHONY: all clean
