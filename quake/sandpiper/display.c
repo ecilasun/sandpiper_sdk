@@ -3,6 +3,7 @@
 
 #include <quakembd.h>
 #include <string.h>
+#include <signal.h>
 #include "core.h"
 #include "platform.h"
 #include "video.h"
