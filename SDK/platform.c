@@ -95,19 +95,32 @@ void SPShutdownPlatform(struct SPPlatform* _platform)
 	_platform->ready = 0;
 }
 
-void SPAllocateBuffer(struct SPPlatform* _platform, struct SPSizeAlloc *_sizealloc)
+int SPAllocateBuffer(struct SPPlatform* _platform, struct SPSizeAlloc *_sizealloc)
 {
 	if (_platform->mapped_memory != (uint8_t*)MAP_FAILED)
 	{
 		uint32_t alignedSize = E32AlignUp(_sizealloc->size, 128);
+
+		// Add bounds checking
+		if (_platform->alloc_cursor + alignedSize > RESERVED_MEMORY_SIZE)
+		{
+			_sizealloc->cpuAddress = NULL;
+			_sizealloc->dmaAddress = NULL;
+			return -1; // Indicate allocation failure due to out of memory
+		}
+
 		_sizealloc->cpuAddress = _platform->mapped_memory + _platform->alloc_cursor;
 		_sizealloc->dmaAddress = (uint8_t*)RESERVED_MEMORY_ADDRESS + _platform->alloc_cursor;
 		_platform->alloc_cursor += alignedSize;
+
+		return 0;
 	}
 	else
 	{
 		_sizealloc->cpuAddress = NULL;
 		_sizealloc->dmaAddress = NULL;
+
+		return -1;
 	}
 }
 

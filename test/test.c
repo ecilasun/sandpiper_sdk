@@ -51,17 +51,18 @@ int main(int argc, char** argv)
 	printf("started video system\n");
 
 	uint32_t stride = VPUGetStride(VIDEO_MODE, VIDEO_COLOR);
+	printf("stride: %d, height: %d\n", stride, VIDEO_HEIGHT);
 
 	frameBufferB.size = frameBufferA.size = stride*VIDEO_HEIGHT;
+
 	SPAllocateBuffer(&platform, &frameBufferA);
+	printf("acrs:%d framebufferA: 0x%08X <- 0x%08X - %dbytes\n", platform.alloc_cursor, frameBufferA.cpuAddress, frameBufferA.dmaAddress, frameBufferA.size);
+
 	SPAllocateBuffer(&platform, &frameBufferB);
+	printf("acrs:%d framebufferB: 0x%08X <- 0x%08X - %dbytes\n", platform.alloc_cursor, frameBufferB.cpuAddress, frameBufferB.dmaAddress, frameBufferB.size);
 
 	atexit(shutdowncleanup);
 	signal(SIGINT, &sigint_handler);
-
-	printf("stride: %d, height: %d\n", stride, VIDEO_HEIGHT);
-	printf("framebufferA: 0x%08X <- 0x%08X - %dbytes\n", frameBufferA.cpuAddress, frameBufferA.dmaAddress, frameBufferA.size);
-	printf("framebufferB: 0x%08X <- 0x%08X - %dbytes\n", frameBufferB.cpuAddress, frameBufferB.dmaAddress, frameBufferB.size);
 
 	// Write random pattern into both buffers
 	uint32_t* memA = (uint32_t*)frameBufferA.cpuAddress;
