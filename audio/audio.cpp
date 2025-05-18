@@ -10,53 +10,70 @@
 #include <cstdlib>
 
 #include "core.h"
-#include "apu.h"
-#include "task.h"
+#include "audio.h"
 
-static short *apubuffer;
+struct SPPlatform platform;
+static EAudioContext ax;
+static SPSizeAlloc apubuffer;
 
-#define NUM_CHANNELS 2			// Stereo
 #define BUFFER_SAMPLES 512		// buffer size
+#define NUM_CHANNELS 2			// Stereo
+#define SAMPLE_WIDTH 2			// 16 bit samples
+
+void shutdowncleanup()
+{
+	APUSetSampleRate(&ax, ASR_Halt);
+	APUShutdownAudio(&ax);
+	SPFreeBuffer(&platform, &apubuffer);
+	SPShutdownPlatform(&platform);
+}
+
+void sigint_handler(int s)
+{
+	shutdowncleanup();
+	exit(0);
+}
 
 // Approximation of an old school phone ring tone
 int main()
 {
-	apubuffer = (short*)APUAllocateBuffer(BUFFER_SAMPLES*NUM_CHANNELS*sizeof(short));
-	printf("APU mix buffer at 0x%.4x\n", (unsigned int)apubuffer);
+	SPInitPlatform(&platform);
+	APUInitAudio(&ax, &platform);
 
-	APUSetBufferSize(BUFFER_SAMPLES);
-	APUSetSampleRate(ASR_22_050_Hz);
-	uint32_t prevframe = APUFrame();
+	apubuffer.size = BUFFER_SAMPLES*NUM_CHANNELS*SAMPLE_WIDTH;
+	SPAllocateBuffer(&platform, &apubuffer);
+	printf("APU mix buffer at 0x%.4x\n", (unsigned int)apubuffer.cpuAddress);
+
+	atexit(shutdowncleanup);
+	signal(SIGINT, &sigint_handler);
+
+	APUSetBufferSize(&ax, ABS_2048Bytes);
+	APUSetSampleRate(&ax, ASR_22_050_Hz);
+	uint32_t prevframe = APUFrame(&ax);
 
 	float offset = 0.f;
 	do{
 		// Generate individual waves for each channel
-		for (uint32_t i=0;i<BUFFER_SAMPLES;++i)
+		for (uint32_t i=0; i<BUFFER_SAMPLES; ++i)
 		{
 			apubuffer[i*NUM_CHANNELS+0] = short(16384.f*sinf(offset+2.f*3.1415927f*float(i)/12.f));
 			apubuffer[i*NUM_CHANNELS+1] = short(16384.f*cosf(offset+2.f*3.1415927f*float(i*2)/38.f));
 		}
 
-		// Make sure the writes are visible by the audio DMA
-		CFLUSH_D_L1();
-
 		// Fill current write buffer with new mix data
-		APUStartDMA((uint32_t)apubuffer);
+		APUStartDMA(&ax, (uint32_t)apubuffer);
 
 		// Wait for the APU to finish playing back current read buffer
 		uint32_t currframe;
 		do
 		{
-			currframe = APUFrame();
+			currframe = APUFrame(&ax);
 		} while (currframe == prevframe);
 
 		// Once we reach this point, the APU has switched to the other buffer we just filled, and playback resumes uninterrupted
 
 		// Remember this frame for next time
 		prevframe = currframe;
-
-		// Yield to OS
-		TaskYield();
 
 		offset += 1.f;
 
