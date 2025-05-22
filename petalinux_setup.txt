@@ -1,0 +1,191 @@
+# see https://www.youtube.com/watch?v=kq3cVUjpXgQ
+
+# to disable the annoying apparmor, use:
+echo 'kernel.apparmor_restrict_unprivileged_userns = 0' | sudo tee /etc/sysctl.d/20-apparmor-donotrestrict.conf
+
+# use these to build the Linux image
+source ./petalinux/settings.sh
+petalinux-create --type project --template zynq --name sandpiper_petalinux
+cd sandpiper_petalinux
+# now copy the .xsa file (from export hardware) to the project folder (blockone_wrapper.xsa -> sandpiper_petalinux/)
+# also copy the device tree file to the project-spec folder (see NOTE#1)
+petalinux-config --get-hw-description=. (see NOTE#2)
+petalinux-config -c kernel (see NOTE#3)
+petalinux-config -c u-boot (set autoboot delay from 2 to -2, also optionally enable boot options and type quiet)
+petalinux-config -c rootfs (don't forget to pick dev tools (especially libmetal) and set username/pwd, also set autoboot)
+petalinux-build
+cd images/linux
+petalinux-package boot --format BIN --fsbl zynq_fsbl.elf --u-boot u-boot.elf --fpga system.bit --force
+
+# preparing the boot media (sdcard)
+# create three partitions on the sdcard: BOOT(1G, FAT32), rootfs(10G, ext4), and data(rest of the space, ext4)
+# copy boot.scr, BOOT.bin, image.ub to root folder of first partition (/media/uname/boot)
+sudo dd if=rootfs.ext4 of=/dev/sdb2 # sdb2 is the second partition of the sdcard
+
+--------------------------------------------------------------------
+NOTE#1:
+--------------------------------------------------------------------
+Paste this into project-spec/meta-user/recipies-bsp/device-tree/files/system-user.dtsi
+
+/include/ "system-conf.dtsi"
+/ {
+   reserved-memory {
+      #address-cells = <1>;
+      #size-cells = <1>;
+      ranges;
+  
+      reserved: buffer@0x18000000 {
+         no-map;
+         reg = <0x18000000 0x2000000>;
+      };
+   };
+  
+   reserved-driver@0 {
+      compatible = "xlnx,reserved-memory";
+      memory-region = <&reserved>;
+   };
+
+   usb_phy0: usb_phy@0 {
+      compatible = "ulpi-phy";
+      #phy-cells = <0>;
+      reg = <0xe0002000 0x1000>;
+      view-port = <0x0170>;
+      drv-vbus;
+   };
+};
+
+&usb0 {
+	dr_mode = "host";
+	usb-phy = <&usb_phy0>;
+};
+
+&gem0 {
+    phy-handle = <&phy1>; // Assuming your PHY is connected to gem0
+    ps7_ethernet_0_mdio: mdio {
+        phy1: phy@1 {
+            device_type = "ethernet-phy";
+        };
+    };
+};
+
+--------------------------------------------------------------------
+NOTE#2:
+--------------------------------------------------------------------
+* Image Packaging Configuration -> Root Filesystem Type -> EXT4                         
+* Image Packaging Configuration -> Device node of SD device -> mmcblk0p2                
+* Subsystem Hardware Settings -> SD/SDIO Settings -> Primary SD/SDIO -> ps7_sd_0     
+* Not necessary: DTG Settings -> Kernel Bootargs -> manual bootargs -> console=ttyPS0,115200 earlycon quiet root=/dev/mmcblk0p2 rw rootwait
+
+--------------------------------------------------------------------
+NOTE#3:
+--------------------------------------------------------------------
+In the network drivers section make sure Xilinx GMII2TRGMII converter driver is enabled:
+* Device Drivers -> Network Device Support -> PHY Device Support and Infrastructure -> Xilinx GMII2RGMII Converter Driver
+
+--------------------------------------------------------------------
+NOTE#4:
+--------------------------------------------------------------------
+Git will give you trouble due to missing certificate authority. To work around, use:
+git config --global http.sslVerify false
+
+To make git remember credentials:
+git config --global credential.helper store
+
+Set up your uname/email via:
+git config --global user.name "User Name"
+git config --global user.email "username@mail.com"
+
+--------------------------------------------------------------------
+NOTE#5:
+--------------------------------------------------------------------
+To build nano from scratch, do the following:
+
+wget https://www.nano-editor.org/dist/v4/nano-4.7.tar.gz
+tar -zxvf nano-4.7.tar.gz
+date -s "Mon May 12 20:33:00 UTC 2025"  (use your current time)
+cd nano-4.7
+./configure
+make
+make install
+
+OR
+
+$ git clone https://git.savannah.gnu.org/git/nano.git
+$ cd nano
+$ git checkout v7.2
+$ ./autogen.sh
+$ ./configure
+$ make -j$(nproc)
+$ make install
+
+to uninstall it:
+$ sudo dpkg -r mynano
+
+--------------------------------------------------------------------
+NOTE#6:
+--------------------------------------------------------------------
+To copy files to the device, first type ifconfig to find the IP and then use the following to copy files to the device:
+
+scp somepath/something.txt user@serverIP:/home/petal/something.txt
+
+(P.S. you will be asked to enter a password for petal which is 'petal' by default)
+
+--------------------------------------------------------------------
+NOTE#7:
+--------------------------------------------------------------------
+Using metal, device names are listed under /sys/bus/platform/devices/
+Feed these to metal_device_open as device path:
+
+video device: "platform", "40001000.videomodule"
+audio device: "platform", "40000000.audiomodule"
+
+
+--------------------------------------------------------------------
+NOTE#8:
+--------------------------------------------------------------------
+Recommended drive setup is:
+
+partition 1: boot, 1gb
+partition 2: rootfs, 10gb
+partition 3: data, rest of your drive space
+
+--------------------------------------------------------------------
+NOTE#9:
+--------------------------------------------------------------------
+
+--------------------------------------------------------------------
+NOTE#10:
+--------------------------------------------------------------------
+
+--------------------------------------------------------------------
+NOTE#11:
+--------------------------------------------------------------------
+By default eth0 gets renamed to enx000a35001e53
+To fix that, edit /etc/network/interfaces and replace the auto eth0 to auto enx000a35001e53 then reboot
+(In case the network layer still doesn't start, give it a push using the following command: sudo ifup -a)
+
+--------------------------------------------------------------------
+CMAKE:
+--------------------------------------------------------------------
+Build cmake from source
+
+Grab the source from git:
+git clone https://github.com/Kitware/CMake CMake
+
+Run following from the CMake directory:
+./bootstrap && make && make install
+
+--------------------------------------------------------------------
+APT: Building apt-* from source:
+--------------------------------------------------------------------
+
+Grab the source from git
+git clone https://github.com/Debian/apt.git apt
+
+
+
+Other notes
+--------------
+
+https://developer.arm.com/downloads/-/arm-gnu-toolchain-downloads
+https://github.com/stoffera/fbdoom
