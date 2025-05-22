@@ -2,11 +2,11 @@
 
 #include "platform.h"
 
-#define APUCMD_BUFFERSIZE  0x00000000
-#define APUCMD_START       0x00000001
-#define APUCMD_NOOP1       0x00000002
-#define APUCMD_NOOP2       0x00000003
-#define APUCMD_SETRATE     0x00000004
+#define APUCMD_BUFFERSIZE   0x00000000
+#define APUCMD_START        0x00000001
+#define APUCMD_NOOP         0x00000002
+#define APUCMD_SWAPCHANNELS 0x00000003
+#define APUCMD_SETRATE      0x00000004
 
 enum EAPUSampleRate
 {
@@ -37,6 +37,8 @@ int APUInitAudio(struct EAudioContext* _context, struct SPPlatform* _platform);
 void APUShutdownAudio(struct EAudioContext* _context);
 
 void APUSetBufferSize(struct EAudioContext* _context, enum EAPUBufferSize _bufferSize);
-void APUStartDMA(struct EAudioContext* _context, uint32_t audioBufferAddress16byteAligned);
-void APUSetSampleRate(struct EAudioContext* _context, enum EAPUSampleRate sampleRate);
+void APUStartDMA(struct EAudioContext* _context, uint32_t _audioBufferAddress16byteAligned);
+void APUSync(struct EAudioContext* _context);
+void APUSetSampleRate(struct EAudioContext* _context, enum EAPUSampleRate _sampleRate);
+void APUSwapChannels(struct EAudioContext* _context, uint32_t _swap);
 uint32_t APUFrame(struct EAudioContext* _context);
