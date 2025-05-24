@@ -20,8 +20,10 @@ struct SPPlatform
 {
 	struct metal_device *videodevice;
 	struct metal_device *audiodevice;
+	struct metal_device *keyboarddevice;
 	struct metal_io_region *videoio;
 	struct metal_io_region *audioio;
+	struct metal_io_region *keyboardio;
 	uint8_t* mapped_memory;
 	uint32_t alloc_cursor;
 	int memfd;

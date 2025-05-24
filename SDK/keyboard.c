@@ -1,6 +1,32 @@
 #include "keyboard.h"
 
-static int s_control = 0;
+int KPUInitKeyboard(struct EKeyboardContext* _context, struct SPPlatform* _platform)
+{
+
+}
+
+void KPUShutdownKeyboard(struct EKeyboardContext* _context)
+{
+
+}
+
+void KPUScanMatrix(struct EKeyboardContext* _context)
+{
+	// Stash previous key states
+	_context->m_previousKeyStates = _context->m_keyStates;
+
+	// Send a scan command to the matrix scanner
+	metal_io_write32(_context->m_platform->keyboardio, 0, KPUCMD_SCANMATRIX);
+
+	// Delay for a very small bit to allow the scan to complete
+	// NOTE: Ideally the result would be written to a FIFO so we can check the size before reading it
+	usleep(10);
+
+	// Read the new key states (total of 64 bits for 63 keys, highest bit is unused for now)
+	_context->m_keyStates = metal_io_read32(_context->m_platform->keyboardio, 0) | (metal_io_read32(_context->m_platform->keyboardio, 4) << 32);
+}
+
+/*static int s_control = 0;
 static int s_alt = 0;
 static int s_keyfifocursor = -1;
 static uint8_t s_keyfifo[512];
@@ -165,7 +191,7 @@ void KeyboardProcessState(uint8_t *scandata)
 
 void KeyboardReadState(uint8_t *scandata)
 {
-    /*u32 packetsize = 0;
+    u32 packetsize = 0;
     while (packetsize != KEYBOARD_PACKET_SIZE)
     {
         int read = XUartPs_Recv(uart, scandata+packetsize, 1);
@@ -174,10 +200,10 @@ void KeyboardReadState(uint8_t *scandata)
             //xil_printf("%02X ", scandata[packetsize]);
             packetsize++;
         }
-    }*/
+    }
 }
 
-/*void KeyboardUpdateState(uint8_t *scandata)
+void KeyboardUpdateState(uint8_t *scandata)
 {
     // NOTE: This should be a fifo
 

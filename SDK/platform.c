@@ -76,6 +76,21 @@ int SPInitPlatform(struct SPPlatform* _platform)
 		return -1;
 	}
 
+	// Gain access to the KPU command FIFO
+	ret = metal_device_open("platform", "40002000.keyboardmodule", &_platform->keyboarddevice);
+	if (ret)
+	{
+		perror("can't open keyboard device");
+		return -1;
+	}
+
+	_platform->keyboardio = metal_device_io_region(_platform->keyboarddevice, 0);
+	if (_platform->keyboardio == NULL)
+	{
+		perror("can't get keyboard module io region");
+		return -1;
+	}
+
 	_platform->ready = 1;
 
 	return 0;
