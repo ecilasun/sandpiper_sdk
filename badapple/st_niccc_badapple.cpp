@@ -182,6 +182,7 @@ int main(int argc, char** argv)
 
 	atexit(shutdowncleanup);
 	signal(SIGINT, &sigint_handler);
+	signal(SIGTERM, &sigint_handler);
 
 	VPUSetVideoMode(&s_vctx, VIDEO_MODE, VIDEO_COLOR, EVS_Enable);
 

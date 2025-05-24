@@ -1,6 +1,6 @@
 ARM_GCC = gcc
 
-ARM_GCC_OPTS = -std=c99 -O0 -g -mcpu=cortex-a9 -mfpu=vfpv3 -mfloat-abi=hard
+ARM_GCC_OPTS = -std=c99 -Ofast -mcpu=cortex-a9 -mfpu=vfpv3 -mfloat-abi=hard
 ARM_GCC_LIBS = -lgcc -lc -lm -lmetal
 
 SOURCES_quake_arch := \

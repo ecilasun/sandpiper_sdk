@@ -60,6 +60,7 @@ void I_InitGraphics (void)
 
 	atexit(shutdowncleanup);
 	signal(SIGINT, &sigint_handler);
+	signal(SIGTERM, &sigint_handler);
 
 	VPUSetDefaultPalette(&s_vctx);
 	VPUSetVideoMode(&s_vctx, VIDEO_MODE, VIDEO_COLOR, EVS_Enable);
