@@ -11,8 +11,8 @@ cd sandpiper_petalinux
 # also copy the device tree file to the project-spec folder (see NOTE#1)
 petalinux-config --get-hw-description=. (see NOTE#2)
 petalinux-config -c kernel (see NOTE#3)
-petalinux-config -c u-boot (set autoboot delay from 2 to -2, also optionally enable boot options and type quiet)
-petalinux-config -c rootfs (don't forget to pick dev tools (especially libmetal) and set username/pwd, also set autoboot)
+petalinux-config -c u-boot (set autoboot delay from 2 to -2, set loglevel to 1, support silent console, also optionally enable boot options and type quiet)
+petalinux-config -c rootfs (don't forget to pick dev tools (especially libmetal) and set username/pwd, also set autoboot, add: sudo, busybox, tar, usbutils, git, grep, vim, minicom, wget, autoconf, automake, binutils, bison, flex, make, kexec-tools, libmetal, libpng, libusb1, libstdc++, gdb, gdbserver, gcc sanitizers, glib-2.0, glibc, ldd, iotop, packagegroup-code-sdk, packagegroup-self-hosted, python3, netcat, empty-root-password, serial-autologin-root, see https://docs.amd.com/r/en-US/ug1144-petalinux-tools-reference-guide/Package-Management for package management info)
 petalinux-build
 cd images/linux
 petalinux-package boot --format BIN --fsbl zynq_fsbl.elf --u-boot u-boot.elf --fpga system.bit --force
@@ -79,21 +79,17 @@ NOTE#2:
 --------------------------------------------------------------------
 NOTE#3:
 --------------------------------------------------------------------
-In the network drivers section make sure Xilinx GMII2TRGMII converter driver is enabled:
 * Device Drivers -> Network Device Support -> PHY Device Support and Infrastructure -> Xilinx GMII2RGMII Converter Driver
+* TODO: USB etc
 
 --------------------------------------------------------------------
 NOTE#4:
 --------------------------------------------------------------------
-Git will give you trouble due to missing certificate authority. To work around, use:
+Git will give you trouble due to missing certificate authority. To work around, use these to set up git for use:
 git config --global http.sslVerify false
-
-To make git remember credentials:
 git config --global credential.helper store
-
-Set up your uname/email via:
-git config --global user.name "User Name"
-git config --global user.email "username@mail.com"
+git config --global user.name "Engin Cilasun"
+git config --global user.email "ecilasun@me.com"
 
 --------------------------------------------------------------------
 NOTE#5:
@@ -102,7 +98,7 @@ To build nano from scratch, do the following:
 
 wget https://www.nano-editor.org/dist/v4/nano-4.7.tar.gz
 tar -zxvf nano-4.7.tar.gz
-date -s "Mon May 12 20:33:00 UTC 2025"  (use your current time)
+date -s "Sun May 25 13:42:00 UTC 2025"  (use your current time)
 cd nano-4.7
 ./configure
 make
@@ -136,9 +132,9 @@ NOTE#7:
 Using metal, device names are listed under /sys/bus/platform/devices/
 Feed these to metal_device_open as device path:
 
-video device: "platform", "40001000.videomodule"
 audio device: "platform", "40000000.audiomodule"
-
+video device: "platform", "40001000.videomodule"
+keyboard device: "platform", "40002000.keyboardmodule"
 
 --------------------------------------------------------------------
 NOTE#8:
@@ -189,3 +185,11 @@ Other notes
 
 https://developer.arm.com/downloads/-/arm-gnu-toolchain-downloads
 https://github.com/stoffera/fbdoom
+
+if configured during petalinux-configure -c kernel, kernel header files will be placed in:
+/sys/kernel/kheaders.tar.xz
+(dnf install kernel-dev appears to do something but not sure what)
+
+see this for package management:
+https://docs.amd.com/r/en-US/ug1144-petalinux-tools-reference-guide/Package-Management
+(dnf is the tool to use for package download / removal)
