@@ -122,7 +122,7 @@ int main(int argc, char** argv )
 	SPInitPlatform(&s_platform);
 	VPUInitVideo(&s_vctx, &s_platform);
 	uint32_t stride = VPUGetStride(VIDEO_MODE, VIDEO_COLOR);
-	frameBuffer.size = stride*480;
+	frameBuffer.size = stride*VIDEO_HEIGHT;
 	SPAllocateBuffer(&s_platform, &frameBuffer);
 
 	atexit(shutdowncleanup);
