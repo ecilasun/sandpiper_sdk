@@ -6,9 +6,8 @@
  * It uses the NanoJPEG library to decode the JPEG image.
  */
 
-#include "core.h"
-#include "vpu.h"
-#include "sdcard.h"
+#include "platform.h"
+#include "video.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -18,7 +17,7 @@
 #include "nanojpeg.h"
 
 #define VIDEO_MODE      EVM_640_Wide
-#define VIDEO_COLOR     ECM_8bit_Indexed
+#define VIDEO_COLOR     ECM_16bit_RGB
 #define VIDEO_WIDTH     640
 #define VIDEO_HEIGHT    480
 
@@ -36,8 +35,7 @@ void shutdowncleanup()
 	VPUShutdownVideo();
 
 	// Release allocations
-	SPFreeBuffer(&s_platform, &frameBufferB);
-	SPFreeBuffer(&s_platform, &frameBufferA);
+	SPFreeBuffer(&s_platform, &frameBuffer);
 
 	// Shutdown platform
 	SPShutdownPlatform(&s_platform);
@@ -67,7 +65,7 @@ void DecodeJPEG(uint32_t stride, const char *fname)
 		fseek(fp, 0, SEEK_END);
 		fgetpos(fp, &endpos);
 		fsetpos(fp, &pos);
-		uint32_t fsize = (uint32_t)endpos;
+		uint32_t fsize = (uint32_t)endpos.__pos;
 
 		printf("Reading %ld bytes\n", fsize);
 		uint8_t *rawjpeg = (uint8_t *)malloc(fsize);
@@ -133,7 +131,7 @@ int main(int argc, char** argv )
 
 	// Set aside space for the decompressed image
 	// NOTE: Video scanout buffer has to be aligned at 64 byte boundary
-	image = (uint16_t*)frameBufferA.cpuAddress;
+	image = (uint16_t*)frameBuffer.cpuAddress;
 
 	VPUSetWriteAddress(&s_vctx, (uint32_t)frameBuffer.cpuAddress);
 	VPUSetScanoutAddress(&s_vctx, (uint32_t)frameBuffer.dmaAddress);
@@ -147,7 +145,7 @@ int main(int argc, char** argv )
 	}	
 	else
 	{
-		DecodeJPEG(stride, argv[1]);
+		DecodeJPEG(stride/sizeof(uint16_t), argv[1]);
 	}
 
 	// Hold image while we view it
