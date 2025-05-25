@@ -117,7 +117,7 @@ void *draw_wave(void *data)
 		fft(outputL);
 		fft(outputR);		
 
-		for (uint32_t i=0; i<256; i+=4)
+		for (uint32_t i=0; i<BUFFER_SAMPLE_COUNT/2; i+=4)
 		{
 			int16_t L0 = 200 - (int16_t)std::abs(outputL[i+0]);
 			int16_t L1 = 200 - (int16_t)std::abs(outputL[i+1]);
