@@ -107,9 +107,11 @@ void SPShutdownPlatform(struct SPPlatform* _platform)
 	// Do we have to do these?
 	//metal_io_region_close(_platform->audioio);
 	//metal_io_region_close(_platform->videoio);
-	//metal_device_close(_platform->audiodevice);
-	//metal_device_close(_platform->videodevice);
-	//metal_device_close(_platform->keyboarddevice);
+	//metal_io_region_close(_platform->keyboardio);
+
+	metal_device_close(_platform->audiodevice);
+	metal_device_close(_platform->videodevice);
+	metal_device_close(_platform->keyboarddevice);
 
 	metal_finish();
 

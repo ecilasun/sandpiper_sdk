@@ -199,25 +199,34 @@ void VPUSetDefaultPalette(struct EVideoContext *_context)
 
 void VPUSetVideoMode(struct EVideoContext *_context, const enum EVideoMode _mode, const enum EColorMode _cmode, const enum EVideoScanoutEnable _scanEnable)
 {
-    // Store for later
-    _context->m_vmode = _mode;
-    _context->m_cmode = _cmode;
+	if (_context)
+	{
+		// Store for later
+		_context->m_vmode = _mode;
+		_context->m_cmode = _cmode;
 
-	// NOTE: Caller sets vmode/cmode fields
-	_context->m_scanEnable = _scanEnable;
-	_context->m_strideInWords = VPUGetStride(_context->m_vmode, _context->m_cmode) / sizeof(uint32_t);
+		// NOTE: Caller sets vmode/cmode fields
+		_context->m_scanEnable = _scanEnable;
+		_context->m_strideInWords = VPUGetStride(_context->m_vmode, _context->m_cmode) / sizeof(uint32_t);
 
-	VPUGetDimensions(_context->m_vmode, &_context->m_graphicsWidth, &_context->m_graphicsHeight);
+		VPUGetDimensions(_context->m_vmode, &_context->m_graphicsWidth, &_context->m_graphicsHeight);
 
-	// NOTE: For the time being console is always running at 640x480 mode
-	_context->m_consoleWidth = (uint16_t)(_context->m_graphicsWidth/8);
-	_context->m_consoleHeight = (uint16_t)(_context->m_graphicsHeight/8);
-	_context->m_consoleUpdated = 0;
+		// NOTE: For the time being console is always running at 640x480 mode
+		_context->m_consoleWidth = (uint16_t)(_context->m_graphicsWidth/8);
+		_context->m_consoleHeight = (uint16_t)(_context->m_graphicsHeight/8);
+		_context->m_consoleUpdated = 0;
 
-	//*VPUIO = VPUCMD_SETVMODE;
-	//*VPUIO = MAKEVMODEINFO((uint32_t)_context->m_cmode, (uint32_t)_context->m_vmode, (uint32_t)_scanEnable);
-	metal_io_write32(_context->m_platform->videoio, 0, VPUCMD_SETVMODE);
-	metal_io_write32(_context->m_platform->videoio, 0, MAKEVMODEINFO((uint32_t)_context->m_cmode, (uint32_t)_context->m_vmode, (uint32_t)_scanEnable));
+		//*VPUIO = VPUCMD_SETVMODE;
+		//*VPUIO = MAKEVMODEINFO((uint32_t)_context->m_cmode, (uint32_t)_context->m_vmode, (uint32_t)_scanEnable);
+		metal_io_write32(_context->m_platform->videoio, 0, VPUCMD_SETVMODE);
+		metal_io_write32(_context->m_platform->videoio, 0, MAKEVMODEINFO((uint32_t)_context->m_cmode, (uint32_t)_context->m_vmode, (uint32_t)_scanEnable));
+	}
+	else
+	{
+		// Does not preserve state, mostly preferred during shutdown
+		metal_io_write32(_context->m_platform->videoio, 0, VPUCMD_SETVMODE);
+		metal_io_write32(_context->m_platform->videoio, 0, MAKEVMODEINFO((uint32_t)_cmode, (uint32_t)_mode, (uint32_t)_scanEnable));
+	}
 }
 
 void VPUSetScanoutAddress(struct EVideoContext *_context, const uint32_t _scanOutAddress64ByteAligned)

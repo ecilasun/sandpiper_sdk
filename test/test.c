@@ -3,6 +3,11 @@
 #include <stdio.h>
 #include <signal.h>
 
+#include <fcntl.h>
+#include <poll.h>
+#include <unistd.h>
+#include <linux/input.h>
+
 #include "../SDK/core.h"
 #include "../SDK/platform.h"
 #include "../SDK/video.h"
@@ -102,17 +107,46 @@ int main(int argc, char** argv)
 	s_vctx.m_caretBlink = 0;
 	s_vctx.m_caretType = 0;
 
+	// Open keyboard device
+	struct pollfd fds[1];
+	fds[0].fd = open("/dev/input/event0", O_RDONLY | O_NONBLOCK);
+
+	if (fds[0].fd < 0)
+	{
+		perror("can't open tty");
+		return -1;
+	}
+
+	fds[0].events = POLLIN;
+
+//	fcntl(tty, F_SETFL, 0); // non-blocking reads
+	printf("opened tty device\n");
+
 	printf("looping a short while...\n");
 
 	do
 	{
 		VPUConsoleResolve(&s_vctx);
 
+		int ret = poll(fds, 1, 10);
+		if (ret > 0)
+		{
+			struct input_event ev;
+			int n = read(fds[0].fd, &ev, sizeof(struct input_event));
+			if (n < 0)
+			{
+				perror("failed to read tty");
+				return -1;
+			}
+			// see https://github.com/torvalds/linux/blob/master/include/uapi/linux/input-event-codes.h
+			printf("type 0x%08X value 0x%08X code 0x%08X\n", ev.type, ev.value, ev.code);
+		}
+
 		if (s_sctx.cycle % 30 == 0) // When we wait for vysync this makes a half second interval
 		{
 			s_vctx.m_caretBlink ^= 1;
-			KPUScanMatrix(&s_kctx);
-			printf("mtx: %llX\n", s_kctx.m_keyStates);
+//			KPUScanMatrix(&s_kctx);
+//			printf("mtx: %llX\n", s_kctx.m_keyStates);
 		}
 
 		VPUWaitVSync(&s_vctx); // This and other reads from VPU cause a hardware freeze, figure out why

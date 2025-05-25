@@ -31,11 +31,8 @@ void shutdowncleanup()
 	// Turn off video scan-out
 	VPUSetVideoMode(&s_vctx, VIDEO_MODE, VIDEO_COLOR, EVS_Disable);
 
-	// Yield physical memory and reset video routines
+	// Free console buffer memory
 	VPUShutdownVideo();
-
-	// Release allocations
-	SPFreeBuffer(&s_platform, &frameBuffer);
 
 	// Shutdown platform
 	SPShutdownPlatform(&s_platform);
@@ -149,7 +146,9 @@ int main(int argc, char** argv )
 	}
 
 	// Hold image while we view it
-	while(1){}
+	while(1){
+		sched_yield();
+	}
 
 	return 0;
 }
