@@ -112,6 +112,7 @@ int main(int argc, char** argv)
 		{
 			s_vctx.m_caretBlink ^= 1;
 			KPUScanMatrix(&s_kctx);
+			printf("mtx: %llX\n", s_kctx.m_keyStates);
 		}
 
 		VPUWaitVSync(&s_vctx); // This and other reads from VPU cause a hardware freeze, figure out why

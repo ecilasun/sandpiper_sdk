@@ -190,8 +190,9 @@ int main(int argc, char** argv)
 	s_sctx.framebufferA = &frameBufferA;
 	s_sctx.framebufferB = &frameBufferB;
 	VPUSwapPages(&s_vctx, &s_sctx);
-
-	VPUClear(&s_vctx, 0x03030303);
+	VPUClear(&s_vctx, 0x00000000);
+	VPUSwapPages(&s_vctx, &s_sctx);
+	VPUClear(&s_vctx, 0x00000000);
 
 	// More than one parameter on command line triggers no-vsync mode
 	int haveVsync = argc <= 2 ? 1 : 0;
