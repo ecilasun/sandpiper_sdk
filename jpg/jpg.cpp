@@ -17,26 +17,44 @@
 
 #include "nanojpeg.h"
 
+#define VIDEO_MODE      EVM_640_Wide
+#define VIDEO_COLOR     ECM_8bit_Indexed
+#define VIDEO_WIDTH     640
+#define VIDEO_HEIGHT    480
+
+static struct EVideoContext s_vctx;
+static struct EVideoSwapContext s_sctx;
+struct SPSizeAlloc frameBuffer;
+static struct SPPlatform s_platform;
+
+void shutdowncleanup()
+{
+	// Turn off video scan-out
+	VPUSetVideoMode(&s_vctx, VIDEO_MODE, VIDEO_COLOR, EVS_Disable);
+
+	// Yield physical memory and reset video routines
+	VPUShutdownVideo();
+
+	// Release allocations
+	SPFreeBuffer(&s_platform, &frameBufferB);
+	SPFreeBuffer(&s_platform, &frameBufferA);
+
+	// Shutdown platform
+	SPShutdownPlatform(&s_platform);
+}
+
+void sigint_handler(int s)
+{
+	shutdowncleanup();
+	exit(0);
+}
+
 uint16_t *image;
 
 #define min(_x_,_y_) (_x_) < (_y_) ? (_x_) : (_y_)
 #define max(_x_,_y_) (_x_) > (_y_) ? (_x_) : (_y_)
 
-/*inline uint32_t ftoui4sat(float value)
-{
-  uint32_t retval;
-  asm (
-    "mv a1, %1;"
-    ".insn 0xc2058553;" // fcvtswu4sat a0, a1 // note A0==cpu.x10, A1==cpu.x11
-    "mv %0, a0; "
-    : "=r" (retval)
-    : "r" (value)
-    : "a0", "a1"
-  );
-  return retval;
-}*/
-
-void DecodeJPEG(const char *fname)
+void DecodeJPEG(uint32_t stride, const char *fname)
 {
 	njInit();
 
@@ -64,8 +82,8 @@ void DecodeJPEG(const char *fname)
 			int W = njGetWidth();
 			int H = njGetHeight();
 
-			int iW = W>=640 ? 640 : W;
-			int iH = H>=480 ? 480 : H;
+			int iW = W>=VIDEO_WIDTH ? VIDEO_WIDTH : W;
+			int iH = H>=VIDEO_HEIGHT ? VIDEO_HEIGHT : H;
 
 			uint8_t *img = njGetImage();
 			if (njIsColor())
@@ -78,7 +96,7 @@ void DecodeJPEG(const char *fname)
 						uint32_t red = uint32_t(15.f*float(img[(x+y*W)*3+0])/255.f);
 						uint32_t green = uint32_t(15.f*float(img[(x+y*W)*3+1])/255.f);
 						uint32_t blue = uint32_t(15.f*float(img[(x+y*W)*3+2])/255.f);
-						image[x+y*640] = MAKECOLORRGB12(red, green, blue);
+						image[x+y*stride] = MAKECOLORRGB12(red, green, blue);
 					}
 				}
 			}
@@ -89,13 +107,10 @@ void DecodeJPEG(const char *fname)
 					for (int i=0;i<iW;++i)
 					{
 						uint8_t V = img[i+j*W]>>4;
-						image[i+j*640] = MAKECOLORRGB12(V,V,V);
+						image[i+j*stride] = MAKECOLORRGB12(V,V,V);
 					}
 			}
-			// Finish memory writes to display buffer
-			CFLUSH_D_L1();
 		}
-
 		free(rawjpeg);
 	}
 	else
@@ -103,26 +118,39 @@ void DecodeJPEG(const char *fname)
 
 	njDone();
 }
+
 int main(int argc, char** argv )
 {
+	SPInitPlatform(&s_platform);
+	VPUInitVideo(&s_vctx, &s_platform);
+	uint32_t stride = VPUGetStride(VIDEO_MODE, VIDEO_COLOR);
+	frameBuffer.size = stride*480;
+	SPAllocateBuffer(&s_platform, &frameBuffer);
+
+	atexit(shutdowncleanup);
+	signal(SIGINT, &sigint_handler);
+	signal(SIGTERM, &sigint_handler);
+
 	// Set aside space for the decompressed image
 	// NOTE: Video scanout buffer has to be aligned at 64 byte boundary
-	image = (uint16_t*)VPUAllocateBuffer(640*480*2);
+	image = (uint16_t*)frameBufferA.cpuAddress;
 
-	struct EVideoContext vx;
-	vx.m_vmode = EVM_640_Wide;
-	vx.m_cmode = ECM_16bit_RGB;
-	VPUSetVMode(&vx, EVS_Enable);
-	VPUSetWriteAddress(&vx, (uint32_t)image);
-	VPUSetScanoutAddress(&vx, (uint32_t)image);
-	VPUClear(&vx, 0x03030303);
+	VPUSetWriteAddress(&s_vctx, (uint32_t)frameBuffer.cpuAddress);
+	VPUSetScanoutAddress(&s_vctx, (uint32_t)frameBuffer.dmaAddress);
+	VPUSetDefaultPalette(&s_vctx);
+	VPUSetVideoMode(&s_vctx, VIDEO_MODE, VIDEO_COLOR, EVS_Enable);
 
 	if (argc<=1)
-		DecodeJPEG("sd:test.jpg");
+	{
+		printf("Usage: %s <image.jpg>\n", argv[0]);
+		return 1;
+	}	
 	else
-		DecodeJPEG(argv[1]);
+	{
+		DecodeJPEG(stride, argv[1]);
+	}
 
-	// Hold while we view the image
+	// Hold image while we view it
 	while(1){}
 
 	return 0;
