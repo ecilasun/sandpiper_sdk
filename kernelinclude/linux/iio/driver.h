@@ -1,0 +1,21 @@
+/* SPDX-License-Identifier: GPL-2.0-only */
+
+
+#ifndef _IIO_INKERN_H_
+#define _IIO_INKERN_H_
+
+struct device;
+struct iio_dev;
+struct iio_map;
+
+
+int iio_map_array_register(struct iio_dev *indio_dev,
+			   struct iio_map *map);
+
+
+int iio_map_array_unregister(struct iio_dev *indio_dev);
+
+
+int devm_iio_map_array_register(struct device *dev, struct iio_dev *indio_dev, struct iio_map *maps);
+
+#endif

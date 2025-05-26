@@ -1,0 +1,11 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+
+
+#ifndef _DT_BINDINGS_PINCTRL_TEGRA_IO_PAD_H
+#define _DT_BINDINGS_PINCTRL_TEGRA_IO_PAD_H
+
+
+#define TEGRA_IO_PAD_VOLTAGE_1V8	0
+#define TEGRA_IO_PAD_VOLTAGE_3V3	1
+
+#endif

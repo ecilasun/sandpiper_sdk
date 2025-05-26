@@ -1,0 +1,20 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+
+#ifndef __DT_BINDINGS_POWER_R8A77990_SYSC_H__
+#define __DT_BINDINGS_POWER_R8A77990_SYSC_H__
+
+
+
+#define R8A77990_PD_CA53_CPU0		5
+#define R8A77990_PD_CA53_CPU1		6
+#define R8A77990_PD_CR7			13
+#define R8A77990_PD_A3VC		14
+#define R8A77990_PD_3DG_A		17
+#define R8A77990_PD_3DG_B		18
+#define R8A77990_PD_CA53_SCU		21
+#define R8A77990_PD_A2VC1		26
+
+
+#define R8A77990_PD_ALWAYS_ON		32
+
+#endif 

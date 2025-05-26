@@ -1,0 +1,29 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+#ifndef _ASM_VERMAGIC_H
+#define _ASM_VERMAGIC_H
+
+#include <linux/stringify.h>
+
+
+#define MODULE_ARCH_VERMAGIC_ARMVSN "ARMv" __stringify(__LINUX_ARM_ARCH__) " "
+
+
+#ifdef CONFIG_ARM_PATCH_PHYS_VIRT
+#define MODULE_ARCH_VERMAGIC_P2V "p2v8 "
+#else
+#define MODULE_ARCH_VERMAGIC_P2V ""
+#endif
+
+
+#ifdef CONFIG_THUMB2_KERNEL
+#define MODULE_ARCH_VERMAGIC_ARMTHUMB "thumb2 "
+#else
+#define MODULE_ARCH_VERMAGIC_ARMTHUMB ""
+#endif
+
+#define MODULE_ARCH_VERMAGIC \
+	MODULE_ARCH_VERMAGIC_ARMVSN \
+	MODULE_ARCH_VERMAGIC_ARMTHUMB \
+	MODULE_ARCH_VERMAGIC_P2V
+
+#endif 

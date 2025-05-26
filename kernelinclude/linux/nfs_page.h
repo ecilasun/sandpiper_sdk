@@ -1,0 +1,248 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+
+
+#ifndef _LINUX_NFS_PAGE_H
+#define _LINUX_NFS_PAGE_H
+
+
+#include <linux/list.h>
+#include <linux/pagemap.h>
+#include <linux/wait.h>
+#include <linux/sunrpc/auth.h>
+#include <linux/nfs_xdr.h>
+
+#include <linux/kref.h>
+
+
+enum {
+	PG_BUSY = 0,		
+	PG_MAPPED,		
+	PG_FOLIO,		
+	PG_CLEAN,		
+	PG_COMMIT_TO_DS,	
+	PG_INODE_REF,		
+	PG_HEADLOCK,		
+	PG_TEARDOWN,		
+	PG_UNLOCKPAGE,		
+	PG_UPTODATE,		
+	PG_WB_END,		
+	PG_REMOVE,		
+	PG_CONTENDED1,		
+	PG_CONTENDED2,		
+};
+
+struct nfs_inode;
+struct nfs_page {
+	struct list_head	wb_list;	
+	union {
+		struct page	*wb_page;	
+		struct folio	*wb_folio;
+	};
+	struct nfs_lock_context	*wb_lock_context;	
+	pgoff_t			wb_index;	
+	unsigned int		wb_offset,	
+				wb_pgbase,	
+				wb_bytes;	
+	struct kref		wb_kref;	
+	unsigned long		wb_flags;
+	struct nfs_write_verifier	wb_verf;	
+	struct nfs_page		*wb_this_page;  
+	struct nfs_page		*wb_head;       
+	unsigned short		wb_nio;		
+};
+
+struct nfs_pgio_mirror;
+struct nfs_pageio_descriptor;
+struct nfs_pageio_ops {
+	void	(*pg_init)(struct nfs_pageio_descriptor *, struct nfs_page *);
+	size_t	(*pg_test)(struct nfs_pageio_descriptor *, struct nfs_page *,
+			   struct nfs_page *);
+	int	(*pg_doio)(struct nfs_pageio_descriptor *);
+	unsigned int	(*pg_get_mirror_count)(struct nfs_pageio_descriptor *,
+				       struct nfs_page *);
+	void	(*pg_cleanup)(struct nfs_pageio_descriptor *);
+	struct nfs_pgio_mirror *
+		(*pg_get_mirror)(struct nfs_pageio_descriptor *, u32);
+	u32	(*pg_set_mirror)(struct nfs_pageio_descriptor *, u32);
+};
+
+struct nfs_rw_ops {
+	struct nfs_pgio_header *(*rw_alloc_header)(void);
+	void (*rw_free_header)(struct nfs_pgio_header *);
+	int  (*rw_done)(struct rpc_task *, struct nfs_pgio_header *,
+			struct inode *);
+	void (*rw_result)(struct rpc_task *, struct nfs_pgio_header *);
+	void (*rw_initiate)(struct nfs_pgio_header *, struct rpc_message *,
+			    const struct nfs_rpc_ops *,
+			    struct rpc_task_setup *, int);
+};
+
+struct nfs_pgio_mirror {
+	struct list_head	pg_list;
+	unsigned long		pg_bytes_written;
+	size_t			pg_count;
+	size_t			pg_bsize;
+	unsigned int		pg_base;
+	unsigned char		pg_recoalesce : 1;
+};
+
+struct nfs_pageio_descriptor {
+	struct inode		*pg_inode;
+	const struct nfs_pageio_ops *pg_ops;
+	const struct nfs_rw_ops *pg_rw_ops;
+	int 			pg_ioflags;
+	int			pg_error;
+	const struct rpc_call_ops *pg_rpc_callops;
+	const struct nfs_pgio_completion_ops *pg_completion_ops;
+	struct pnfs_layout_segment *pg_lseg;
+	struct nfs_io_completion *pg_io_completion;
+	struct nfs_direct_req	*pg_dreq;
+#ifdef CONFIG_NFS_FSCACHE
+	void			*pg_netfs;
+#endif
+	unsigned int		pg_bsize;	
+
+	u32			pg_mirror_count;
+	struct nfs_pgio_mirror	*pg_mirrors;
+	struct nfs_pgio_mirror	pg_mirrors_static[1];
+	struct nfs_pgio_mirror	*pg_mirrors_dynamic;
+	u32			pg_mirror_idx;	
+	unsigned short		pg_maxretrans;
+	unsigned char		pg_moreio : 1;
+};
+
+
+#define NFS_PAGEIO_DESCRIPTOR_MIRROR_MAX 16
+
+#define NFS_WBACK_BUSY(req)	(test_bit(PG_BUSY,&(req)->wb_flags))
+
+extern struct nfs_page *nfs_page_create_from_page(struct nfs_open_context *ctx,
+						  struct page *page,
+						  unsigned int pgbase,
+						  loff_t offset,
+						  unsigned int count);
+extern struct nfs_page *nfs_page_create_from_folio(struct nfs_open_context *ctx,
+						   struct folio *folio,
+						   unsigned int offset,
+						   unsigned int count);
+extern	void nfs_release_request(struct nfs_page *);
+
+
+extern	void nfs_pageio_init(struct nfs_pageio_descriptor *desc,
+			     struct inode *inode,
+			     const struct nfs_pageio_ops *pg_ops,
+			     const struct nfs_pgio_completion_ops *compl_ops,
+			     const struct nfs_rw_ops *rw_ops,
+			     size_t bsize,
+			     int how);
+extern	int nfs_pageio_add_request(struct nfs_pageio_descriptor *,
+				   struct nfs_page *);
+extern  int nfs_pageio_resend(struct nfs_pageio_descriptor *,
+			      struct nfs_pgio_header *);
+extern	void nfs_pageio_complete(struct nfs_pageio_descriptor *desc);
+extern	void nfs_pageio_cond_complete(struct nfs_pageio_descriptor *, pgoff_t);
+extern size_t nfs_generic_pg_test(struct nfs_pageio_descriptor *desc,
+				struct nfs_page *prev,
+				struct nfs_page *req);
+extern  int nfs_wait_on_request(struct nfs_page *);
+extern	void nfs_unlock_request(struct nfs_page *req);
+extern	void nfs_unlock_and_release_request(struct nfs_page *);
+extern	struct nfs_page *nfs_page_group_lock_head(struct nfs_page *req);
+extern	int nfs_page_group_lock_subrequests(struct nfs_page *head);
+extern void nfs_join_page_group(struct nfs_page *head,
+				struct nfs_commit_info *cinfo,
+				struct inode *inode);
+extern int nfs_page_group_lock(struct nfs_page *);
+extern void nfs_page_group_unlock(struct nfs_page *);
+extern bool nfs_page_group_sync_on_bit(struct nfs_page *, unsigned int);
+extern	int nfs_page_set_headlock(struct nfs_page *req);
+extern void nfs_page_clear_headlock(struct nfs_page *req);
+extern bool nfs_async_iocounter_wait(struct rpc_task *, struct nfs_lock_context *);
+
+
+static inline struct folio *nfs_page_to_folio(const struct nfs_page *req)
+{
+	if (test_bit(PG_FOLIO, &req->wb_flags))
+		return req->wb_folio;
+	return NULL;
+}
+
+
+static inline struct page *nfs_page_to_page(const struct nfs_page *req,
+					    size_t pgbase)
+{
+	struct folio *folio = nfs_page_to_folio(req);
+
+	if (folio == NULL)
+		return req->wb_page;
+	return folio_page(folio, pgbase >> PAGE_SHIFT);
+}
+
+
+static inline struct inode *nfs_page_to_inode(const struct nfs_page *req)
+{
+	struct folio *folio = nfs_page_to_folio(req);
+
+	if (folio == NULL)
+		return page_file_mapping(req->wb_page)->host;
+	return folio_file_mapping(folio)->host;
+}
+
+
+static inline size_t nfs_page_max_length(const struct nfs_page *req)
+{
+	struct folio *folio = nfs_page_to_folio(req);
+
+	if (folio == NULL)
+		return PAGE_SIZE;
+	return folio_size(folio);
+}
+
+
+static inline int
+nfs_lock_request(struct nfs_page *req)
+{
+	return !test_and_set_bit(PG_BUSY, &req->wb_flags);
+}
+
+
+static inline void
+nfs_list_add_request(struct nfs_page *req, struct list_head *head)
+{
+	list_add_tail(&req->wb_list, head);
+}
+
+
+static inline void
+nfs_list_move_request(struct nfs_page *req, struct list_head *head)
+{
+	list_move_tail(&req->wb_list, head);
+}
+
+
+static inline void
+nfs_list_remove_request(struct nfs_page *req)
+{
+	if (list_empty(&req->wb_list))
+		return;
+	list_del_init(&req->wb_list);
+}
+
+static inline struct nfs_page *
+nfs_list_entry(struct list_head *head)
+{
+	return list_entry(head, struct nfs_page, wb_list);
+}
+
+static inline loff_t req_offset(const struct nfs_page *req)
+{
+	return (((loff_t)req->wb_index) << PAGE_SHIFT) + req->wb_offset;
+}
+
+static inline struct nfs_open_context *
+nfs_req_openctx(struct nfs_page *req)
+{
+	return req->wb_lock_context->open_context;
+}
+
+#endif 

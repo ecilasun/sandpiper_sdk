@@ -1,0 +1,13 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+
+
+#ifndef _DT_BINDINGS_PINCTRL_ZYNQ_H
+#define _DT_BINDINGS_PINCTRL_ZYNQ_H
+
+
+#define IO_STANDARD_LVCMOS18	1
+#define IO_STANDARD_LVCMOS25	2
+#define IO_STANDARD_LVCMOS33	3
+#define IO_STANDARD_HSTL	4
+
+#endif 

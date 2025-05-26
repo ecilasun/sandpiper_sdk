@@ -1,0 +1,224 @@
+/* SPDX-License-Identifier: MIT */
+
+
+#ifndef __LINUX_GUD_H
+#define __LINUX_GUD_H
+
+#include <linux/types.h>
+
+
+struct gud_display_descriptor_req {
+	__le32 magic;
+#define GUD_DISPLAY_MAGIC			0x1d50614d
+	__u8 version;
+	__le32 flags;
+#define GUD_DISPLAY_FLAG_STATUS_ON_SET		BIT(0)
+#define GUD_DISPLAY_FLAG_FULL_UPDATE		BIT(1)
+	__u8 compression;
+#define GUD_COMPRESSION_LZ4			BIT(0)
+	__le32 max_buffer_size;
+	__le32 min_width;
+	__le32 max_width;
+	__le32 min_height;
+	__le32 max_height;
+} __packed;
+
+
+struct gud_property_req {
+	__le16 prop;
+	__le64 val;
+} __packed;
+
+
+struct gud_display_mode_req {
+	__le32 clock;
+	__le16 hdisplay;
+	__le16 hsync_start;
+	__le16 hsync_end;
+	__le16 htotal;
+	__le16 vdisplay;
+	__le16 vsync_start;
+	__le16 vsync_end;
+	__le16 vtotal;
+	__le32 flags;
+#define GUD_DISPLAY_MODE_FLAG_PHSYNC		BIT(0)
+#define GUD_DISPLAY_MODE_FLAG_NHSYNC		BIT(1)
+#define GUD_DISPLAY_MODE_FLAG_PVSYNC		BIT(2)
+#define GUD_DISPLAY_MODE_FLAG_NVSYNC		BIT(3)
+#define GUD_DISPLAY_MODE_FLAG_INTERLACE		BIT(4)
+#define GUD_DISPLAY_MODE_FLAG_DBLSCAN		BIT(5)
+#define GUD_DISPLAY_MODE_FLAG_CSYNC		BIT(6)
+#define GUD_DISPLAY_MODE_FLAG_PCSYNC		BIT(7)
+#define GUD_DISPLAY_MODE_FLAG_NCSYNC		BIT(8)
+#define GUD_DISPLAY_MODE_FLAG_HSKEW		BIT(9)
+
+#define GUD_DISPLAY_MODE_FLAG_DBLCLK		BIT(12)
+#define GUD_DISPLAY_MODE_FLAG_CLKDIV2		BIT(13)
+#define GUD_DISPLAY_MODE_FLAG_USER_MASK		\
+		(GUD_DISPLAY_MODE_FLAG_PHSYNC | GUD_DISPLAY_MODE_FLAG_NHSYNC | \
+		GUD_DISPLAY_MODE_FLAG_PVSYNC | GUD_DISPLAY_MODE_FLAG_NVSYNC | \
+		GUD_DISPLAY_MODE_FLAG_INTERLACE | GUD_DISPLAY_MODE_FLAG_DBLSCAN | \
+		GUD_DISPLAY_MODE_FLAG_CSYNC | GUD_DISPLAY_MODE_FLAG_PCSYNC | \
+		GUD_DISPLAY_MODE_FLAG_NCSYNC | GUD_DISPLAY_MODE_FLAG_HSKEW | \
+		GUD_DISPLAY_MODE_FLAG_DBLCLK | GUD_DISPLAY_MODE_FLAG_CLKDIV2)
+
+#define GUD_DISPLAY_MODE_FLAG_PREFERRED		BIT(10)
+} __packed;
+
+
+struct gud_connector_descriptor_req {
+	__u8 connector_type;
+#define GUD_CONNECTOR_TYPE_PANEL		0
+#define GUD_CONNECTOR_TYPE_VGA			1
+#define GUD_CONNECTOR_TYPE_COMPOSITE		2
+#define GUD_CONNECTOR_TYPE_SVIDEO		3
+#define GUD_CONNECTOR_TYPE_COMPONENT		4
+#define GUD_CONNECTOR_TYPE_DVI			5
+#define GUD_CONNECTOR_TYPE_DISPLAYPORT		6
+#define GUD_CONNECTOR_TYPE_HDMI			7
+	__le32 flags;
+#define GUD_CONNECTOR_FLAGS_POLL_STATUS		BIT(0)
+#define GUD_CONNECTOR_FLAGS_INTERLACE		BIT(1)
+#define GUD_CONNECTOR_FLAGS_DOUBLESCAN		BIT(2)
+} __packed;
+
+
+struct gud_set_buffer_req {
+	__le32 x;
+	__le32 y;
+	__le32 width;
+	__le32 height;
+	__le32 length;
+	__u8 compression;
+	__le32 compressed_length;
+} __packed;
+
+
+struct gud_state_req {
+	struct gud_display_mode_req mode;
+	__u8 format;
+	__u8 connector;
+	struct gud_property_req properties[];
+} __packed;
+
+
+
+
+#define GUD_PROPERTY_TV_LEFT_MARGIN			1
+#define GUD_PROPERTY_TV_RIGHT_MARGIN			2
+#define GUD_PROPERTY_TV_TOP_MARGIN			3
+#define GUD_PROPERTY_TV_BOTTOM_MARGIN			4
+#define GUD_PROPERTY_TV_MODE				5
+
+#define GUD_PROPERTY_TV_BRIGHTNESS			6
+
+#define GUD_PROPERTY_TV_CONTRAST			7
+
+#define GUD_PROPERTY_TV_FLICKER_REDUCTION		8
+
+#define GUD_PROPERTY_TV_OVERSCAN			9
+
+#define GUD_PROPERTY_TV_SATURATION			10
+
+#define GUD_PROPERTY_TV_HUE				11
+
+
+#define GUD_PROPERTY_BACKLIGHT_BRIGHTNESS		12
+
+
+
+
+#define GUD_PROPERTY_ROTATION				50
+  #define GUD_ROTATION_0			BIT(0)
+  #define GUD_ROTATION_90			BIT(1)
+  #define GUD_ROTATION_180			BIT(2)
+  #define GUD_ROTATION_270			BIT(3)
+  #define GUD_ROTATION_REFLECT_X		BIT(4)
+  #define GUD_ROTATION_REFLECT_Y		BIT(5)
+  #define GUD_ROTATION_MASK			(GUD_ROTATION_0 | GUD_ROTATION_90 | \
+						GUD_ROTATION_180 | GUD_ROTATION_270 | \
+						GUD_ROTATION_REFLECT_X | GUD_ROTATION_REFLECT_Y)
+
+
+
+
+#define GUD_REQ_GET_STATUS				0x00
+  
+  #define GUD_STATUS_OK				0x00
+  #define GUD_STATUS_BUSY			0x01
+  #define GUD_STATUS_REQUEST_NOT_SUPPORTED	0x02
+  #define GUD_STATUS_PROTOCOL_ERROR		0x03
+  #define GUD_STATUS_INVALID_PARAMETER		0x04
+  #define GUD_STATUS_ERROR			0x05
+
+
+#define GUD_REQ_GET_DESCRIPTOR				0x01
+
+
+#define GUD_REQ_GET_FORMATS				0x40
+  #define GUD_FORMATS_MAX_NUM			32
+  #define GUD_PIXEL_FORMAT_R1			0x01 
+  #define GUD_PIXEL_FORMAT_R8			0x08 
+  #define GUD_PIXEL_FORMAT_XRGB1111		0x20
+  #define GUD_PIXEL_FORMAT_RGB332		0x30
+  #define GUD_PIXEL_FORMAT_RGB565		0x40
+  #define GUD_PIXEL_FORMAT_RGB888		0x50
+  #define GUD_PIXEL_FORMAT_XRGB8888		0x80
+  #define GUD_PIXEL_FORMAT_ARGB8888		0x81
+
+
+#define GUD_REQ_GET_PROPERTIES				0x41
+  #define GUD_PROPERTIES_MAX_NUM		32
+
+
+
+
+#define GUD_REQ_GET_CONNECTORS				0x50
+  #define GUD_CONNECTORS_MAX_NUM		32
+
+
+#define GUD_REQ_GET_CONNECTOR_PROPERTIES		0x51
+  #define GUD_CONNECTOR_PROPERTIES_MAX_NUM	32
+
+
+#define GUD_REQ_GET_CONNECTOR_TV_MODE_VALUES		0x52
+  #define GUD_CONNECTOR_TV_MODE_NAME_LEN	16
+  #define GUD_CONNECTOR_TV_MODE_MAX_NUM		16
+
+
+#define GUD_REQ_SET_CONNECTOR_FORCE_DETECT		0x53
+
+
+#define GUD_REQ_GET_CONNECTOR_STATUS			0x54
+  #define GUD_CONNECTOR_STATUS_DISCONNECTED	0x00
+  #define GUD_CONNECTOR_STATUS_CONNECTED	0x01
+  #define GUD_CONNECTOR_STATUS_UNKNOWN		0x02
+  #define GUD_CONNECTOR_STATUS_CONNECTED_MASK	0x03
+  #define GUD_CONNECTOR_STATUS_CHANGED		BIT(7)
+
+
+
+
+#define GUD_REQ_GET_CONNECTOR_MODES			0x55
+  #define GUD_CONNECTOR_MAX_NUM_MODES		128
+
+
+#define GUD_REQ_GET_CONNECTOR_EDID			0x56
+  #define GUD_CONNECTOR_MAX_EDID_LEN		2048
+
+
+#define GUD_REQ_SET_BUFFER				0x60
+
+
+#define GUD_REQ_SET_STATE_CHECK				0x61
+
+
+#define GUD_REQ_SET_STATE_COMMIT			0x62
+
+
+#define GUD_REQ_SET_CONTROLLER_ENABLE			0x63
+
+
+#define GUD_REQ_SET_DISPLAY_ENABLE			0x64
+
+#endif

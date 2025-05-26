@@ -1,0 +1,13 @@
+/* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
+
+
+#ifndef __DT_BINDINGS_SAMSUNG_BOOT_MODE_H
+#define __DT_BINDINGS_SAMSUNG_BOOT_MODE_H
+
+
+
+#define EXYNOSAUTOV9_BOOT_FASTBOOT	0xfa
+#define EXYNOSAUTOV9_BOOT_BOOTLOADER	0xfc
+#define EXYNOSAUTOV9_BOOT_RECOVERY	0xff
+
+#endif 
