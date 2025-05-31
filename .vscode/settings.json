@@ -9,7 +9,8 @@
 		"fb.h": "c",
 		"*.q1": "c",
 		"*.q2": "c",
-		"sbuslib.h": "c"
+		"sbuslib.h": "c",
+		"fb_internal.h": "c"
 	},
 	"idf.pythonInstallPath": "/usr/bin/python3"
 }
