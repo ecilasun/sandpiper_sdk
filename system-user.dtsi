@@ -1,0 +1,55 @@
+/include/ "system-conf.dtsi"
+/ {
+   reserved-memory {
+      address-cells = <2>;
+      size-cells = <2>;
+      ranges;
+
+      framebuffer_reserved: buffer@0x18000000 {
+         no-map;
+         compatible = "framebuffer";
+         reg = <0x18000000 0xA0000>;
+      };
+
+      reserved: buffer@0x180A0000 {
+         no-map;
+         reg = <0x180A0000 0x1F60000>;
+      };
+   };
+
+   framebuffer@0 {
+      compatible = "simple-framebuffer";
+      memory-region = <&framebuffer_reserved>;
+      width = <640>;
+      height = <480>;
+      stride = <(640 * 2)>;
+      format = "r5g6b5";
+   };
+
+   reserved-driver@0 {
+      compatible = "xlnx,reserved-memory";
+      memory-region = <&reserved>;
+   };
+
+   usb_phy0: usb_phy@0 {
+      compatible = "ulpi-phy";
+      #phy-cells = <0>;
+      reg = <0xe0002000 0x1000>;
+      view-port = <0x0170>;
+      drv-vbus;
+   };
+};
+
+&usb0 {
+	dr_mode = "host";
+	usb-phy = <&usb_phy0>;
+};
+
+&gem0 {
+    phy-handle = <&phy1>; // Assuming your PHY is connected to gem0
+    ps7_ethernet_0_mdio: mdio {
+        phy1: phy@1 {
+            device_type = "ethernet-phy";
+        };
+    };
+};
