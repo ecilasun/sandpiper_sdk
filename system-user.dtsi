@@ -5,14 +5,9 @@
       size-cells = <1>;
       ranges;
 
-	  display_reserved: framebuffer@18000000 {
+      reserved: buffer@0x1E000000 {
          no-map;
-		 reg = <0x18000000 0xA0000>;
-	  };
-
-      reserved: buffer@0x180A0000 {
-         no-map;
-         reg = <0x180A0000 0x1F60000>;
+         reg = <0x1E0A0000 0x2000000>;
       };
    };
 
@@ -21,9 +16,9 @@
       size-cells = <1>;
       ranges;
 
-      framebuffer@18000000 {
+      framebuffer@1E000000 {
          compatible = "simple-framebuffer";
-         reg = <0x18000000 (640*480*2)>;
+         reg = <0x1E000000 (640*480*2)>;
          width = <640>;
          height = <480>;
          stride = <(640*2)>;
