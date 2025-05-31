@@ -5,8 +5,7 @@
       size-cells = <2>;
       ranges;
 
-      framebuffer_reserved: buffer@0x18000000 {
-         no-map;
+      framebuffer_reserved: framebuffer@0x18000000 {
          compatible = "framebuffer";
          reg = <0x18000000 0xA0000>;
       };
@@ -24,6 +23,7 @@
       height = <480>;
       stride = <(640 * 2)>;
       format = "r5g6b5";
+	  status = "okay";
    };
 
    reserved-driver@0 {
