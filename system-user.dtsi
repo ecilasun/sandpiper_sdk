@@ -1,14 +1,9 @@
 /include/ "system-conf.dtsi"
 / {
    reserved-memory {
-      address-cells = <2>;
-      size-cells = <2>;
+      address-cells = <1>;
+      size-cells = <1>;
       ranges;
-
-      framebuffer_reserved: framebuffer@0x18000000 {
-         compatible = "framebuffer";
-         reg = <0x18000000 0xA0000>;
-      };
 
       reserved: buffer@0x180A0000 {
          no-map;
@@ -16,14 +11,20 @@
       };
    };
 
-   framebuffer@0 {
-      compatible = "simple-framebuffer";
-      memory-region = <&framebuffer_reserved>;
-      width = <640>;
-      height = <480>;
-      stride = <(640 * 2)>;
-      format = "r5g6b5";
-	  status = "okay";
+   chosen {
+      address-cells = <1>;
+      size-cells = <1>;
+      ranges;
+
+      framebuffer@18000000 {
+         compatible = "simple-framebuffer";
+         reg = <0x18000000 (640*480*2)>;
+         width = <640>;
+         height = <480>;
+         stride = <(640*2)>;
+         format = "r5g6b5";
+	     status = "okay";
+      };
    };
 
    reserved-driver@0 {
