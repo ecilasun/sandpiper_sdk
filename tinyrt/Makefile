@@ -13,7 +13,7 @@ corelib_dir = ../SDK
 ARM_GCC ?= g++
 
 ARM_GCC_OPTS += -std=c++20 -Ofast -flto -mcpu=cortex-a9 -mfpu=vfpv3 -mfloat-abi=hard
-ARM_GCC_OPTS += -lgcc -lc -lm -lmetal
+ARM_GCC_OPTS += -lgcc -lc -lm
 
 incs  += -I$(src_dir) -I$(corelib_dir) $(addprefix -I$(src_dir)/, $(folders))
 libs += $(wildcard $(corelib_dir)/*.S) $(wildcard $(corelib_dir)/*.c)

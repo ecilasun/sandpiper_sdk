@@ -7,6 +7,7 @@
 
 #include <math.h>
 #include <stdio.h>
+#include <signal.h>
 #include "platform.h"
 #include "video.h"
 
@@ -17,8 +18,9 @@ static struct SPPlatform platform;
 
 void shutdowncleanup()
 {
-	// Turn off video scan-out
-	VPUSetVideoMode(&vx, EVM_320_Wide, ECM_8bit_Indexed, EVS_Disable);
+	// Switch to fbcon buffer
+	VPUSetScanoutAddress(&s_vctx, 0x18000000);
+	VPUSetVideoMode(&s_vctx, EVM_640_Wide, ECM_16bit_RGB, EVS_Enable);
 
 	// Yield physical memory and reset video routines
 	VPUShutdownVideo();
