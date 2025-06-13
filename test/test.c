@@ -18,7 +18,6 @@
 
 static struct EVideoContext s_vctx;
 static struct EVideoSwapContext s_sctx;
-static struct EKeyboardContext s_kctx;
 struct SPSizeAlloc frameBufferA;
 struct SPSizeAlloc frameBufferB;
 static struct SPPlatform s_platform;
@@ -31,8 +30,6 @@ void shutdowncleanup()
 
 	// Yield physical memory and reset video routines
 	VPUShutdownVideo();
-
-	KPUShutdownKeyboard(&s_kctx);
 
 	// Release allocations
 	SPFreeBuffer(&s_platform, &frameBufferB);
@@ -57,9 +54,6 @@ int main(int argc, char** argv)
 
 	VPUInitVideo(&s_vctx, &s_platform);
 	printf("started video system\n");
-
-	KPUInitKeyboard(&s_kctx, &s_platform);
-	printf("started keyboard\n");
 
 	uint32_t stride = VPUGetStride(VIDEO_MODE, VIDEO_COLOR);
 	printf("stride: %d, height: %d\n", stride, VIDEO_HEIGHT);

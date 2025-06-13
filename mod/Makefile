@@ -15,7 +15,7 @@ libxmp = ../3rdparty/libxmp
 ARM_GCC ?= g++
 ARM_GCC_OPTS += -std=c++20 -Ofast -mcpu=cortex-a9 -mfpu=vfpv3 -mfloat-abi=hard
 ARM_GCC_OPTS += -DLIBXMP_NO_DEPACKERS -DLIBXMP_CORE_PLAYER -Wno-narrowing
-ARM_GCC_OPTS += -lgcc -lc -lm -lpthread
+ARM_GCC_OPTS += -lgcc -lc -lm -pthread
 
 incs  += -I$(src_dir) -I$(corelib_dir)/ -I$(libxmp)/include/ -I$(libxmp)/src/ -I$(src_dir)/.
 libs += $(wildcard $(corelib_dir)/*.c) $(wildcard $(libxmp)/src/*.c) $(wildcard $(libxmp)/src/loaders/*.c)

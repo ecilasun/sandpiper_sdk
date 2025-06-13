@@ -25,8 +25,8 @@ struct SPSizeAlloc framebuffer;
 void shutdowncleanup()
 {
 	// Switch to fbcon buffer
-	VPUSetScanoutAddress(&s_vctx, 0x18000000);
-	VPUSetVideoMode(&s_vctx, EVM_640_Wide, ECM_16bit_RGB, EVS_Enable);
+	VPUSetScanoutAddress(&vx, 0x18000000);
+	VPUSetVideoMode(&vx, EVM_640_Wide, ECM_16bit_RGB, EVS_Enable);
 
 	// Yield physical memory and reset video routines
 	VPUShutdownVideo();
