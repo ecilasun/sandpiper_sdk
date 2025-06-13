@@ -11,7 +11,6 @@
 #include "../SDK/core.h"
 #include "../SDK/platform.h"
 #include "../SDK/video.h"
-#include "../SDK/keyboard.h"
 
 #define VIDEO_MODE      EVM_640_Wide
 #define VIDEO_COLOR     ECM_8bit_Indexed
@@ -108,7 +107,7 @@ int main(int argc, char** argv)
 	s_vctx.m_caretBlink = 0;
 	s_vctx.m_caretType = 0;
 
-	// Open keyboard device
+	// Open keyboard device (note: how do we know which one is the keyboard and which one is the mouse?)
 	struct pollfd fds[1];
 	fds[0].fd = open("/dev/input/event0", O_RDONLY | O_NONBLOCK);
 	fds[0].events = POLLIN;

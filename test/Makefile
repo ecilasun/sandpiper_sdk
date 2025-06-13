@@ -10,7 +10,7 @@ corelib_dir = ../SDK
 
 # Rules
 
-ARM_GCC ?= arm-linux-gnueabihf-gcc
+ARM_GCC ?= gcc
 
 ARM_GCC_OPTS += -std=gnu99 -O0 -g -mcpu=cortex-a9 -mfpu=vfpv3 -mfloat-abi=hard
 ARM_GCC_OPTS += -lgcc -lc -lm
