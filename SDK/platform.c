@@ -10,7 +10,6 @@ int SPInitPlatform(struct SPPlatform* _platform)
 {
 	_platform->audioio = 0;
 	_platform->videoio = 0;
-	_platform->keyboardio = 0;
 	_platform->mapped_memory = (uint8_t*)MAP_FAILED;
 	_platform->alloc_cursor = 0;
 	_platform->memfd = -1;
@@ -50,14 +49,6 @@ int SPInitPlatform(struct SPPlatform* _platform)
 		err = 1;
 	}
 
-	// Gain access to the KPU command FIFO
-	_platform->keyboardio = (volatile uint32_t*)mmap(NULL, DEVICE_MEMORY_SIZE, PROT_READ|PROT_WRITE, MAP_SHARED, _platform->memfd, KEYBDDEVICE_ADDRESS);
-	if (_platform->keyboardio == (uint32_t*)MAP_FAILED)
-	{
-		perror("can't get keyboard module io region");
-		err = 1;
-	}
-
 	if (!err)
 		_platform->ready = 1;
 	else
@@ -71,9 +62,8 @@ int SPInitPlatform(struct SPPlatform* _platform)
 
 void SPShutdownPlatform(struct SPPlatform* _platform)
 {
-        munmap((void*)_platform->audioio, DEVICE_MEMORY_SIZE);
-        munmap((void*)_platform->videoio, DEVICE_MEMORY_SIZE);
-        munmap((void*)_platform->keyboardio, DEVICE_MEMORY_SIZE);
+	munmap((void*)_platform->audioio, DEVICE_MEMORY_SIZE);
+	munmap((void*)_platform->videoio, DEVICE_MEMORY_SIZE);
 	munmap((void*)_platform->mapped_memory, RESERVED_MEMORY_SIZE);
 	close(_platform->memfd);
 

@@ -10,7 +10,6 @@
 // Hardware MMIO addresses
 #define AUDIODEVICE_ADDRESS	0x40000000
 #define VIDEODEVICE_ADDRESS	0x40001000
-#define KEYBDDEVICE_ADDRESS	0x40002000
 
 // 32Mbytes reserved for device access
 #define RESERVED_MEMORY_SIZE	0x2000000
@@ -28,7 +27,6 @@ struct SPPlatform
 {
 	volatile uint32_t *videoio;
 	volatile uint32_t *audioio;
-	volatile uint32_t *keyboardio;
 	uint8_t* mapped_memory;
 	uint32_t alloc_cursor;
 	int memfd;
