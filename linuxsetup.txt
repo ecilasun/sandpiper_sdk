@@ -211,8 +211,14 @@ tar xf ubuntu-20.04.6-minimal-armhf-2023–08–22.tar.xz
 Copy the prebuilt Ubuntu .tar to sdcard:
 sudo tar xfvp $ZC706_UBUNTU_DIR/armhf-rootfs-ubuntu-focal.tar -C /media/ecilasun/rootfs
 
+Now we need to copy all drivers to lib/modules/6.***-xilinx-**** folder from petalinux build rootfs.tar file from lib/modules (images/Linux)
+Might need to use tar -xzf rootfs.tar.gz if the file system doesn't have built in tar decompression.
+
+Next, we set up the rights
 sudo chown root:root /media/ecilasun/rootfs
 sudo chmod 755 /media/ecilasun/rootfs
+
+And we flush everything to disk
 sync
 
 Remove the card from the linux machine, plug it into the zynq board and reboot
@@ -233,6 +239,7 @@ etc/hosts:
 127.0.1.1       sandpiper.localdomain   sandpiper
 
 /// At this point doing a reboot is a good idea to see if everything is working
+sudo reboot
 
 After this we need to ensure systemd-networkd (and resolved) are running and not NetworkManager
 sudo systemctl stop NetworkManager.service
@@ -240,6 +247,7 @@ sudo systemctl disable NetworkManager.service
 sudo systemctl start systemd-networkd
 
 Also make sure this symbolink link is correct and is not a file:
+sudo rm /etc/resolv.conf
 sudo ln -s /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
 
 Then we edit /etc/netplan/01-network-manager-all.yaml and add these lines:
@@ -261,6 +269,7 @@ sudo netplan apply
 Now ping www.google.com should work as expected
 
 /// At this point doing a reboot is a good idea to see if everything is working
+sudo reboot
 
 Time to make sure everything is up to date:
 sudo apt-get update
@@ -274,8 +283,7 @@ Along with this we probably don't want to see the old 'username:password' prompt
 sudo mv /etc/issue /etc/issue.orig
 
 ////////// Framebuffer &  fbcon: //////////
-copy all drivers to lib/modules/6.6.40-xilinx-g2b7f6f70a62a folder from petalinux build (images/Linux)
-(might need to tar -xzf rootfs.tar.gz to find the files)
+.... TODO
 After doing this the fbcon should 'just work' on next reboot
 To change the font, use:
 sudo dpkg-reconfigure console-setup
@@ -292,7 +300,7 @@ make it executable with sudo chmod +x /usr/sbin/fbterm-login
 edit /lib/systemd/system/getty@.service and change ExecStart line to:
 ExecStart=-/sbin/agetty --noclear -n -l /usr/sbin/fbterm-login %I $TERM
 
-save, reboot.
+save, sudo reboot.
 
 To turn off fbcon which will keep interfering:
 
