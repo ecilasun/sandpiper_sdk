@@ -319,3 +319,11 @@ sudo ./quake (we need sudo for now due to use of /dev/mem, will work on a custom
 sudo apt-get install build-essential kmod
 sudo apt-get install linux-headers-5.4.0-armv7-x8 <--- actual version to be figured out
 see https://sysprog21.github.io/lkmpg/
+
+
+
+NOTE:
+now edit the /etc/modules file and add just this line (without the .ko extension)
+simplefb
+then reboot. We should be able to see simplefb as a driver now when we do a lsmod
+But then what?
