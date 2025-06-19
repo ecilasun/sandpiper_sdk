@@ -17,6 +17,11 @@ petalinux-build
 cd images/linux
 petalinux-package boot --format BIN --fsbl zynq_fsbl.elf --u-boot u-boot.elf --fpga system.bit --force
 
+To make things from scratch, either of:
+petalinux-build -x distclean
+petalinux-build -x mrproper
+petalinux-build -x clean
+
 # preparing the boot media (sdcard)
 # create three partitions on the sdcard: BOOT(1G, FAT32), rootfs(10G, ext4), and data(rest of the space, ext4)
 # copy boot.scr, BOOT.bin, image.ub to root folder of first partition (/media/uname/boot)
@@ -198,6 +203,19 @@ https://docs.amd.com/r/en-US/ug1144-petalinux-tools-reference-guide/Package-Mana
 
 
 ////////// UBUNTU //////////
+
+download
+https://rcn-ee.com/rootfs/eewiki/minfs/ubuntu-20.04.6-minimal-armhf-2023-08-22.tar.xz
+tar xf ubuntu-20.04.6-minimal-armhf-2023–08–22.tar.xz
+
+Copy the prebuilt Ubuntu .tar to sdcard:
+sudo tar xfvp $ZC706_UBUNTU_DIR/armhf-rootfs-ubuntu-focal.tar -C /media/ecilasun/rootfs
+
+sudo chown root:root /media/ecilasun/rootfs
+sudo chmod 755 /media/ecilasun/rootfs
+sync
+
+Remove the card from the linux machine, plug it into the zynq board and reboot
 
 First thing to do is to fix the read-only filesystem issue:
 sudo mount -o remount,rw /dev/mmcblk0p2
