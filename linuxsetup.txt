@@ -232,6 +232,8 @@ sandpiper
 etc/hosts:
 127.0.1.1       sandpiper.localdomain   sandpiper
 
+/// At this point doing a reboot is a good idea to see if everything is working
+
 After this we need to ensure systemd-networkd (and resolved) are running and not NetworkManager
 sudo systemctl stop NetworkManager.service
 sudo systemctl disable NetworkManager.service
