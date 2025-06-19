@@ -76,17 +76,17 @@ Paste this into project-spec/meta-user/recipies-bsp/device-tree/files/system-use
 };
 
 &usb0 {
-	dr_mode = "host";
-	usb-phy = <&usb_phy0>;
+   dr_mode = "host";
+   usb-phy = <&usb_phy0>;
 };
 
 &gem0 {
-    phy-handle = <&phy1>; // Assuming your PHY is connected to gem0
-    ps7_ethernet_0_mdio: mdio {
-        phy1: phy@1 {
-            device_type = "ethernet-phy";
-        };
-    };
+   phy-handle = <&phy1>; // Assuming your PHY is connected to gem0
+   ps7_ethernet_0_mdio: mdio {
+      phy1: phy@1 {
+         device_type = "ethernet-phy";
+      };
+   };
 };
 
 --------------------------------------------------------------------
