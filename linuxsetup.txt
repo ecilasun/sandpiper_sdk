@@ -50,6 +50,20 @@ Paste this into project-spec/meta-user/recipies-bsp/device-tree/files/system-use
       memory-region = <&reserved>;
    };
 
+   chosen {
+      #address-cells = <1>;
+      #size-cells = <1>;
+      ranges;
+      framebuffer {
+         compatible = "simple-framebuffer";
+         reg = <0x0 0x18000000 0x0 (640 * 480 * 2)>;
+         width = <640>;
+         height = <480>;
+         stride = <(640 * 2)>;
+         format = "r5g6b5";
+      };
+   };
+
    usb_phy0: usb_phy@0 {
       compatible = "ulpi-phy";
       #phy-cells = <0>;
@@ -60,8 +74,8 @@ Paste this into project-spec/meta-user/recipies-bsp/device-tree/files/system-use
 };
 
 &usb0 {
-	dr_mode = "host";
-	usb-phy = <&usb_phy0>;
+   dr_mode = "host";
+   usb-phy = <&usb_phy0>;
 };
 
 &gem0 {
@@ -271,7 +285,7 @@ Now ping www.google.com should work as expected
 /// At this point doing a reboot is a good idea to see if everything is working
 sudo reboot
 
-Time to make sure everything is up to date:
+Time to make sure everything is up to date (upgrade part will take a while):
 sudo apt-get update
 sudo apt-get upgrade
 
