@@ -299,26 +299,10 @@ Along with this we probably don't want to see the old 'username:password' prompt
 sudo mv /etc/issue /etc/issue.orig
 
 ////////// Framebuffer &  fbcon: //////////
-.... TODO
 After doing this the fbcon should 'just work' on next reboot
-To change the font, use:
+To change the current font, use:
 sudo dpkg-reconfigure console-setup
-
-
-////////// Using fbterm instead: /////////
-
-sudoedit /usr/sbin/fbterm-login and paste the following:
-#!/usr/bin/sh
-fbterm -- /bin/bash -c "TERM=fbterm login -p"
-
-make it executable with sudo chmod +x /usr/sbin/fbterm-login
-
-edit /lib/systemd/system/getty@.service and change ExecStart line to:
-ExecStart=-/sbin/agetty --noclear -n -l /usr/sbin/fbterm-login %I $TERM
-
-save, sudo reboot.
-
-To turn off fbcon which will keep interfering:
+(Recommended one is Terminus at 6x12 resolution)
 
 
 ////////// Development tools: //////////
@@ -344,6 +328,21 @@ sudo apt-get install linux-headers-5.4.0-armv7-x8 <--- actual version to be figu
 see https://sysprog21.github.io/lkmpg/
 
 
+////////// Using fbterm instead: /////////
+
+sudoedit /usr/sbin/fbterm-login and paste the following:
+#!/usr/bin/sh
+fbterm -- /bin/bash -c "TERM=fbterm login -p"
+
+make it executable with sudo chmod +x /usr/sbin/fbterm-login
+
+edit /lib/systemd/system/getty@.service and change ExecStart line to:
+ExecStart=-/sbin/agetty --noclear -n -l /usr/sbin/fbterm-login %I $TERM
+
+save, sudo reboot.
+
+To turn off fbcon which will keep interfering:
+TODO
 
 NOTE:
 now edit the /etc/modules file and add just this line (without the .ko extension)
