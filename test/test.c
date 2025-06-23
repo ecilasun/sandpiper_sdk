@@ -138,7 +138,7 @@ int main(int argc, char** argv)
 			}
 		}
 
-		if (s_sctx.cycle % 30 == 0) // When we wait for vysync this makes a half second interval
+		if (s_sctx.cycle % 15 == 0) // When we wait for vysync this makes a quarter second interval
 		{
 			s_vctx.m_caretBlink ^= 1;
 //			KPUScanMatrix(&s_kctx);
