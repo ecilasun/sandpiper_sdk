@@ -61,10 +61,10 @@ int main(int argc, char** argv)
 	frameBufferB.size = frameBufferA.size = stride*VIDEO_HEIGHT;
 
 	SPAllocateBuffer(&s_platform, &frameBufferA);
-	printf("acrs:%d framebufferA: 0x%08X <- 0x%08X - %dbytes\n", s_platform.alloc_cursor, frameBufferA.cpuAddress, frameBufferA.dmaAddress, frameBufferA.size);
+	printf("acrs:%d framebufferA: 0x%08X <- 0x%08X - %dbytes\n", s_platform.alloc_cursor, (uint32_t)frameBufferA.cpuAddress, (uint32_t)frameBufferA.dmaAddress, frameBufferA.size);
 
 	SPAllocateBuffer(&s_platform, &frameBufferB);
-	printf("acrs:%d framebufferB: 0x%08X <- 0x%08X - %dbytes\n", s_platform.alloc_cursor, frameBufferB.cpuAddress, frameBufferB.dmaAddress, frameBufferB.size);
+	printf("acrs:%d framebufferB: 0x%08X <- 0x%08X - %dbytes\n", s_platform.alloc_cursor, (uint32_t)frameBufferB.cpuAddress, (uint32_t)frameBufferB.dmaAddress, frameBufferB.size);
 
 	atexit(shutdowncleanup);
 	signal(SIGINT, &sigint_handler);

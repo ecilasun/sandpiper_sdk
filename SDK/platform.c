@@ -16,10 +16,11 @@ int SPInitPlatform(struct SPPlatform* _platform)
 	_platform->ready = 0;
 	int err = 0;
 
+	// Hacks: we access fb0 memory, and raw device memory is right after
 	_platform->memfd = open("/dev/mem", O_RDWR | O_SYNC);
 	if (_platform->memfd < 1)
 	{
-		perror("can't open /dev/mem");
+		perror("can't access device memory");
 		err =  1;
 	}
 
