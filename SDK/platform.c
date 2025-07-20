@@ -121,9 +121,10 @@ uint32_t audioread32()
 	return value;
 }
 
-void audiowrite32(uint32_t* value)
+void audiowrite32(uint32_t value)
 {
-	ioctl(_platform->sandpiperfd, SP_IOCTL_AUDIO_WRITE, value);
+	uint32_t tmp = value;
+	ioctl(_platform->sandpiperfd, SP_IOCTL_AUDIO_WRITE, &value);
 }
 
 uint32_t videoread32()
@@ -133,7 +134,8 @@ uint32_t videoread32()
 	return value;
 }
 
-void videowrite32(uint32_t* value)
+void videowrite32(uint32_t value)
 {
-	ioctl(_platform->sandpiperfd, SP_IOCTL_VIDEO_WRITE, value);
+	uint32_t tmp = value;
+	ioctl(_platform->sandpiperfd, SP_IOCTL_VIDEO_WRITE, &tmp);
 }

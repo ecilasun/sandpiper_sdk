@@ -5,42 +5,34 @@ void APUSetBufferSize(struct EAudioContext* _context, enum EAPUBufferSize _buffe
 {
 	_context->m_bufferSize = 128 << (uint32_t)_bufferSize;
 
-	uint32_t cmd = APUCMD_BUFFERSIZE;
-	audiowrite32(&cmd);
-	audiowrite32(&_context->m_bufferSize);
+	audiowrite32(APUCMD_BUFFERSIZE);
+	audiowrite32(_context->m_bufferSize);
 }
 
 void APUStartDMA(struct EAudioContext* _context, uint32_t _audioBufferAddress16byteAligned)
 {
-	uint32_t cmd = APUCMD_START;
-	audiowrite32(&cmd);
-	uint32_t dat = _audioBufferAddress16byteAligned;
-	audiowrite32(&dat);
+	audiowrite32(APUCMD_START);
+	audiowrite32(_audioBufferAddress16byteAligned);
 }
 
 void APUSetSampleRate(struct EAudioContext* _context, enum EAPUSampleRate _sampleRate)
 {
 	_context->m_sampleRate = _sampleRate;
 
-	uint32_t cmd = APUCMD_SETRATE;
-	audiowrite32(&cmd);
-	uint32_t dat = _sampleRate;
-	audiowrite32(&dat);
+	audiowrite32(APUCMD_SETRATE);
+	audiowrite32((uint32_t)_sampleRate);
 }
 
 void APUSwapChannels(struct EAudioContext* _context, uint32_t _swap)
 {
-	uint32_t cmd = APUCMD_SWAPCHANNELS;
-	audiowrite32(&cmd);
-	uint32_t dat = _swap;
-	audiowrite32(&dat);
+	audiowrite32(APUCMD_SWAPCHANNELS);
+	audiowrite32(_swap);
 }
 
 void APUSync(struct EAudioContext* _context)
 {
 	// Dummy command
-	uint32_t cmd = APUCMD_NOOP;
-	audiowrite32(&cmd);
+	audiowrite32(APUCMD_NOOP);
 }
 
 uint32_t APUFrame(struct EAudioContext* _context)
