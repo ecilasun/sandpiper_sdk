@@ -114,27 +114,27 @@ void SPFreeBuffer(struct SPPlatform* _platform, struct SPSizeAlloc *_sizealloc)
 	// TODO
 }
 
-uint32_t audioread32()
+uint32_t audioread32(struct SPPlatform* _platform)
 {
 	uint32_t value = 0;
 	ioctl(_platform->sandpiperfd, SP_IOCTL_AUDIO_READ, &value);
 	return value;
 }
 
-void audiowrite32(uint32_t value)
+void audiowrite32(struct SPPlatform* _platform,uint32_t value)
 {
 	uint32_t tmp = value;
 	ioctl(_platform->sandpiperfd, SP_IOCTL_AUDIO_WRITE, &value);
 }
 
-uint32_t videoread32()
+uint32_t videoread32(struct SPPlatform* _platform)
 {
 	uint32_t value = 0;
 	ioctl(_platform->sandpiperfd, SP_IOCTL_VIDEO_READ, &value);
 	return value;
 }
 
-void videowrite32(uint32_t value)
+void videowrite32(struct SPPlatform* _platform, uint32_t value)
 {
 	uint32_t tmp = value;
 	ioctl(_platform->sandpiperfd, SP_IOCTL_VIDEO_WRITE, &tmp);
