@@ -38,3 +38,9 @@ void SPShutdownPlatform(struct SPPlatform* _platform);
 
 int SPAllocateBuffer(struct SPPlatform* _platform, struct SPSizeAlloc *_sizealloc);
 void SPFreeBuffer(struct SPPlatform* _platform, struct SPSizeAlloc *_sizealloc);
+
+uint32_t audioread32();
+void audiowrite32(uint32_t* value);
+uint32_t videoread32();
+void videowrite32(uint32_t* value);
+

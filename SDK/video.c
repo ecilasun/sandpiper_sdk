@@ -8,7 +8,6 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <fcntl.h>
-#include <linux/io.h>
 
 static uint8_t* color_buffer;
 static uint8_t* character_buffer;
@@ -176,8 +175,8 @@ void VPUSetDefaultPalette(struct EVideoContext *_context)
 {
 	for (uint32_t i=0; i<256; ++i)
 	{
-		iowrite32(_context->m_platform->videoio, VPUCMD_SETPAL);
-		iowrite32(_context->m_platform->videoio, (i<<24) | vgapalette[i]);
+		videowrite32(_context->m_platform->videoio, VPUCMD_SETPAL);
+		videowrite32(_context->m_platform->videoio, (i<<24) | vgapalette[i]);
 	}
 }
 
@@ -200,14 +199,14 @@ void VPUSetVideoMode(struct EVideoContext *_context, const enum EVideoMode _mode
 		_context->m_consoleHeight = (uint16_t)(_context->m_graphicsHeight/8);
 		_context->m_consoleUpdated = 0;
 
-		iowrite32(_context->m_platform->videoio, VPUCMD_SETVMODE);
-		iowrite32(_context->m_platform->videoio, MAKEVMODEINFO((uint32_t)_context->m_cmode, (uint32_t)_context->m_vmode, (uint32_t)_scanEnable));
+		videowrite32(_context->m_platform->videoio, VPUCMD_SETVMODE);
+		videowrite32(_context->m_platform->videoio, MAKEVMODEINFO((uint32_t)_context->m_cmode, (uint32_t)_context->m_vmode, (uint32_t)_scanEnable));
 	}
 	else
 	{
 		// Does not preserve state, mostly preferred during shutdown
-		iowrite32(_context->m_platform->videoio, VPUCMD_SETVMODE);
-		iowrite32(_context->m_platform->videoio, MAKEVMODEINFO((uint32_t)_cmode, (uint32_t)_mode, (uint32_t)_scanEnable));
+		videowrite32(_context->m_platform->videoio, VPUCMD_SETVMODE);
+		videowrite32(_context->m_platform->videoio, MAKEVMODEINFO((uint32_t)_cmode, (uint32_t)_mode, (uint32_t)_scanEnable));
 	}
 }
 
@@ -216,8 +215,8 @@ void VPUSetScanoutAddress(struct EVideoContext *_context, const uint32_t _scanOu
 	_context->m_scanoutAddressCacheAligned = _scanOutAddress64ByteAligned;
 	//EAssert((_scanOutAddress64ByteAligned&0x3F) == 0, "Video scanout address has to be aligned to 64 bytes\n");
 
-	iowrite32(_context->m_platform->videoio, VPUCMD_SETVPAGE);
-	iowrite32(_context->m_platform->videoio, (uint32_t)_scanOutAddress64ByteAligned);
+	videowrite32(_context->m_platform->videoio, VPUCMD_SETVPAGE);
+	videowrite32(_context->m_platform->videoio, (uint32_t)_scanOutAddress64ByteAligned);
 }
 
 void VPUSetWriteAddress(struct EVideoContext *_context, const uint32_t _cpuWriteAddress64ByteAligned)
@@ -228,8 +227,8 @@ void VPUSetWriteAddress(struct EVideoContext *_context, const uint32_t _cpuWrite
 
 void VPUSetPal(struct EVideoContext *_context, const uint8_t _paletteIndex, const uint32_t _red, const uint32_t _green, const uint32_t _blue)
 {
-	iowrite32(_context->m_platform->videoio, VPUCMD_SETPAL);
-	iowrite32(_context->m_platform->videoio, (_paletteIndex<<24) | (MAKECOLORRGB24(_red, _green, _blue)));
+	videowrite32(_context->m_platform->videoio, VPUCMD_SETPAL);
+	videowrite32(_context->m_platform->videoio, (_paletteIndex<<24) | (MAKECOLORRGB24(_red, _green, _blue)));
 }
 
 void VPUClear(struct EVideoContext *_context, const uint32_t _colorWord)
@@ -243,12 +242,12 @@ void VPUClear(struct EVideoContext *_context, const uint32_t _colorWord)
 uint32_t VPUReadVBlankCounter(struct EVideoContext *_context)
 {
 	// vblank counter lives at this address
-	return ioread32(_context->m_platform->videoio) & 0x1;
+	return videoread32(_context->m_platform->videoio) & 0x1;
 }
 
 uint32_t VPUGetScanline(struct EVideoContext *_context)
 {
-	return (ioread32(_context->m_platform->videoio) & 0x7FE) >> 1;
+	return (videoread32(_context->m_platform->videoio) & 0x7FE) >> 1;
 }
 
 void VPUSwapPages(struct EVideoContext* _context, struct EVideoSwapContext *_sc)

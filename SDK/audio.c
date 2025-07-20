@@ -1,44 +1,43 @@
 #include "core.h"
 #include "audio.h"
-#include <linux/io.h>
 
 void APUSetBufferSize(struct EAudioContext* _context, enum EAPUBufferSize _bufferSize)
 {
 	_context->m_bufferSize = 128 << (uint32_t)_bufferSize;
 
-	iowrite32(_context->m_platform->audioio, APUCMD_BUFFERSIZE);
-	iowrite32(_context->m_platform->audioio, (uint32_t)_bufferSize);
+	audiowrite32(_context->m_platform->audioio, APUCMD_BUFFERSIZE);
+	audiowrite32(_context->m_platform->audioio, (uint32_t)_bufferSize);
 }
 
 void APUStartDMA(struct EAudioContext* _context, uint32_t _audioBufferAddress16byteAligned)
 {
-	iowrite32(_context->m_platform->audioio, APUCMD_START);
-	iowrite32(_context->m_platform->audioio, _audioBufferAddress16byteAligned);
+	audiowrite32(_context->m_platform->audioio, APUCMD_START);
+	audiowrite32(_context->m_platform->audioio, _audioBufferAddress16byteAligned);
 }
 
 void APUSetSampleRate(struct EAudioContext* _context, enum EAPUSampleRate _sampleRate)
 {
 	_context->m_sampleRate = _sampleRate;
 
-	iowrite32(_context->m_platform->audioio, APUCMD_SETRATE);
-	iowrite32(_context->m_platform->audioio, (uint32_t)_sampleRate);
+	audiowrite32(_context->m_platform->audioio, APUCMD_SETRATE);
+	audiowrite32(_context->m_platform->audioio, (uint32_t)_sampleRate);
 }
 
 void APUSwapChannels(struct EAudioContext* _context, uint32_t _swap)
 {
-	iowrite32(_context->m_platform->audioio, APUCMD_SWAPCHANNELS);
-	iowrite32(_context->m_platform->audioio, (uint32_t)_swap);
+	audiowrite32(_context->m_platform->audioio, APUCMD_SWAPCHANNELS);
+	audiowrite32(_context->m_platform->audioio, (uint32_t)_swap);
 }
 
 void APUSync(struct EAudioContext* _context)
 {
 	// Dummy command
-	iowrite32(_context->m_platform->audioio, APUCMD_NOOP);
+	audiowrite32(_context->m_platform->audioio, APUCMD_NOOP);
 }
 
 uint32_t APUFrame(struct EAudioContext* _context)
 {
-	uint32_t status = ioread32(_context->m_platform->audioio);
+	uint32_t status = audioread32(_context->m_platform->audioio);
 	return status;
 }
 

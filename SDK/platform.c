@@ -9,6 +9,10 @@
 
 #define SP_IOCTL_GET_VIDEO_CTL _IOR('k', 0, void*)
 #define SP_IOCTL_GET_AUDIO_CTL _IOR('k', 1, void*)
+#define SP_IOCTL_AUDIO_READ _IOR('k', 2, uint32_t*)
+#define SP_IOCTL_AUDIO_WRITE _IOW('k', 3, uint32_t*)
+#define SP_IOCTL_VIDEO_READ _IOR('k', 4, uint32_t*)
+#define SP_IOCTL_VIDEO_WRITE _IOW('k', 5, uint32_t*)
 
 // NOTE: A list of all of the onboard devices can be found under /sys/bus/platform/devices/ including the audio and video devices.
 // The file names are annotated with the device addresses, which is useful for MMIO mapping.
@@ -108,4 +112,28 @@ int SPAllocateBuffer(struct SPPlatform* _platform, struct SPSizeAlloc *_sizeallo
 void SPFreeBuffer(struct SPPlatform* _platform, struct SPSizeAlloc *_sizealloc)
 {
 	// TODO
+}
+
+uint32_t audioread32()
+{
+	uint32_t value = 0;
+	ioctl(_platform->sandpiperfd, SP_IOCTL_AUDIO_READ, &value);
+	return value;
+}
+
+void audiowrite32(uint32_t* value)
+{
+	ioctl(_platform->sandpiperfd, SP_IOCTL_AUDIO_WRITE, value);
+}
+
+uint32_t videoread32()
+{
+	uint32_t value = 0;
+	ioctl(_platform->sandpiperfd, SP_IOCTL_VIDEO_READ, &value);
+	return value;
+}
+
+void videowrite32(uint32_t* value)
+{
+	ioctl(_platform->sandpiperfd, SP_IOCTL_VIDEO_WRITE, value);
 }
