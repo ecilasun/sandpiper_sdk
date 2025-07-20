@@ -7,6 +7,11 @@
 #include <errno.h>
 #include <string.h>
 
+// This program will talk to the platform driver directly
+// It is only provided as an example, and under normal circumstances
+// you should be using the user-space API provided by the SDK.
+// Please note that the ioctl commands are not complete in this example.
+
 #define DEVICE_NAME "/dev/sandpiper"
 
 #define MY_IOCTL_GET_VIDEO_CTL _IOR('k', 0, void*)
