@@ -36,7 +36,7 @@ int SPInitPlatform(struct SPPlatform* _platform)
 	printf("device driver opened\n");
 
 	// Map the 32MByte reserved region for CPU usage
-	_platform->mapped_memory = (uint8_t*)mmap(NULL, RESERVED_MEMORY_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, _platform->sandpiperfd, 0);
+	_platform->mapped_memory = (uint8_t*)mmap(NULL, RESERVED_MEMORY_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, _platform->sandpiperfd, RESERVED_MEMORY_ADDRESS);
 	if (_platform->mapped_memory == (uint8_t*)MAP_FAILED)
 	{
 		perror("can't map reserved region for CPU");
@@ -53,7 +53,7 @@ int SPInitPlatform(struct SPPlatform* _platform)
 		close(_platform->sandpiperfd);
 		err = 1;
 	}
-	_platform->audioio = (uint32_t*)mmap((void*)audio_ctl, DEVICE_MEMORY_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, _platform->sandpiperfd, 0);
+	_platform->audioio = (uint32_t*)mmap(NULL, DEVICE_MEMORY_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, _platform->sandpiperfd, audio_ctl);
 	printf("audioctl mapped to 0x%x\n", _platform->audioio);
 
 	if (ioctl(_platform->sandpiperfd, SP_IOCTL_GET_VIDEO_CTL, &video_ctl) < 0)
@@ -62,7 +62,7 @@ int SPInitPlatform(struct SPPlatform* _platform)
 		close(_platform->sandpiperfd);
 		err = 1;
 	}
-	_platform->videoio = (uint32_t*)mmap((void*)video_ctl, DEVICE_MEMORY_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, _platform->sandpiperfd, 0);
+	_platform->videoio = (uint32_t*)mmap(NULL, DEVICE_MEMORY_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, _platform->sandpiperfd, video_ctl);
 	printf("videoctl mapped to 0x%x\n", _platform->videoio);
 
 	if (!err)
