@@ -31,6 +31,10 @@ sudo dd if=rootfs.ext4 of=/dev/sdb2 # sdb2 is the second partition of the sdcard
 NOTE#1:
 --------------------------------------------------------------------
 Paste this into project-spec/meta-user/recipies-bsp/device-tree/files/system-user.dtsi
+Please note that the sandpiper driver is assigned to the reserved memory region, and the
+second intent of this driver is to act as an interface between the control registers of
+other devices on board and the user process, using ioctl() calls.
+This way the software won't need to know about raw memory addresses of device registers.
 
 /include/ "system-conf.dtsi"
 / {
@@ -62,7 +66,7 @@ Paste this into project-spec/meta-user/recipies-bsp/device-tree/files/system-use
    };
 
    reserved-driver@0 {
-      compatible = "xlnx,reserved-memory";
+      compatible = "sandpiper";
       memory-region = <&reserved>;
    };
 
