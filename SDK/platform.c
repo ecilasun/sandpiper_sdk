@@ -1,5 +1,6 @@
 #include "core.h"
 #include "video.h"
+#include <sys/ioctl.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
