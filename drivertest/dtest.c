@@ -8,33 +8,51 @@
 
 #define DEVICE_NAME "/dev/sandpiper"
 #define MY_IOCTL_GET_VIRT_ADDR _IOR('k', 0, void*)
+#define MEM_SIZE 0x2000000  // 32MB - should match the driver
 
 int main() {
-    int fd;
-    void *virt_addr;
-    unsigned int *ptr; // Pointer to access the memory
+	int fd;
+	void *mapped_mem;
+	unsigned int *ptr;
 
-    fd = open(DEVICE_NAME, O_RDONLY);
-    if (fd < 0) {
-        perror("Failed to open device");
-        fprintf(stderr, "Error: %s\n", strerror(errno));
-        return 1;
-    }
+	fd = open(DEVICE_NAME, O_RDWR);  // Open for read/write
+	if (fd < 0) {
+		perror("Failed to open device");
+		fprintf(stderr, "Error: %s\n", strerror(errno));
+		return 1;
+	}
 
-    if (ioctl(fd, MY_IOCTL_GET_VIRT_ADDR, &virt_addr) < 0) {
-        perror("Failed to execute ioctl");
-        close(fd);
-        return 1;
-    }
+	// Map the physical memory to user space
+	mapped_mem = mmap(NULL, MEM_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+	if (mapped_mem == MAP_FAILED) {
+		perror("Failed to mmap device memory");
+		close(fd);
+		return 1;
+	}
 
-    printf("Virtual address from driver: %p\n", virt_addr);
+	printf("Memory mapped successfully at user virtual address: %p\n", mapped_mem);
 
-    // Example: Access the first 4 bytes of the mapped memory
-    ptr = (unsigned int*)virt_addr;
-    printf("Value at virtual address: 0x%x\n", *ptr);
+	// Now you can safely access the memory as a regular pointer
+	ptr = (unsigned int*)mapped_mem;
+	
+	// Read the first 32-bit value
+	printf("Value at offset 0: 0x%x\n", ptr[0]);
+	
+	// Write a test value
+	ptr[0] = 0x12345678;
+	printf("Wrote 0x12345678 to offset 0\n");
+	
+	// Read it back
+	printf("Read back: 0x%x\n", ptr[0]);
+	
+	// Access different offsets (be careful not to exceed MEM_SIZE)
+	ptr[1] = 0xDEADBEEF;
+	printf("Wrote 0xDEADBEEF to offset 4, read back: 0x%x\n", ptr[1]);
 
-    close(fd);
+	// Clean up
+	munmap(mapped_mem, MEM_SIZE);
+	close(fd);
 
-    return 0;
+	return 0;
 }
 
