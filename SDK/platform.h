@@ -4,8 +4,8 @@
 #include <linux/limits.h>
 #include <sys/mman.h>
 
-// Device reserved memory start is after fbcon buffer
-#define RESERVED_MEMORY_ADDRESS	0x18096000
+// Base address of the reserved memory region
+#define RESERVED_MEMORY_ADDRESS	0x18000000
 
 // Hardware MMIO addresses
 #define AUDIODEVICE_ADDRESS	0x40000000
