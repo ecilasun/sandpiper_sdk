@@ -15,19 +15,9 @@ int SPInitPlatform(struct SPPlatform* _platform)
 	_platform->videoio = 0;
 	_platform->mapped_memory = (uint8_t*)MAP_FAILED;
 	_platform->alloc_cursor = 0x96000; // The cursor has to stay outside the framebuffer region, which is 640*480*2 bytes in size.
-	_platform->memfd = -1;
 	_platform->sandpiperfd = -1;
 	_platform->ready = 0;
 	int err = 0;
-
-	// TODO: This will not be needed once sandpiper driver handles control register access
-	// We should be able to use ioctl #define MY_IOCTL_GET_VIRT_ADDR _IOR('k', 0, void*) to gain access to these registers
-	_platform->memfd = open("/dev/mem", O_RDWR | O_SYNC);
-	if (_platform->memfd < 1)
-	{
-		perror("can't access control registers");
-		err =  1;
-	}
 
 	_platform->sandpiperfd = open("/dev/sandpiper", O_RDWR | O_SYNC);
 	if (_platform->sandpiperfd < 1)
@@ -44,19 +34,16 @@ int SPInitPlatform(struct SPPlatform* _platform)
 		err = 1;
 	}
 
-	// Gain access to the APU command FIFO
-	_platform->audioio = (volatile uint32_t*)mmap(NULL, DEVICE_MEMORY_SIZE, PROT_READ|PROT_WRITE, MAP_SHARED, _platform->memfd, AUDIODEVICE_ADDRESS);
-	if (_platform->audioio == (uint32_t*)MAP_FAILED)
-	{
-		perror("can't get audio module io region");
+	// Grab the contol registers for video and audio devices
+	if (ioctl(fd, MY_IOCTL_GET_VIDEO_CTL, &_platform->videoio) < 0) {
+		perror("Failed to get video control");
+		close(fd);
 		err = 1;
 	}
 
-	// Gain access to the VPU command FIFO
-	_platform->videoio = (volatile uint32_t*)mmap(NULL, DEVICE_MEMORY_SIZE, PROT_READ|PROT_WRITE, MAP_SHARED, _platform->memfd, VIDEODEVICE_ADDRESS);
-	if (_platform->videoio == (uint32_t*)MAP_FAILED)
-	{
-		perror("can't get video module io region");
+	if (ioctl(fd, MY_IOCTL_GET_AUDIO_CTL, &_platform->audioio) < 0) {
+		perror("Failed to get audio control");
+		close(fd);
 		err = 1;
 	}
 
@@ -75,11 +62,8 @@ void SPShutdownPlatform(struct SPPlatform* _platform)
 {
 	_platform->ready = 0;
 
-	munmap((void*)_platform->audioio, DEVICE_MEMORY_SIZE);
-	munmap((void*)_platform->videoio, DEVICE_MEMORY_SIZE);
 	munmap((void*)_platform->mapped_memory, RESERVED_MEMORY_SIZE);
 	close(_platform->sandpiperfd);
-	close(_platform->memfd);
 
 	_platform->alloc_cursor = 0x96000;
 	_platform->audioio = 0;

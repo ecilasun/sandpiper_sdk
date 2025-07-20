@@ -30,7 +30,6 @@ struct SPPlatform
 	uint8_t* mapped_memory;
 	uint32_t alloc_cursor;
 	int sandpiperfd;
-	int memfd;
 	int ready;
 };
 
