@@ -6,6 +6,9 @@
 #include <unistd.h>
 #include <fcntl.h>
 
+#define SP_IOCTL_GET_VIDEO_CTL _IOR('k', 0, void*)
+#define SP_IOCTL_GET_AUDIO_CTL _IOR('k', 1, void*)
+
 // NOTE: A list of all of the onboard devices can be found under /sys/bus/platform/devices/ including the audio and video devices.
 // The file names are annotated with the device addresses, which is useful for MMIO mapping.
 
@@ -35,15 +38,16 @@ int SPInitPlatform(struct SPPlatform* _platform)
 	}
 
 	// Grab the contol registers for video and audio devices
-	if (ioctl(fd, MY_IOCTL_GET_VIDEO_CTL, &_platform->videoio) < 0) {
-		perror("Failed to get video control");
-		close(fd);
+
+	if (ioctl(_platform->sandpiperfd, SP_IOCTL_GET_AUDIO_CTL, &_platform->audioio) < 0) {
+		perror("Failed to get audio control");
+		close(_platform->sandpiperfd);
 		err = 1;
 	}
 
-	if (ioctl(fd, MY_IOCTL_GET_AUDIO_CTL, &_platform->audioio) < 0) {
-		perror("Failed to get audio control");
-		close(fd);
+	if (ioctl(_platform->sandpiperfd, SP_IOCTL_GET_VIDEO_CTL, &_platform->videoio) < 0) {
+		perror("Failed to get video control");
+		close(_platform->sandpiperfd);
 		err = 1;
 	}
 
