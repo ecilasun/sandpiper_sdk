@@ -6,6 +6,9 @@
 #include <unistd.h>
 #include <fcntl.h>
 
+// NOTE: A list of all of the onboard devices can be found under /sys/bus/platform/devices/ including the audio and video devices.
+// The file names are annotated with the device addresses, which is useful for MMIO mapping.
+
 int SPInitPlatform(struct SPPlatform* _platform)
 {
 	_platform->audioio = 0;
@@ -13,26 +16,33 @@ int SPInitPlatform(struct SPPlatform* _platform)
 	_platform->mapped_memory = (uint8_t*)MAP_FAILED;
 	_platform->alloc_cursor = 0;
 	_platform->memfd = -1;
+	_platform->sandpiperfd = -1;
 	_platform->ready = 0;
 	int err = 0;
 
-	// Hacks: we access fb0 memory, and raw device memory is right after
+	// TODO: This will not be needed once sandpiper driver handles control register access
+	// We should be able to use ioctl #define MY_IOCTL_GET_VIRT_ADDR _IOR('k', 0, void*) to gain access to these registers
 	_platform->memfd = open("/dev/mem", O_RDWR | O_SYNC);
 	if (_platform->memfd < 1)
 	{
-		perror("can't access device memory");
+		perror("can't access control registers");
 		err =  1;
 	}
 
+	_platform->sandpiperfd = open("/dev/sandpiper", O_RDWR | O_SYNC);
+	if (_platform->sandpiperfd < 1)
+	{
+		perror("can't access sandpiper device");
+		err = 1;
+	}
+
 	// Map the 32MByte reserved region for CPU usage
-	_platform->mapped_memory = (uint8_t*)mmap(NULL, RESERVED_MEMORY_SIZE, PROT_READ|PROT_WRITE, MAP_SHARED, _platform->memfd, RESERVED_MEMORY_ADDRESS);
+	_platform->mapped_memory = (uint8_t*)mmap(NULL, RESERVED_MEMORY_SIZE, PROT_READ|PROT_WRITE, MAP_SHARED, _platform->sandpiperfd, 0);
 	if (_platform->mapped_memory == (uint8_t*)MAP_FAILED)
 	{
 		perror("can't map reserved region for CPU");
 		err = 1;
 	}
-
-	// NOTE: All of our devices are listed under /sys/bus/platform/devices/
 
 	// Gain access to the APU command FIFO
 	_platform->audioio = (volatile uint32_t*)mmap(NULL, DEVICE_MEMORY_SIZE, PROT_READ|PROT_WRITE, MAP_SHARED, _platform->memfd, AUDIODEVICE_ADDRESS);
@@ -63,12 +73,17 @@ int SPInitPlatform(struct SPPlatform* _platform)
 
 void SPShutdownPlatform(struct SPPlatform* _platform)
 {
+	_platform->ready = 0;
+
 	munmap((void*)_platform->audioio, DEVICE_MEMORY_SIZE);
 	munmap((void*)_platform->videoio, DEVICE_MEMORY_SIZE);
 	munmap((void*)_platform->mapped_memory, RESERVED_MEMORY_SIZE);
+	close(_platform->sandpiperfd);
 	close(_platform->memfd);
 
-	_platform->ready = 0;
+	_platform->audioio = 0;
+	_platform->videoio = 0;
+	_platform->mapped_memory = (uint8_t*)MAP_FAILED;
 }
 
 int SPAllocateBuffer(struct SPPlatform* _platform, struct SPSizeAlloc *_sizealloc)
