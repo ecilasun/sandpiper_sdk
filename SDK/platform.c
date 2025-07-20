@@ -35,7 +35,7 @@ int SPInitPlatform(struct SPPlatform* _platform)
 	}
 
 	// Map the 32MByte reserved region for CPU usage
-	_platform->mapped_memory = (uint8_t*)mmap(NULL, RESERVED_MEMORY_SIZE, PROT_READ|PROT_WRITE, MAP_SHARED, _platform->sandpiperfd, 0);
+	_platform->mapped_memory = (uint8_t*)mmap(NULL, RESERVED_MEMORY_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, _platform->sandpiperfd, 0);
 	if (_platform->mapped_memory == (uint8_t*)MAP_FAILED)
 	{
 		perror("can't map reserved region for CPU");
@@ -44,17 +44,22 @@ int SPInitPlatform(struct SPPlatform* _platform)
 
 	// Grab the contol registers for video and audio devices
 
-	if (ioctl(_platform->sandpiperfd, SP_IOCTL_GET_AUDIO_CTL, &_platform->audioio) < 0) {
+	uint32_t video_ctl, audio_ctl;
+	if (ioctl(_platform->sandpiperfd, SP_IOCTL_GET_AUDIO_CTL, &audio_ctl) < 0)
+	{
 		perror("Failed to get audio control");
 		close(_platform->sandpiperfd);
 		err = 1;
 	}
+	_platform->audioio = (uint32_t*)mmap((void*)audio_ctl, DEVICE_MEMORY_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, _platform->sandpiperfd, 0);
 
-	if (ioctl(_platform->sandpiperfd, SP_IOCTL_GET_VIDEO_CTL, &_platform->videoio) < 0) {
+	if (ioctl(_platform->sandpiperfd, SP_IOCTL_GET_VIDEO_CTL, &video_ctl) < 0)
+	{
 		perror("Failed to get video control");
 		close(_platform->sandpiperfd);
 		err = 1;
 	}
+	_platform->videoio = (uint32_t*)mmap((void*)video_ctl, DEVICE_MEMORY_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, _platform->sandpiperfd, 0);
 
 	if (!err)
 		_platform->ready = 1;
@@ -71,6 +76,8 @@ void SPShutdownPlatform(struct SPPlatform* _platform)
 {
 	_platform->ready = 0;
 
+	munmap((void*)_platform->audioio, DEVICE_MEMORY_SIZE);
+	munmap((void*)_platform->videoio, DEVICE_MEMORY_SIZE);
 	munmap((void*)_platform->mapped_memory, RESERVED_MEMORY_SIZE);
 	close(_platform->sandpiperfd);
 
@@ -116,26 +123,24 @@ void SPFreeBuffer(struct SPPlatform* _platform, struct SPSizeAlloc *_sizealloc)
 
 uint32_t audioread32(struct SPPlatform* _platform)
 {
-	uint32_t value = 0;
-	ioctl(_platform->sandpiperfd, SP_IOCTL_AUDIO_READ, &value);
-	return value;
+	volatile uint32_t* audio_reg = _platform->audioio;
+	return *audio_reg;
 }
 
-void audiowrite32(struct SPPlatform* _platform,uint32_t value)
+void audiowrite32(struct SPPlatform* _platform, uint32_t value)
 {
-	uint32_t tmp = value;
-	ioctl(_platform->sandpiperfd, SP_IOCTL_AUDIO_WRITE, &value);
+	volatile uint32_t* audio_reg = _platform->audioio;
+	*audio_reg = value;
 }
 
 uint32_t videoread32(struct SPPlatform* _platform)
 {
-	uint32_t value = 0;
-	ioctl(_platform->sandpiperfd, SP_IOCTL_VIDEO_READ, &value);
-	return value;
+	volatile uint32_t* video_reg = _platform->videoio;
+	return *video_reg;
 }
 
 void videowrite32(struct SPPlatform* _platform, uint32_t value)
 {
-	uint32_t tmp = value;
-	ioctl(_platform->sandpiperfd, SP_IOCTL_VIDEO_WRITE, &tmp);
+	volatile uint32_t* video_reg = _platform->videoio;
+	*video_reg = value;
 }
