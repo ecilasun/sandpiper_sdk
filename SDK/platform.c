@@ -19,8 +19,8 @@
 
 int SPInitPlatform(struct SPPlatform* _platform)
 {
-	_platform->audioio = 0;
-	_platform->videoio = 0;
+	_platform->audioio = (uint32_t*)MAP_FAILED;
+	_platform->videoio = (uint32_t*)MAP_FAILED;
 	_platform->mapped_memory = (uint8_t*)MAP_FAILED;
 	_platform->alloc_cursor = 0x96000; // The cursor has to stay outside the framebuffer region, which is 640*480*2 bytes in size.
 	_platform->sandpiperfd = -1;
