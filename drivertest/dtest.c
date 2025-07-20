@@ -8,7 +8,10 @@
 #include <string.h>
 
 #define DEVICE_NAME "/dev/sandpiper"
-#define MY_IOCTL_GET_VIRT_ADDR _IOR('k', 0, void*)
+
+#define MY_IOCTL_GET_VIDEO_CTL _IOR('k', 0, void*)
+#define MY_IOCTL_GET_AUDIO_CTL _IOR('k', 1, void*)
+
 #define MEM_SIZE 0x2000000  // 32MB - should match the driver
 
 int main() {
@@ -52,6 +55,26 @@ int main() {
 
 	// Clean up
 	munmap(mapped_mem, MEM_SIZE);
+
+	// Test the IOCTLs
+	void *video_ctl=0;
+	void *audio_ctl=0;
+
+	if (ioctl(fd, MY_IOCTL_GET_VIDEO_CTL, &video_ctl) < 0) {
+		perror("Failed to get video control");
+		close(fd);
+		return 1;
+	}
+	printf("Video control obtained successfully: %p\n", video_ctl);
+
+	if (ioctl(fd, MY_IOCTL_GET_AUDIO_CTL, &audio_ctl) < 0) {
+		perror("Failed to get audio control");
+		close(fd);
+		return 1;
+	}
+	printf("Audio control obtained successfully: %p\n", audio_ctl);
+
+	// Close the device file descriptor
 	close(fd);
 
 	return 0;
