@@ -8,6 +8,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <fcntl.h>
+#include <linux/io.h>
 
 static uint8_t* color_buffer;
 static uint8_t* character_buffer;
