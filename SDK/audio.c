@@ -37,8 +37,7 @@ void APUSync(struct EAudioContext* _context)
 
 uint32_t APUFrame(struct EAudioContext* _context)
 {
-	uint32_t status = audioread32(_context->m_platform);
-	return status & 1;
+	return audioread32(_context->m_platform) & 0x1;
 }
 
 uint32_t APUGetWordCount(struct EAudioContext* _context)
@@ -63,4 +62,13 @@ void APUShutdownAudio(struct EAudioContext* _context)
 		// In case the user forgot to stop audio
 		APUSetSampleRate(_context, ASR_Halt);
 	}
+}
+
+void APUWaitSync(struct EVideoContext *_context)
+{
+	volatile uint32_t prevsync = APUFrame(_context);
+	volatile uint32_t currentsync;
+	do {
+		currentsync = APUFrame(_context);
+	} while (currentsync == prevsync);
 }
