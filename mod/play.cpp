@@ -202,7 +202,6 @@ void *PlayXMP(void *data)
 
 		int playing = 1;
 		short* buf = (short*)apubuffer.cpuAddress;
-		volatile uint32_t prevframe = APUFrame(&ax);
 		while (playing)
 		{
 			playing = xmp_play_buffer(ctx, buf, BUFFER_BYTE_COUNT, 0) == 0;
@@ -211,19 +210,10 @@ void *PlayXMP(void *data)
 			APUStartDMA(&ax, (uint32_t)apubuffer.dmaAddress);
 
 			// Wait for the APU to be done with current read buffer which is still playing
-			volatile uint32_t currframe;
-			do
-			{
-				// APU will return a different 'frame' as soon as the current buffer reaches the end
-				currframe = APUFrame(&ax);
-			} while (currframe == prevframe);
-
-			sched_yield();
+			APUWaitSync(&ax);
 
 			// Once we reach this point, the APU has switched to the other buffer we just filled, and playback resumes uninterrupted
-
-			// Remember this frame
-			prevframe = currframe;
+			sched_yield();
 		}
 		xmp_end_player(ctx);
 
