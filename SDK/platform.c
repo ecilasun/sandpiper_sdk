@@ -150,7 +150,7 @@ uint32_t videoread32(struct SPPlatform* _platform)
 
 void videowrite32(struct SPPlatform* _platform, uint32_t value)
 {
-	uint32_t audio_ctl = value;
+	uint32_t video_ctl = value;
 	if (ioctl(_platform->sandpiperfd, SP_IOCTL_VIDEO_WRITE, &video_ctl) < 0)
 		perror("Failed to set video control for write");
 }
