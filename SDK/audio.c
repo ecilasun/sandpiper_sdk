@@ -64,7 +64,7 @@ void APUShutdownAudio(struct EAudioContext* _context)
 	}
 }
 
-void APUWaitSync(struct EVideoContext *_context)
+void APUWaitSync(struct EAudioContext *_context)
 {
 	volatile uint32_t prevsync = APUFrame(_context);
 	volatile uint32_t currentsync;
