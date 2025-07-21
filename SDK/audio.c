@@ -38,7 +38,13 @@ void APUSync(struct EAudioContext* _context)
 uint32_t APUFrame(struct EAudioContext* _context)
 {
 	uint32_t status = audioread32(_context->m_platform);
-	return status;
+	return status & 1;
+}
+
+uint32_t APUGetWordCount(struct EAudioContext* _context)
+{
+	uint32_t status = audioread32(_context->m_platform);
+	return (status>>1)&0x3FF;
 }
 
 int APUInitAudio(struct EAudioContext* _context, struct SPPlatform* _platform)

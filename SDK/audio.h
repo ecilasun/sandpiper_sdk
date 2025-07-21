@@ -42,3 +42,4 @@ void APUSync(struct EAudioContext* _context);
 void APUSetSampleRate(struct EAudioContext* _context, enum EAPUSampleRate _sampleRate);
 void APUSwapChannels(struct EAudioContext* _context, uint32_t _swap);
 uint32_t APUFrame(struct EAudioContext* _context);
+uint32_t APUGetWordCount(struct EAudioContext* _context);
