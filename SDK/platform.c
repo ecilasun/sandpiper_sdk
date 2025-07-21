@@ -127,30 +127,22 @@ void SPFreeBuffer(struct SPPlatform* _platform, struct SPSizeAlloc *_sizealloc)
 
 uint32_t audioread32(struct SPPlatform* _platform)
 {
-	uint32_t audio_ctl = 0;
-	if (ioctl(_platform->sandpiperfd, SP_IOCTL_AUDIO_READ, &audio_ctl) < 0)
-		perror("Failed to get audio control for read");
-	return audio_ctl;
+	return *_platform->audioio;
 }
 
 void audiowrite32(struct SPPlatform* _platform, uint32_t value)
 {
-	uint32_t audio_ctl = value;
-	if (ioctl(_platform->sandpiperfd, SP_IOCTL_AUDIO_WRITE, &audio_ctl) < 0)
-		perror("Failed to set audio control for write");
+	volatile uint32_t* audio_reg = _platform->audioio;
+	*audio_reg = value;
 }
 
 uint32_t videoread32(struct SPPlatform* _platform)
 {
-	uint32_t video_ctl = 0;
-	if (ioctl(_platform->sandpiperfd, SP_IOCTL_VIDEO_READ, &video_ctl) < 0)
-		perror("Failed to get video control for read");
-	return video_ctl;
+	return *_platform->videoio;
 }
 
 void videowrite32(struct SPPlatform* _platform, uint32_t value)
 {
-	uint32_t video_ctl = value;
-	if (ioctl(_platform->sandpiperfd, SP_IOCTL_VIDEO_WRITE, &video_ctl) < 0)
-		perror("Failed to set video control for write");
+	volatile uint32_t* video_reg = _platform->videoio;
+	*video_reg = value;
 }
