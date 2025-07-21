@@ -273,9 +273,10 @@ int main(int argc, char *argv[])
 
 	pthread_t thread1, thread2;
 	int success = pthread_create(&thread1, NULL, draw_wave, NULL);
-	success = pthread_create(&thread2, NULL, PlayXMP, argv[1]);
+	//success = pthread_create(&thread2, NULL, PlayXMP, argv[1]);
 	pthread_join(thread1, NULL);
-	pthread_join(thread2, NULL);
+	PlayXMP(argv[1]);
+	//pthread_join(thread2, NULL);
 
 	printf("Playback complete\n");
 
