@@ -1,6 +1,5 @@
 #include "core.h"
 #include "audio.h"
-#include <cstdio>
 
 void APUSetBufferSize(struct EAudioContext* _context, enum EAPUBufferSize _bufferSize)
 {
