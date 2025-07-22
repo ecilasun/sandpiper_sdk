@@ -132,8 +132,7 @@ uint32_t audioread32(struct SPPlatform* _platform)
 
 void audiowrite32(struct SPPlatform* _platform, uint32_t value)
 {
-	volatile uint32_t* audio_reg = _platform->audioio;
-	*audio_reg = value;
+	*_platform->audioio = value;
 }
 
 uint32_t videoread32(struct SPPlatform* _platform)
@@ -143,6 +142,5 @@ uint32_t videoread32(struct SPPlatform* _platform)
 
 void videowrite32(struct SPPlatform* _platform, uint32_t value)
 {
-	volatile uint32_t* video_reg = _platform->videoio;
-	*video_reg = value;
+	*_platform->videoio = value;
 }
