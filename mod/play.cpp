@@ -195,6 +195,10 @@ void *PlayXMP(void *data)
 	APUSetBufferSize(&ax, ABS_4096Bytes);
 	APUSetSampleRate(&ax, ASR_22_050_Hz);
 
+	printf("Checking device status\n");
+	printf(" Word count:%d\n", APUGetWordCount(&ax));
+	printf(" Cursor: %d\n", APUFrame(&ax));
+
 	if (xmp_start_player(ctx, 22050, 0) == 0)
 	{
 		xmp_get_module_info(ctx, &mi);
