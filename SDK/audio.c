@@ -6,7 +6,7 @@ void APUSetBufferSize(struct EAudioContext* _context, enum EAPUBufferSize _buffe
 	_context->m_bufferSize = 128 << (uint32_t)_bufferSize;
 
 	audiowrite32(_context->m_platform, APUCMD_BUFFERSIZE);
-	audiowrite32(_context->m_platform, _context->m_bufferSize);
+	audiowrite32(_context->m_platform, (uint32_t)_bufferSize);
 }
 
 void APUStartDMA(struct EAudioContext* _context, uint32_t _audioBufferAddress16byteAligned)
