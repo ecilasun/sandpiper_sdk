@@ -14,6 +14,10 @@
 #include <string.h>
 #include <math.h>
 #include <signal.h>
+#include <fcntl.h>
+#include <poll.h>
+#include <unistd.h>
+#include <linux/input.h>
 
 #include "nanojpeg.h"
 
@@ -66,13 +70,15 @@ void DecodeJPEG(uint32_t stride, const char *fname)
 		fsetpos(fp, &pos);
 		uint32_t fsize = (uint32_t)endpos.__pos;
 
-		printf("Reading %ld bytes\n", fsize);
+		printf("Reading %ld bytes\n", (long int)fsize);
 		uint8_t *rawjpeg = (uint8_t *)malloc(fsize);
 		fread(rawjpeg, fsize, 1, fp);
 		fclose(fp);
 
 		printf("Decoding image\n");
 		nj_result_t jres = njDecode(rawjpeg, fsize);
+
+		printf("Displaying\n");
 
 		if (jres == NJ_OK)
 		{
@@ -137,6 +143,9 @@ int main(int argc, char** argv )
 	VPUSetDefaultPalette(&s_vctx);
 	VPUSetVideoMode(&s_vctx, VIDEO_MODE, VIDEO_COLOR, EVS_Enable);
 
+	int havekeyboard = 1;
+	struct pollfd fds[1];
+
 	if (argc<=1)
 	{
 		printf("Usage: %s <image.jpg>\n", argv[0]);
@@ -144,12 +153,39 @@ int main(int argc, char** argv )
 	}	
 	else
 	{
+		// Open keyboard device (note: how do we know which one is the keyboard and which one is the mouse?)
+		fds[0].fd = open("/dev/input/event0", O_RDONLY | O_NONBLOCK);
+		fds[0].events = POLLIN;
+
+		if (fds[0].fd < 0)
+		{
+			perror("/dev/input/event0: make sure a keyboard is connected");
+			havekeyboard = 0;
+		}
+		else
+			printf("attached to /dev/input/event for keyboard access\n");
+
 		DecodeJPEG(stride/sizeof(uint16_t), argv[1]);
 	}
 
 	// Hold image while we view it
-	while(1){
+	while(1)
+	{
+		if (havekeyboard)
+		{
+			int ret = poll(fds, 1, 10);
+			if (ret > 0)
+			{
+				struct input_event ev;
+				int n = read(fds[0].fd, &ev, sizeof(struct input_event));
+				if (n > 0)
+					break;
+			}
+		}
 	}
+
+	if (havekeyboard)
+		close(fds[0].fd);
 
 	return 0;
 }
