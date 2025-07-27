@@ -183,13 +183,13 @@ void VPUSetDefaultPalette(struct EVideoContext *_context)
 void VPUShiftCache(struct EVideoContext *_context, uint8_t _offset)
 {
 	videowrite32(_context->m_platform, VPUCMD_SHIFTCACHE);
-	videowrite32(_context->m_platform, (i<<24) | vgapalette[i]);
+	videowrite32(_context->m_platform, _offset);
 }
 
 void VPUShiftScanout(struct EVideoContext *_context, uint8_t _offset)
 {
 	videowrite32(_context->m_platform, VPUCMD_SHIFTSCANOUT);
-	videowrite32(_context->m_platform, (i<<24) | vgapalette[i]);
+	videowrite32(_context->m_platform, _offset);
 }
 
 void VPUSetVideoMode(struct EVideoContext *_context, const enum EVideoMode _mode, const enum EColorMode _cmode, const enum EVideoScanoutEnable _scanEnable)
