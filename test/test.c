@@ -153,7 +153,7 @@ int main(int argc, char** argv)
 		}
 
 		shift+=sdir;
-		if (shift < -5 || shift > 5)
+		if (shift < -32 || shift > 32)
 			sdir = -sdir;
 		VPUShiftScanout(&s_vctx, shift);
 
