@@ -13,7 +13,7 @@
 // Please see https://github.com/BrunoLevy/Vectorizer for the original code
 
 #include "core.h"
-#include "video.h"
+#include "vpu.h"
 #include "io.h"
 
 #include <stdio.h>

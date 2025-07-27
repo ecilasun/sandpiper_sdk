@@ -6,7 +6,7 @@
 #include <signal.h>
 #include "core.h"
 #include "platform.h"
-#include "video.h"
+#include "vpu.h"
 
 #define	DISPLAY_WIDTH 320
 #define	DISPLAY_HEIGHT 240

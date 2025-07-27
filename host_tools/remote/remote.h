@@ -3,8 +3,8 @@
 #include "platform.h"
 #include "common.h"
 #include "serial.h"
-#include "video.h"
-#include "audio.h"
+#include "vpu.h"
+#include "apu.h"
 #include "lz4.h"
 
 struct AppCtx

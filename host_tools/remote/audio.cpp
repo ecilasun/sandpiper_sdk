@@ -1,4 +1,4 @@
-#include "audio.h"
+#include "apu.h"
 #include "SDL_thread.h"
 #include <stdio.h>
 #include <string.h>

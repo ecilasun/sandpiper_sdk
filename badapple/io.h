@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 #include <stdio.h>
-#include "video.h"
+#include "vpu.h"
 
 #ifdef __cplusplus
 extern "C" {

@@ -18,7 +18,7 @@
 #include <quakedef.h>
 #include <quakembd.h>
 #include <d_local.h>
-#include "video.h"
+#include "vpu.h"
 
 static byte *vid_buffer;
 static byte *surfcache;

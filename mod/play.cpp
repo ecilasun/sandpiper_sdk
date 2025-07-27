@@ -10,8 +10,8 @@
 
 #include "core.h"
 #include "platform.h"
-#include "audio.h"
-#include "video.h"
+#include "apu.h"
+#include "vpu.h"
 
 #include "xmp.h"
 

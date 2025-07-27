@@ -5,7 +5,7 @@ ARM_GCC_LIBS = -lgcc -lc -lm
 
 SOURCES_quake_arch := \
 	../../SDK/platform.c \
-	../../SDK/video.c \
+	../../SDK/vpu.c \
 	display.c \
 	fio.c \
 	main.c \

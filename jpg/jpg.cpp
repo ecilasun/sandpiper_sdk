@@ -7,7 +7,7 @@
  */
 
 #include "platform.h"
-#include "video.h"
+#include "vpu.h"
 
 #include <stdio.h>
 #include <stdlib.h>

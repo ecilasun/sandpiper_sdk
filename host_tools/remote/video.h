@@ -1,7 +1,7 @@
 #pragma once
 
 #include "platform.h"
-#include "audio.h"
+#include "apu.h"
 
 #if defined(CAT_LINUX)
 #include <libv4l2.h>

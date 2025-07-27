@@ -9,7 +9,7 @@
 #include <stdio.h>
 #include <signal.h>
 #include "platform.h"
-#include "video.h"
+#include "vpu.h"
 
 static struct EVideoContext vx;
 static struct EVideoSwapContext sc;

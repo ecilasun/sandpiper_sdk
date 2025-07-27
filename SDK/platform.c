@@ -1,5 +1,4 @@
 #include "core.h"
-#include "video.h"
 #include <sys/ioctl.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -33,7 +32,6 @@ int SPInitPlatform(struct SPPlatform* _platform)
 		perror("can't access sandpiper device");
 		err = 1;
 	}
-	//printf("device driver opened\n");
 
 	// Map the 32MByte reserved region for CPU usage
 	_platform->mapped_memory = (uint8_t*)mmap(NULL, RESERVED_MEMORY_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, _platform->sandpiperfd, RESERVED_MEMORY_ADDRESS);
@@ -42,9 +40,9 @@ int SPInitPlatform(struct SPPlatform* _platform)
 		perror("can't map reserved region for CPU");
 		err = 1;
 	}
-	//printf("shared memory mapped to 0x%x\n", _platform->mapped_memory);
 
 	// Grab the contol registers for video and audio devices
+	// TODO: Should we make them ioremap() in driver instead of mmap() on client?
 
 	uint32_t video_ctl, audio_ctl;
 	if (ioctl(_platform->sandpiperfd, SP_IOCTL_GET_AUDIO_CTL, &audio_ctl) < 0)
@@ -54,7 +52,6 @@ int SPInitPlatform(struct SPPlatform* _platform)
 		err = 1;
 	}
 	_platform->audioio = (uint32_t*)mmap(NULL, DEVICE_MEMORY_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, _platform->sandpiperfd, audio_ctl);
-	//printf("audioctl mapped to 0x%x\n", _platform->audioio);
 
 	if (ioctl(_platform->sandpiperfd, SP_IOCTL_GET_VIDEO_CTL, &video_ctl) < 0)
 	{
@@ -63,7 +60,6 @@ int SPInitPlatform(struct SPPlatform* _platform)
 		err = 1;
 	}
 	_platform->videoio = (uint32_t*)mmap(NULL, DEVICE_MEMORY_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, _platform->sandpiperfd, video_ctl);
-	//printf("videoctl mapped to 0x%x\n", _platform->videoio);
 
 	if (!err)
 		_platform->ready = 1;

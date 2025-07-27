@@ -8,9 +8,9 @@
 #include <unistd.h>
 #include <linux/input.h>
 
-#include "../SDK/core.h"
-#include "../SDK/platform.h"
-#include "../SDK/video.h"
+#include "core.h"
+#include "platform.h"
+#include "vpu.h"
 
 #define VIDEO_MODE      EVM_640_Wide
 #define VIDEO_COLOR     ECM_8bit_Indexed

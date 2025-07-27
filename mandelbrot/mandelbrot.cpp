@@ -15,7 +15,7 @@
 
 #include "core.h"
 #include "platform.h"
-#include "video.h"
+#include "vpu.h"
 
 struct SPPlatform platform;
 static EVideoContext vx;
