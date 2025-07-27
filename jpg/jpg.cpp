@@ -178,7 +178,7 @@ int main(int argc, char** argv )
 			{
 				struct input_event ev;
 				int n = read(fds[0].fd, &ev, sizeof(struct input_event));
-				if (n > 0)
+				if (n > 0 && ev.type == EV_KEY && ev.value == 1)
 					break;
 			}
 		}
