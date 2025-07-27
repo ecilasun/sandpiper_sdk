@@ -1,4 +1,5 @@
 #include "core.h"
+#include "platform.h"
 #include <sys/ioctl.h>
 #include <stdint.h>
 #include <stdio.h>
