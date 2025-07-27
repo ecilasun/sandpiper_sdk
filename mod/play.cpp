@@ -167,7 +167,7 @@ void *draw_wave(void *data)
 		}
 
 		for (uint32_t i=0;i<320*240;++i)
-			sc.writepage[i] = std::max(0, sc.writepage[i]-2);
+			sc.writepage[i] = std::max(0, sc.writepage[i]>>1);
 
 		VPUWaitVSync(&vx);
 		VPUSwapPages(&vx, &sc);
