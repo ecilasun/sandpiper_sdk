@@ -24,6 +24,10 @@ static struct SPPlatform s_platform;
 
 void shutdowncleanup()
 {
+	// Reset shifts
+	VPUShiftCache(&s_vctx, 0);
+	VPUShiftScanout(&s_vctx, 0);
+
 	// Switch to fbcon buffer
 	VPUSetScanoutAddress(&s_vctx, 0x18000000);
 	VPUSetVideoMode(&s_vctx, EVM_640_Wide, ECM_16bit_RGB, EVS_Enable);
@@ -117,6 +121,9 @@ int main(int argc, char** argv)
 
 	printf("looping a short while...\n");
 
+	int shift = 0;
+	int sdir = 1;
+	VPUShiftScanout(&s_vctx, shift);
 	do
 	{
 		VPUConsoleResolve(&s_vctx);
@@ -144,6 +151,11 @@ int main(int argc, char** argv)
 //			KPUScanMatrix(&s_kctx);
 //			printf("mtx: %llX\n", s_kctx.m_keyStates);
 		}
+
+		shift+=sdir;
+		if (shift < -5 || shift > 5)
+			sdir = -sdir;
+		VPUShiftScanout(&s_vctx, shift);
 
 		VPUWaitVSync(&s_vctx); // This and other reads from VPU cause a hardware freeze, figure out why
 		VPUSwapPages(&s_vctx, &s_sctx);
