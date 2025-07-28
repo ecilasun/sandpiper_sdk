@@ -101,6 +101,7 @@ static event_queue_t event_queue = {
 //static event_t event;
 static mouse_movement_t mouse_movement;
 static int nokeyboard = 0;
+static struct pollfd fds[1];
 
 uint64_t qembd_get_us_time()
 {
@@ -226,7 +227,6 @@ int qembd_dequeue_key_event(key_event_t *e)
 	{
 		nokeyboard = 0;
 
-		struct pollfd fds[1];
 		fds[0].fd = open("/dev/input/event0", O_RDONLY | O_NONBLOCK);
 		fds[0].events = POLLIN;
 
