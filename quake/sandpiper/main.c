@@ -21,6 +21,9 @@
 #include <sys/time.h>
 #include <time.h>
 #include <unistd.h>
+#include <fcntl.h>
+#include <poll.h>
+#include <linux/input.h>
 
 #include "core.h"
 
@@ -97,6 +100,7 @@ static event_queue_t event_queue = {
 };*/
 //static event_t event;
 static mouse_movement_t mouse_movement;
+static int nokeyboard = 0;
 
 uint64_t qembd_get_us_time()
 {
@@ -217,6 +221,76 @@ int qembd_dequeue_key_event(key_event_t *e)
 		e->state = keyState->state;
 		return 0;
 	}*/
+
+	if (!inited)
+	{
+		nokeyboard = 0;
+
+		struct pollfd fds[1];
+		fds[0].fd = open("/dev/input/event0", O_RDONLY | O_NONBLOCK);
+		fds[0].events = POLLIN;
+
+		if (fds[0].fd < 0)
+		{
+			perror("/dev/input/event0: make sure a keyboard is connected");
+			nokeyboard = 1;
+		}
+	}
+
+	if (!nokeyboard)
+	{
+		int ret = poll(fds, 1, 10);
+		if (ret > 0)
+		{
+			struct input_event ev;
+			int n = read(fds[0].fd, &ev, sizeof(struct input_event));
+			if (n < 0)
+			{
+				perror("failed to read tty");
+				return -1;
+			}
+
+			// We have our scancode and key state here
+			switch(ev.code)
+			{
+				case 88:	{ e->keycode = K_ENTER; break; }
+				case 40:	{ e->keycode = K_ENTER; break; }
+				case 79:	{ e->keycode = K_RIGHTARROW; break; }
+				case 80:	{ e->keycode = K_LEFTARROW; break; }
+				case 81:	{ e->keycode = K_DOWNARROW; break; }
+				case 82:	{ e->keycode = K_UPARROW; break; }
+				case 41:	{ e->keycode = K_ESCAPE; break; }
+				case 43:	{ e->keycode = K_TAB; break; }
+				case 42:	{ e->keycode = K_BACKSPACE; break; }
+				case 229:	{ e->keycode = K_SHIFT; break; }
+				case 228:	{ e->keycode = K_CTRL; break; }
+				case 230:	{ e->keycode = K_ALT; break; }
+				case 226:	{ e->keycode = K_ALT; break; }
+				case 72:	{ e->keycode = K_PAUSE; break; }
+				case 58:	{ e->keycode = K_F1; break; }
+				case 59:	{ e->keycode = K_F2; break; }
+				case 60:	{ e->keycode = K_F3; break; }
+				case 61:	{ e->keycode = K_F4; break; }
+				case 62:	{ e->keycode = K_F5; break; }
+				case 63:	{ e->keycode = K_F6; break; }
+				case 64:	{ e->keycode = K_F7; break; }
+				case 65:	{ e->keycode = K_F8; break; }
+				case 66:	{ e->keycode = K_F9; break; }
+				case 67:	{ e->keycode = K_F10; break; }
+				case 68:	{ e->keycode = K_F11; break; }
+				case 69:	{ e->keycode = K_F12; break; }
+				case 74:	{ e->keycode = K_HOME; break; }
+				case 77:	{ e->keycode = K_END; break; }
+				case 75:	{ e->keycode = K_PGUP; break; }
+				case 78:	{ e->keycode = K_PGDN; break; }
+				case 73:	{ e->keycode = K_INS; break; }
+				case 76:	{ e->keycode = K_DEL; break; }
+				default:	{ e->keycode = ev.code; break; }
+			}
+			e->state = ev.value;
+			return 0;
+		}
+	}
 
 	return -1;
 }
