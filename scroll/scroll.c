@@ -64,11 +64,24 @@ int main(int argc, char** argv)
 	VPUShiftScanout(&s_vctx, 0);
 	VPUShiftPixel(&s_vctx, 0);
 
+	int totalscroll = 0;
+	int direction = 1;
+
 	do
 	{
 		if (s_sctx.cycle % 15 == 0)
 		{
 			// Every 15 frames, do something
+			totalscroll += direction;
+			if (totalscroll > 32)
+				direction = -1;
+			else if (totalscroll < -32)
+				direction = 1;
+
+			int byteoffset = totalscroll / 8;
+			int pixeloffset = totalscroll % 8;
+			VPUShiftScanout(&s_vctx, byteoffset);
+			VPUShiftPixel(&s_vctx, pixeloffset);
 		}
 
 		//VPUWaitVSync(&s_vctx); // This and other reads from VPU cause a hardware freeze, figure out why
