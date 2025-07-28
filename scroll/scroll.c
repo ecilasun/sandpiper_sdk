@@ -13,8 +13,7 @@
 
 static struct EVideoContext s_vctx;
 static struct EVideoSwapContext s_sctx;
-struct SPSizeAlloc frameBufferA;
-struct SPSizeAlloc frameBufferB;
+struct SPSizeAlloc frameBuffer;
 static struct SPPlatform s_platform;
 
 void shutdowncleanup()
@@ -32,8 +31,7 @@ void shutdowncleanup()
 	VPUShutdownVideo();
 
 	// Release allocations
-	SPFreeBuffer(&s_platform, &frameBufferB);
-	SPFreeBuffer(&s_platform, &frameBufferA);
+	SPFreeBuffer(&s_platform, &frameBuffer);
 
 	// Shutdown platform
 	SPShutdownPlatform(&s_platform);
