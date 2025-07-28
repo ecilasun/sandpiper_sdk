@@ -175,55 +175,6 @@ static int poll_event()
 
 int qembd_dequeue_key_event(key_event_t *e)
 {
-	/*static uint32_t oldcountKey = 0xAAAABBBB;
-	volatile struct SKeyboardState* keyState = KeyboardGetState();
-
-	if (oldcountKey != keyState->count && keyState->scancode != 0x0)
-	{
-		oldcountKey = keyState->count;
-
-		uint8_t scancode = keyState->scancode;
-
-		switch(scancode)
-		{
-			case 88:	{ e->keycode = K_ENTER; break; }
-			case 40:	{ e->keycode = K_ENTER; break; }
-			case 79:	{ e->keycode = K_RIGHTARROW; break; }
-			case 80:	{ e->keycode = K_LEFTARROW; break; }
-			case 81:	{ e->keycode = K_DOWNARROW; break; }
-			case 82:	{ e->keycode = K_UPARROW; break; }
-			case 41:	{ e->keycode = K_ESCAPE; break; }
-			case 43:	{ e->keycode = K_TAB; break; }
-			case 42:	{ e->keycode = K_BACKSPACE; break; }
-			case 229:	{ e->keycode = K_SHIFT; break; }
-			case 228:	{ e->keycode = K_CTRL; break; }
-			case 230:	{ e->keycode = K_ALT; break; }
-			case 226:	{ e->keycode = K_ALT; break; }
-			case 72:	{ e->keycode = K_PAUSE; break; }
-			case 58:	{ e->keycode = K_F1; break; }
-			case 59:	{ e->keycode = K_F2; break; }
-			case 60:	{ e->keycode = K_F3; break; }
-			case 61:	{ e->keycode = K_F4; break; }
-			case 62:	{ e->keycode = K_F5; break; }
-			case 63:	{ e->keycode = K_F6; break; }
-			case 64:	{ e->keycode = K_F7; break; }
-			case 65:	{ e->keycode = K_F8; break; }
-			case 66:	{ e->keycode = K_F9; break; }
-			case 67:	{ e->keycode = K_F10; break; }
-			case 68:	{ e->keycode = K_F11; break; }
-			case 69:	{ e->keycode = K_F12; break; }
-			case 74:	{ e->keycode = K_HOME; break; }
-			case 77:	{ e->keycode = K_END; break; }
-			case 75:	{ e->keycode = K_PGUP; break; }
-			case 78:	{ e->keycode = K_PGDN; break; }
-			case 73:	{ e->keycode = K_INS; break; }
-			case 76:	{ e->keycode = K_DEL; break; }
-			default:	{ e->keycode = keyState->ascii; break; }
-		}
-		e->state = keyState->state;
-		return 0;
-	}*/
-
 	if (!inited)
 	{
 		nokeyboard = 0;
@@ -249,7 +200,7 @@ int qembd_dequeue_key_event(key_event_t *e)
 			if (n > 0 && ev.type == EV_KEY && (ev.value == 0 || ev.value == 1))
 			{
 				// We have our scancode and key state here
-				switch(ev.code && ev.type == EV_KEY)
+				switch(ev.code)
 				{
 					//case KEY_RETURN:	{ e->keycode = K_ENTER; break; }
 					case KEY_ENTER:		{ e->keycode = K_ENTER; break; }
