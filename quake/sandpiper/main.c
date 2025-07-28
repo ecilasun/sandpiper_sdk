@@ -24,6 +24,7 @@
 #include <fcntl.h>
 #include <poll.h>
 #include <linux/input.h>
+#include <linux/input-event-codes.h>
 
 #include "core.h"
 
