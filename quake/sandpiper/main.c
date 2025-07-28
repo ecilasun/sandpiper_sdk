@@ -102,6 +102,7 @@ static event_queue_t event_queue = {
 static mouse_movement_t mouse_movement;
 static int nokeyboard = 0;
 static struct pollfd fds[1];
+static inited = 0;
 
 uint64_t qembd_get_us_time()
 {
@@ -235,6 +236,7 @@ int qembd_dequeue_key_event(key_event_t *e)
 			perror("/dev/input/event0: make sure a keyboard is connected");
 			nokeyboard = 1;
 		}
+		inited = 1;
 	}
 
 	if (!nokeyboard)
