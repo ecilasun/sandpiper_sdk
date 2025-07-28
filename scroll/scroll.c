@@ -66,15 +66,13 @@ int main(int argc, char** argv)
 
 	do
 	{
-		VPUConsoleResolve(&s_vctx);
-
 		if (s_sctx.cycle % 15 == 0)
 		{
 			// Every 15 frames, do something
 		}
 
-		VPUWaitVSync(&s_vctx); // This and other reads from VPU cause a hardware freeze, figure out why
-		VPUSwapPages(&s_vctx, &s_sctx);
+		//VPUWaitVSync(&s_vctx); // This and other reads from VPU cause a hardware freeze, figure out why
+		//VPUSwapPages(&s_vctx, &s_sctx);
 	} while(1);
 
 	return 0;
