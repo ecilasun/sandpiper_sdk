@@ -142,7 +142,7 @@ void *draw_wave(void *data)
 			int16_t nextlogi = (int16_t)(128.0f * log10f((float)(i+1)+1.0f) / 2.0f);
 			// Distance between the two
 			int16_t delta = nextlogi - logi;
-	
+
 			// Draw bars for left channel
 			for (int16_t j=0; j<delta; ++j)
 			{
