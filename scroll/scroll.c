@@ -55,10 +55,6 @@ int main(int argc, char** argv)
 	signal(SIGINT, &sigint_handler);
 	signal(SIGTERM, &sigint_handler);
 
-	// Set aside space for the decompressed image
-	// NOTE: Video scanout buffer has to be aligned at 64 byte boundary
-	image = (uint16_t*)frameBuffer.cpuAddress;
-
 	VPUSetWriteAddress(&s_vctx, (uint32_t)frameBuffer.cpuAddress);
 	VPUSetScanoutAddress(&s_vctx, (uint32_t)frameBuffer.dmaAddress);
 	VPUSetDefaultPalette(&s_vctx);
