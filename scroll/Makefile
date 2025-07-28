@@ -1,5 +1,5 @@
 
-TARGET = test
+TARGET = scroll
 
 default: $(TARGET)
 
@@ -10,9 +10,9 @@ corelib_dir = ../SDK
 
 # Rules
 
-ARM_GCC ?= gcc
+ARM_GCC ?= g++
 
-ARM_GCC_OPTS += -std=gnu99 -Ofast -flto -mcpu=cortex-a9 -mfpu=vfpv3 -mfloat-abi=hard
+ARM_GCC_OPTS += -std=c++20 -Ofast -flto -mcpu=cortex-a9 -mfpu=vfpv3 -mfloat-abi=hard
 ARM_GCC_OPTS += -lgcc -lc -lm
 
 incs += -I$(src_dir) -I$(corelib_dir) $(addprefix -I$(src_dir)/, $(folders))

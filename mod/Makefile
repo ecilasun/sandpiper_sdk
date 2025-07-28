@@ -13,7 +13,7 @@ libxmp = ../3rdparty/libxmp
 # Rules
 
 ARM_GCC ?= g++
-ARM_GCC_OPTS += -std=c++20 -Ofast -mcpu=cortex-a9 -mfpu=vfpv3 -mfloat-abi=hard
+ARM_GCC_OPTS += -std=c++20 -Ofast -flto -mcpu=cortex-a9 -mfpu=vfpv3 -mfloat-abi=hard
 ARM_GCC_OPTS += -DLIBXMP_NO_DEPACKERS -DLIBXMP_CORE_PLAYER -Wno-narrowing
 ARM_GCC_OPTS += -lgcc -lc -lm -pthread
 

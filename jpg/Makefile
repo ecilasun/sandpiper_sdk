@@ -13,7 +13,7 @@ jpglib_dir = ../3rdparty/nanojpeg
 
 ARM_GCC ?= g++
 
-ARM_GCC_OPTS += -std=c++20 -O0 -g -mcpu=cortex-a9 -mfpu=vfpv3 -mfloat-abi=hard
+ARM_GCC_OPTS += -std=c++20 -Ofast -flto -mcpu=cortex-a9 -mfpu=vfpv3 -mfloat-abi=hard
 ARM_GCC_OPTS += -lgcc -lc -lm
 
 incs += -I$(src_dir) -I$(corelib_dir) -I$(jpglib_dir) $(addprefix -I$(src_dir)/, $(folders))
