@@ -84,7 +84,7 @@ int main(int argc, char** argv)
 			VPUShiftPixel(&s_vctx, pixeloffset);
 		}
 
-		//VPUWaitVSync(&s_vctx); // This and other reads from VPU cause a hardware freeze, figure out why
+		VPUWaitVSync(&s_vctx); // This and other reads from VPU cause a hardware freeze, figure out why
 		//VPUSwapPages(&s_vctx, &s_sctx);
 	} while(1);
 
