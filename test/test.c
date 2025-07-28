@@ -107,18 +107,24 @@ int main(int argc, char** argv)
 	s_vctx.m_caretType = 0;
 
 	// Open keyboard device (note: how do we know which one is the keyboard and which one is the mouse?)
-	struct pollfd fds[1];
+	struct pollfd fds[2];
 	fds[0].fd = open("/dev/input/event0", O_RDONLY | O_NONBLOCK);
 	fds[0].events = POLLIN;
+	fds[1].fd = open("/dev/input/event1", O_RDONLY | O_NONBLOCK);
 
+	int nomouse = 0;
 	int nokeyboard = 0;
 	if (fds[0].fd < 0)
 	{
 		perror("/dev/input/event0: make sure a keyboard is connected");
 		nokeyboard = 1;
 	}
-	else
-		printf("attached to /dev/input/event for keyboard access\n");
+
+	if (fds[1].fd < 0)
+	{
+		perror("/dev/input/event1: make sure a mouse is connected");
+		nomouse = 1;
+	}
 
 	printf("looping a short while...\n");
 
@@ -128,18 +134,17 @@ int main(int argc, char** argv)
 
 		if (!nokeyboard)
 		{
-			int ret = poll(fds, 1, 10);
+			int ret = poll(fds, 2, 10);
 			if (ret > 0)
 			{
 				struct input_event ev;
 				int n = read(fds[0].fd, &ev, sizeof(struct input_event));
-				if (n < 0)
-				{
-					perror("failed to read tty");
-					return -1;
-				}
-				// see https://github.com/torvalds/linux/blob/master/include/uapi/linux/input-event-codes.h
-				printf("type 0x%08X value 0x%08X code 0x%08X\n", ev.type, ev.value, ev.code);
+				if (n > 0)
+					printf("0: type 0x%08X value 0x%08X code 0x%08X\n", ev.type, ev.value, ev.code);
+
+				int m = read(fds[1].fd, &ev, sizeof(struct input_event));
+				if (m > 0)
+					printf("1: type 0x%08X value 0x%08X code 0x%08X\n", ev.type, ev.value, ev.code);
 			}
 		}
 

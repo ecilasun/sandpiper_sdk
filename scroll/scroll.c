@@ -65,18 +65,19 @@ int main(int argc, char** argv)
 	VPUShiftPixel(&s_vctx, 0);
 
 	int totalscroll = 0;
-	int direction = 1;
+	int direction = 5;
 
+	int A = 640;
 	do
 	{
 		if (s_sctx.cycle % 15 == 0)
 		{
 			// Every 15 frames, do something
 			totalscroll += direction;
-			if (totalscroll > 32)
-				direction = -1;
-			else if (totalscroll < -32)
-				direction = 1;
+			if (totalscroll > A)
+				direction = -5;
+			else if (totalscroll <= 0)
+				direction = 5;
 
 			int byteoffset = totalscroll / 8;
 			int pixeloffset = totalscroll % 8;
