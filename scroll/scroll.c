@@ -76,16 +76,24 @@ int main(int argc, char** argv)
 			totalscroll += direction;
 			if (totalscroll > A)
 				direction = -5;
-			else if (totalscroll <= 0)
+			else if (totalscroll < -A)
 				direction = 5;
 
-			int byteoffset = totalscroll / 8;
-			int pixeloffset = totalscroll % 8;
+			int byteoffset = (totalscroll / 8) & 0xFF;
+			int pixeloffset = totalscroll & 7;
+
+			if (totalscroll < 0)
+			{
+				int abspos = -totalscroll;
+				byteoffset = ((abspos+7) / 8) & 0xFF;
+				pixeloffset = (8 - (abspos& 7)) & 7;
+			}
+
 			VPUShiftScanout(&s_vctx, byteoffset);
 			VPUShiftPixel(&s_vctx, pixeloffset);
 		}
 
-		VPUWaitVSync(&s_vctx); // This and other reads from VPU cause a hardware freeze, figure out why
+		VPUWaitVSync(&s_vctx);
 		//VPUSwapPages(&s_vctx, &s_sctx);
 	} while(1);
 
