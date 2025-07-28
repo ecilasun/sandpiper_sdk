@@ -102,7 +102,7 @@ static event_queue_t event_queue = {
 static mouse_movement_t mouse_movement;
 static int nokeyboard = 0;
 static struct pollfd fds[1];
-static inited = 0;
+static int inited = 0;
 
 uint64_t qembd_get_us_time()
 {
