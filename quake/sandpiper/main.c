@@ -246,51 +246,48 @@ int qembd_dequeue_key_event(key_event_t *e)
 		{
 			struct input_event ev;
 			int n = read(fds[0].fd, &ev, sizeof(struct input_event));
-			if (n < 0)
+			if (n > 0 && ev.type == EV_KEY && (ev.value == 0 || ev.value == 1))
 			{
-				perror("failed to read tty");
-				return -1;
+				// We have our scancode and key state here
+				switch(ev.code && ev.type == EV_KEY)
+				{
+					case KEY_RETURN:	{ e->keycode = K_ENTER; break; }
+					case KEY_ENTER:		{ e->keycode = K_ENTER; break; }
+					case KEY_RIGHT:		{ e->keycode = K_RIGHTARROW; break; }
+					case KEY_LEFT:		{ e->keycode = K_LEFTARROW; break; }
+					case KEY_DOWN:		{ e->keycode = K_DOWNARROW; break; }
+					case KEY_UP:		{ e->keycode = K_UPARROW; break; }
+					case KEY_ESCAPE:	{ e->keycode = K_ESCAPE; break; }
+					case KEY_TAB:		{ e->keycode = K_TAB; break; }
+					case KEY_BACKSPACE:	{ e->keycode = K_BACKSPACE; break; }
+					case KEY_LEFTSHIFT:	{ e->keycode = K_SHIFT; break; }
+					case KEY_LEFTCTRL:	{ e->keycode = K_CTRL; break; }
+					case KEY_RIGHTALT:	{ e->keycode = K_ALT; break; }
+					case KEY_LEFTALT:	{ e->keycode = K_ALT; break; }
+					case KEY_PAUSE:		{ e->keycode = K_PAUSE; break; }
+					case KEY_F1:		{ e->keycode = K_F1; break; }
+					case KEY_F2:		{ e->keycode = K_F2; break; }
+					case KEY_F3:		{ e->keycode = K_F3; break; }
+					case KEY_F4:		{ e->keycode = K_F4; break; }
+					case KEY_F5:		{ e->keycode = K_F5; break; }
+					case KEY_F6:		{ e->keycode = K_F6; break; }
+					case KEY_F7:		{ e->keycode = K_F7; break; }
+					case KEY_F8:		{ e->keycode = K_F8; break; }
+					case KEY_F9:		{ e->keycode = K_F9; break; }
+					case KEY_F10:		{ e->keycode = K_F10; break; }
+					case KEY_F11:		{ e->keycode = K_F11; break; }
+					case KEY_F12:		{ e->keycode = K_F12; break; }
+					case KEY_HOME:		{ e->keycode = K_HOME; break; }
+					case KEY_END:		{ e->keycode = K_END; break; }
+					case KEY_PGUP:		{ e->keycode = K_PGUP; break; }
+					case KEY_PGDN:		{ e->keycode = K_PGDN; break; }
+					case KEY_INS:		{ e->keycode = K_INS; break; }
+					case KEY_DEL:		{ e->keycode = K_DEL; break; }
+					default:			{ e->keycode = ev.code; break; }
+				}
+				e->state = ev.value;
+				return 0;
 			}
-
-			// We have our scancode and key state here
-			switch(ev.code && ev.type == EV_KEY)
-			{
-				case KEY_RETURN:	{ e->keycode = K_ENTER; break; }
-				case KEY_ENTER:		{ e->keycode = K_ENTER; break; }
-				case KEY_RIGHT:		{ e->keycode = K_RIGHTARROW; break; }
-				case KEY_LEFT:		{ e->keycode = K_LEFTARROW; break; }
-				case KEY_DOWN:		{ e->keycode = K_DOWNARROW; break; }
-				case KEY_UP:		{ e->keycode = K_UPARROW; break; }
-				case KEY_ESCAPE:	{ e->keycode = K_ESCAPE; break; }
-				case KEY_TAB:		{ e->keycode = K_TAB; break; }
-				case KEY_BACKSPACE:	{ e->keycode = K_BACKSPACE; break; }
-				case KEY_LEFTSHIFT:	{ e->keycode = K_SHIFT; break; }
-				case KEY_LEFTCTRL:	{ e->keycode = K_CTRL; break; }
-				case KEY_RIGHTALT:	{ e->keycode = K_ALT; break; }
-				case KEY_LEFTALT:	{ e->keycode = K_ALT; break; }
-				case KEY_PAUSE:		{ e->keycode = K_PAUSE; break; }
-				case KEY_F1:		{ e->keycode = K_F1; break; }
-				case KEY_F2:		{ e->keycode = K_F2; break; }
-				case KEY_F3:		{ e->keycode = K_F3; break; }
-				case KEY_F4:		{ e->keycode = K_F4; break; }
-				case KEY_F5:		{ e->keycode = K_F5; break; }
-				case KEY_F6:		{ e->keycode = K_F6; break; }
-				case KEY_F7:		{ e->keycode = K_F7; break; }
-				case KEY_F8:		{ e->keycode = K_F8; break; }
-				case KEY_F9:		{ e->keycode = K_F9; break; }
-				case KEY_F10:		{ e->keycode = K_F10; break; }
-				case KEY_F11:		{ e->keycode = K_F11; break; }
-				case KEY_F12:		{ e->keycode = K_F12; break; }
-				case KEY_HOME:		{ e->keycode = K_HOME; break; }
-				case KEY_END:		{ e->keycode = K_END; break; }
-				case KEY_PGUP:		{ e->keycode = K_PGUP; break; }
-				case KEY_PGDN:		{ e->keycode = K_PGDN; break; }
-				case KEY_INS:		{ e->keycode = K_INS; break; }
-				case KEY_DEL:		{ e->keycode = K_DEL; break; }
-				default:			{ e->keycode = ev.code; break; }
-			}
-			e->state = ev.value;
-			return 0;
 		}
 	}
 
