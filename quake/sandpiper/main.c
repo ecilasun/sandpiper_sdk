@@ -24,7 +24,6 @@
 #include <fcntl.h>
 #include <poll.h>
 #include <linux/input.h>
-#include "keycodes.h"
 
 #include "core.h"
 
@@ -252,13 +251,13 @@ int qembd_dequeue_key_event(key_event_t *e)
 				// We have our scancode and key state here
 				switch(ev.code && ev.type == EV_KEY)
 				{
-					case KEY_RETURN:	{ e->keycode = K_ENTER; break; }
+					//case KEY_RETURN:	{ e->keycode = K_ENTER; break; }
 					case KEY_ENTER:		{ e->keycode = K_ENTER; break; }
 					case KEY_RIGHT:		{ e->keycode = K_RIGHTARROW; break; }
 					case KEY_LEFT:		{ e->keycode = K_LEFTARROW; break; }
 					case KEY_DOWN:		{ e->keycode = K_DOWNARROW; break; }
 					case KEY_UP:		{ e->keycode = K_UPARROW; break; }
-					case KEY_ESCAPE:	{ e->keycode = K_ESCAPE; break; }
+					case KEY_ESC:		{ e->keycode = K_ESCAPE; break; }
 					case KEY_TAB:		{ e->keycode = K_TAB; break; }
 					case KEY_BACKSPACE:	{ e->keycode = K_BACKSPACE; break; }
 					case KEY_LEFTSHIFT:	{ e->keycode = K_SHIFT; break; }
@@ -280,10 +279,10 @@ int qembd_dequeue_key_event(key_event_t *e)
 					case KEY_F12:		{ e->keycode = K_F12; break; }
 					case KEY_HOME:		{ e->keycode = K_HOME; break; }
 					case KEY_END:		{ e->keycode = K_END; break; }
-					case KEY_PGUP:		{ e->keycode = K_PGUP; break; }
-					case KEY_PGDN:		{ e->keycode = K_PGDN; break; }
-					case KEY_INS:		{ e->keycode = K_INS; break; }
-					case KEY_DEL:		{ e->keycode = K_DEL; break; }
+					case KEY_PAGEUP:	{ e->keycode = K_PGUP; break; }
+					case KEY_PAGEDOWN:	{ e->keycode = K_PGDN; break; }
+					case KEY_INSERT:	{ e->keycode = K_INS; break; }
+					case KEY_DELETE:	{ e->keycode = K_DEL; break; }
 					default:			{ e->keycode = ev.code; break; }
 				}
 				e->state = ev.value;
