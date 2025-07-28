@@ -255,7 +255,7 @@ int qembd_dequeue_key_event(key_event_t *e)
 			// We have our scancode and key state here
 			switch(ev.code && ev.type == EV_KEY)
 			{
-				case KEY_ENTER:		{ e->keycode = K_ENTER; break; }
+				case KEY_RETURN:	{ e->keycode = K_ENTER; break; }
 				case KEY_ENTER:		{ e->keycode = K_ENTER; break; }
 				case KEY_RIGHT:		{ e->keycode = K_RIGHTARROW; break; }
 				case KEY_LEFT:		{ e->keycode = K_LEFTARROW; break; }
