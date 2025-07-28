@@ -7,6 +7,7 @@
 #define VPUCMD_SETVMODE		0x00000002
 #define VPUCMD_SHIFTCACHE	0x00000003
 #define VPUCMD_SHIFTSCANOUT	0x00000004
+#define VPUCMD_SHIFTPIXEL	0x00000005
 
 #define VPU_AUTO 0xFFFF
 
@@ -99,6 +100,7 @@ uint32_t VPUGetStride(const enum EVideoMode _mode, const enum EColorMode _cmode)
 void VPUGetDimensions(const enum EVideoMode _mode, uint32_t *_width, uint32_t *_height);
 void VPUShiftCache(struct EVideoContext *_context, uint8_t _offset);
 void VPUShiftScanout(struct EVideoContext *_context, uint8_t _offset);
+void VPUShiftPixel(struct EVideoContext *_context, uint8_t _offset);
 
 void VPUClear(struct EVideoContext *_context, const uint32_t _colorWord);
 void VPUSetDefaultPalette(struct EVideoContext *_context);
