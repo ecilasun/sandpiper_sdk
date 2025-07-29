@@ -83,9 +83,9 @@ void mandelbrotFloat(float ox, float oy, float sx)
 			int col = x + tilex*16;
 
 			int M = evalMandel(R, col, row, ox, oy, sx);
-			//float ratio = float(M) / float(R);
-			//int c = int(ratio*65535.f);
-			framebuffer[col + (row*stride>>1)] = int(16384.f*M/64.f);
+			float ratio = float(M) / float(R);
+			int c = int(ratio*65535.f);
+			framebuffer[col + (row*stride>>1)] = c;//int(16384.f*M/64.f);
 		}
 	}
 
