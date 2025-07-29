@@ -106,11 +106,11 @@ int main(int argc, char** argv)
 	s_vctx.m_caretBlink = 0;
 	s_vctx.m_caretType = 0;
 
-	// Open keyboard device (note: how do we know which one is the keyboard and which one is the mouse?)
+	// Open keyboard and mouse devices
 	struct pollfd fds[2];
 	fds[0].fd = open("/dev/input/event0", O_RDONLY | O_NONBLOCK);
 	fds[0].events = POLLIN;
-	fds[1].fd = open("/dev/input/event1", O_RDONLY | O_NONBLOCK);
+	fds[1].fd = open("/dev/input/mouse1", O_RDONLY | O_NONBLOCK);
 
 	int nomouse = 0;
 	int nokeyboard = 0;
@@ -119,12 +119,16 @@ int main(int argc, char** argv)
 		perror("/dev/input/event0: make sure a keyboard is connected");
 		nokeyboard = 1;
 	}
+	else
+		printf("have keyboard\n");
 
 	if (fds[1].fd < 0)
 	{
-		perror("/dev/input/event1: make sure a mouse is connected");
+		perror("/dev/input/mouse1: make sure a mouse is connected");
 		nomouse = 1;
 	}
+	else
+		printf("have mouse\n");
 
 	printf("looping a short while...\n");
 
