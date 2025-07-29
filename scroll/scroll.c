@@ -65,9 +65,9 @@ int main(int argc, char** argv)
 	VPUShiftPixel(&s_vctx, 0);
 
 	int totalscroll = 0;
-	int direction = 5;
+	int direction = 1;
 
-	int A = 640;
+	int A = 64;
 	do
 	{
 		if (s_sctx.cycle % 15 == 0)
@@ -75,19 +75,12 @@ int main(int argc, char** argv)
 			// Every 15 frames, do something
 			totalscroll += direction;
 			if (totalscroll > A)
-				direction = -5;
-			else if (totalscroll < -A)
-				direction = 5;
+				direction = -1;
+			else if (totalscroll <= 0) // NOTE: do not scroll in negative direction
+				direction = 1;
 
-			int byteoffset = (totalscroll / 8) & 0xFF;
+			int byteoffset = (totalscroll / 8);
 			int pixeloffset = totalscroll & 7;
-
-			if (totalscroll < 0)
-			{
-				int abspos = -totalscroll;
-				byteoffset = ((abspos+7) / 8) & 0xFF;
-				pixeloffset = (8 - (abspos& 7)) & 7;
-			}
 
 			VPUShiftScanout(&s_vctx, byteoffset);
 			VPUShiftPixel(&s_vctx, pixeloffset);
