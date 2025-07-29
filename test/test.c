@@ -110,7 +110,7 @@ int main(int argc, char** argv)
 	struct pollfd fds[2];
 	fds[0].fd = open("/dev/input/event0", O_RDONLY | O_NONBLOCK);
 	fds[0].events = POLLIN;
-	fds[1].fd = open("/dev/input/mouse1", O_RDONLY | O_NONBLOCK);
+	fds[1].fd = open("/dev/input/mice", O_RDONLY | O_NONBLOCK);
 
 	int nomouse = 0;
 	int nokeyboard = 0;
@@ -124,7 +124,7 @@ int main(int argc, char** argv)
 
 	if (fds[1].fd < 0)
 	{
-		perror("/dev/input/mouse1: make sure a mouse is connected");
+		perror("/dev/input/mice: make sure a mouse is connected");
 		nomouse = 1;
 	}
 	else
