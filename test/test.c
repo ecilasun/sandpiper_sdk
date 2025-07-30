@@ -173,54 +173,14 @@ int main(int argc, char** argv)
 	s_vctx.m_caretBlink = 0;
 	s_vctx.m_caretType = 0;
 
-	// Open keyboard and mouse devices
-	struct pollfd fds[2];
-	fds[0].fd = open("/dev/input/event0", O_RDONLY | O_NONBLOCK);
-	fds[0].events = POLLIN;
-	fds[1].fd = open("/dev/input/mice", O_RDONLY | O_NONBLOCK);
-
-	int nomouse = 0;
-	int nokeyboard = 0;
-	if (fds[0].fd < 0)
-	{
-		perror("/dev/input/event0: make sure a keyboard is connected");
-		nokeyboard = 1;
-	}
-
-	if (fds[1].fd < 0)
-	{
-		perror("/dev/input/mice: make sure a mouse is connected");
-		nomouse = 1;
-	}
-
 	do
 	{
 		processpty();
 
 		VPUConsoleResolve(&s_vctx);
 
-		if (!nokeyboard)
-		{
-			int ret = poll(fds, 2, 10);
-			if (ret > 0)
-			{
-				struct input_event ev;
-				int n = read(fds[0].fd, &ev, sizeof(struct input_event));
-				if (n > 0)
-					printf("0: type 0x%08X value 0x%08X code 0x%08X\n", ev.type, ev.value, ev.code);
-
-				int m = read(fds[1].fd, &ev, sizeof(struct input_event));
-				if (m > 0)
-					printf("1: type 0x%08X value 0x%08X code 0x%08X\n", ev.type, ev.value, ev.code);
-			}
-		}
-
 		if (s_sctx.cycle % 15 == 0) // When we wait for vysync this makes a quarter second interval
-		{
 			s_vctx.m_caretBlink ^= 1;
-//			KPUScanMatrix(&s_kctx);
-//			printf("mtx: %llX\n", s_kctx.m_keyStates);
-		}
 
 		VPUWaitVSync(&s_vctx);
 		VPUSwapPages(&s_vctx, &s_sctx);
