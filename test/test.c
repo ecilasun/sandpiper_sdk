@@ -159,7 +159,7 @@ int main(int argc, char** argv)
 //			printf("mtx: %llX\n", s_kctx.m_keyStates);
 		}
 
-		VPUWaitVSync(&s_vctx); // This and other reads from VPU cause a hardware freeze, figure out why
+		VPUWaitVSync(&s_vctx);
 		VPUSwapPages(&s_vctx, &s_sctx);
 	} while(s_sctx.cycle < 4096);
 
