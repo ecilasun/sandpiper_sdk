@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <signal.h>
+#include <pty.h>
+#include <unistd.h>
 
 #include <fcntl.h>
 #include <poll.h>
@@ -21,6 +23,7 @@ static struct EVideoSwapContext s_sctx;
 struct SPSizeAlloc frameBufferA;
 struct SPSizeAlloc frameBufferB;
 static struct SPPlatform s_platform;
+static uint32_t masterfd = 0;
 
 void shutdowncleanup()
 {
@@ -50,26 +53,93 @@ void sigint_handler(int s)
 	exit(0);
 }
 
+int32_t utf8decode(const char *s, uint32_t *out_cp) {
+	unsigned char c = s[0];
+	if (c < 0x80) {
+		*out_cp = c;
+		return 1;
+	} else if ((c>>5) == 0x6) {
+		*out_cp=((c & 0x1F) << 6)|(s[1]& 0x3F);
+		return 2;
+	} else if ((c >> 4) == 0xE) {
+		*out_cp=((c &0x0F) << 12)|((s[1]&0x3F) << 6)|(s[2]&0x3F);
+		return 3;
+	} else if ((c>>3) == 0x1E) {
+		*out_cp=((c &0x07) << 18)|((s[1]&0x3F) << 12)|((s[2]&0x3F) << 6)|(s[3]&0x3F);
+		return 4;
+	}
+	return -1; // invalid UTF-8
+}
+
+void initterm()
+{
+	int32_t childpid = forkpty(&masterfd, NULL, NULL, NULL);
+	if (childpid == 0)
+	{
+		// Child process
+		execlp("/usr/bin/bash", "bash", NULL);
+		perror("execlp");
+		exit(1);
+	}
+
+	// Success
+}
+
+size_t readfrompty()
+{
+	int32_t nbytes = read(masterfd, buf + buflen, sizeof(buf)-buflen);
+	buflen += nbytes;
+
+	uint32_t iter = 0;
+	while(iter < buflen)
+	{
+		uint32_t codepoint = 0;
+		int32_t len = utf8decode(&buf[iter], &codepoint);
+		if (len == -1 || len > buflen)
+			break;
+		iter += len;
+	}
+
+	if (iter < buflen)
+	{
+		memmove(buf, buf + iter, buflen - iter);
+	}
+
+	buflen -= iter;
+
+	return nbytes;
+}
+
+void processpty()
+{
+	static char buf[SHRT_MAX];
+	static uint32_t buflen = 0;
+
+	fd_set ptyset;
+	FD_ZERO(&ptyset);
+	FD_SET(masterfd, &ptyset);
+	int selret = select(masterfd+1, &ptyset, NULL, NULL, NULL);
+
+	if (FD_ISSET(masterfd, &ptyset))
+	{
+		readfrompty();
+	}
+}
+
 int main(int argc, char** argv)
 {
-	printf("Hello, video\n");
+	initterm();
 
 	SPInitPlatform(&s_platform);
-	printf("started platform\n");
 
 	VPUInitVideo(&s_vctx, &s_platform);
-	printf("started video system\n");
 
 	uint32_t stride = VPUGetStride(VIDEO_MODE, VIDEO_COLOR);
-	printf("stride: %d, height: %d\n", stride, VIDEO_HEIGHT);
 
 	frameBufferB.size = frameBufferA.size = stride*VIDEO_HEIGHT;
 
 	SPAllocateBuffer(&s_platform, &frameBufferA);
-	printf("acrs:%d framebufferA: 0x%08X <- 0x%08X - %dbytes\n", s_platform.alloc_cursor, (uint32_t)frameBufferA.cpuAddress, (uint32_t)frameBufferA.dmaAddress, frameBufferA.size);
-
 	SPAllocateBuffer(&s_platform, &frameBufferB);
-	printf("acrs:%d framebufferB: 0x%08X <- 0x%08X - %dbytes\n", s_platform.alloc_cursor, (uint32_t)frameBufferB.cpuAddress, (uint32_t)frameBufferB.dmaAddress, frameBufferB.size);
 
 	atexit(shutdowncleanup);
 	signal(SIGINT, &sigint_handler);
@@ -84,14 +154,10 @@ int main(int argc, char** argv)
 		memB[i] = (i/640) ^ (i%64);
 	}
 
-	printf("buffers set to random values\n");
-
 	VPUSetWriteAddress(&s_vctx, (uint32_t)frameBufferA.cpuAddress);
 	VPUSetScanoutAddress(&s_vctx, (uint32_t)frameBufferB.dmaAddress);
 	VPUSetDefaultPalette(&s_vctx);
 	VPUSetVideoMode(&s_vctx, VIDEO_MODE, VIDEO_COLOR, EVS_Enable);
-
-	printf("video on, set up read(VPU) and write(CPU) addresses\n");
 
 	VPUConsoleSetColors(&s_vctx, CONSOLEDEFAULTFG, CONSOLEDEFAULTBG);
 	VPUConsoleClear(&s_vctx);
@@ -119,21 +185,17 @@ int main(int argc, char** argv)
 		perror("/dev/input/event0: make sure a keyboard is connected");
 		nokeyboard = 1;
 	}
-	else
-		printf("have keyboard\n");
 
 	if (fds[1].fd < 0)
 	{
 		perror("/dev/input/mice: make sure a mouse is connected");
 		nomouse = 1;
 	}
-	else
-		printf("have mouse\n");
-
-	printf("looping a short while...\n");
 
 	do
 	{
+		processpty();
+
 		VPUConsoleResolve(&s_vctx);
 
 		if (!nokeyboard)
