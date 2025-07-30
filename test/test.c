@@ -97,6 +97,7 @@ size_t readfrompty()
 		int32_t len = utf8decode(&buf[iter], &codepoint);
 		if (len == -1 || len > buflen)
 			break;
+		printf("%c", codepoint);
 		iter += len;
 	}
 
