@@ -6,6 +6,8 @@
 #include <sys/select.h>
 #include <pty.h>
 #include <unistd.h>
+#include <termios.h>
+#include <fcntl.h>
 
 #include "core.h"
 #include "platform.h"
@@ -25,6 +27,38 @@ static int32_t masterfd = 0;
 static char buf[1024];
 static int32_t buflen = 0;
 static fd_set fdset;
+
+static struct termios orig_termios;
+static int stdin_flags;
+
+void setupKeyboardInput()
+{
+	// Save original terminal settings
+	tcgetattr(STDIN_FILENO, &orig_termios);
+	
+	// Set terminal to raw mode for immediate character input
+	struct termios raw = orig_termios;
+	raw.c_lflag &= ~(ECHO | ICANON | IEXTEN | ISIG);
+	raw.c_iflag &= ~(BRKINT | ICRNL | INPCK | ISTRIP | IXON);
+	raw.c_cflag &= ~(CSIZE | PARENB);
+	raw.c_cflag |= CS8;
+	raw.c_oflag &= ~(OPOST);
+	raw.c_cc[VMIN] = 0;  // Non-blocking read
+	raw.c_cc[VTIME] = 0;
+	
+	tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
+	
+	// Set stdin to non-blocking
+	stdin_flags = fcntl(STDIN_FILENO, F_GETFL, 0);
+	fcntl(STDIN_FILENO, F_SETFL, stdin_flags | O_NONBLOCK);
+}
+
+void restoreKeyboardInput()
+{
+	// Restore original terminal settings
+	tcsetattr(STDIN_FILENO, TCSAFLUSH, &orig_termios);
+	fcntl(STDIN_FILENO, F_SETFL, stdin_flags);
+}
 
 void shutdowncleanup()
 {
@@ -48,9 +82,16 @@ void shutdowncleanup()
 	SPShutdownPlatform(&s_platform);
 }
 
+int getKeyboardInput(char *input_char)
+{
+	int result = read(STDIN_FILENO, input_char, 1);
+	return (result == 1);
+}
+
 void sigint_handler(int /*s*/)
 {
 	shutdowncleanup();
+	restoreKeyboardInput();
 	exit(0);
 }
 
@@ -98,6 +139,16 @@ size_t readfrompty()
 	return nbytes;
 }
 
+void handleKeyboardInput()
+{
+	// This is pseudocode - you'll need to implement based on your platform
+	char input_char;
+	if (getKeyboardInput(&input_char)) // You need to implement this
+	{
+		write(masterfd, &input_char, 1); // Send to the PTY
+	}
+}
+
 int main(int /*argc*/, char** /*argv*/)
 {
 	SPInitPlatform(&s_platform);
@@ -110,6 +161,8 @@ int main(int /*argc*/, char** /*argv*/)
 
 	SPAllocateBuffer(&s_platform, &frameBufferA);
 	SPAllocateBuffer(&s_platform, &frameBufferB);
+
+	setupKeyboardInput();
 
 	atexit(shutdowncleanup);
 	signal(SIGINT, &sigint_handler);
@@ -169,6 +222,8 @@ int main(int /*argc*/, char** /*argv*/)
 			// Request update if number of bytes read is nonzero
 			needUpdate = readfrompty();
 		}
+
+		handleKeyboardInput();
 
 		if (s_sctx.cycle % 15 == 0) // When we wait for vysync this makes a quarter second interval
 		{
