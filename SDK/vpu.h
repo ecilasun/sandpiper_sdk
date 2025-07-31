@@ -115,7 +115,6 @@ void VPUWaitVSync(struct EVideoContext *_context);
 void VPUPrintString(struct EVideoContext *_context, const uint8_t _foregroundIndex, const uint8_t _backgroundIndex, const uint16_t _x, const uint16_t _y, const char *_message, int _length);
 
 void VPUConsoleResolve(struct EVideoContext *_context);
-void VPUConsoleResolveRGB16(struct EVideoContext *_context);
 void VPUConsoleScrollUp(struct EVideoContext *_context);
 void VPUConsoleScrollDown(struct EVideoContext *_context);
 void VPUConsoleSetColors(struct EVideoContext *_context, const uint8_t _foregroundIndex, const uint8_t _backgroundIndex);

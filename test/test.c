@@ -14,7 +14,7 @@
 #include "vpu.h"
 
 #define VIDEO_MODE      EVM_640_Wide
-#define VIDEO_COLOR     ECM_16bit_RGB
+#define VIDEO_COLOR     ECM_8bit_Indexed
 #define VIDEO_HEIGHT    480
 
 typedef enum {
@@ -510,7 +510,7 @@ int main(int /*argc*/, char** /*argv*/)
 
 		// Resolve and display console contents
 		if (needUpdate)
-			VPUConsoleResolveRGB16(&s_vctx);
+			VPUConsoleResolve(&s_vctx);
 
 		// Vsync is really not needed but nice to have to limit our pacing
 		// We could alternatively increase the timeout to 250ms and remove
