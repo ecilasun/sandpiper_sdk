@@ -26,8 +26,7 @@ typedef enum {
 
 static struct EVideoContext s_vctx;
 static struct EVideoSwapContext s_sctx;
-struct SPSizeAlloc frameBufferA;
-struct SPSizeAlloc frameBufferB;
+struct SPSizeAlloc frameBuffer;
 static struct SPPlatform s_platform;
 
 static int32_t masterfd = 0;
@@ -84,10 +83,6 @@ void shutdowncleanup()
 
 	// Yield physical memory and reset video routines
 	VPUShutdownVideo();
-
-	// Release allocations
-	SPFreeBuffer(&s_platform, &frameBufferB);
-	SPFreeBuffer(&s_platform, &frameBufferA);
 
 	// Shutdown platform
 	SPShutdownPlatform(&s_platform);
@@ -441,43 +436,38 @@ int main(int /*argc*/, char** /*argv*/)
 
 	uint32_t stride = VPUGetStride(VIDEO_MODE, VIDEO_COLOR);
 
-	frameBufferB.size = frameBufferA.size = stride*VIDEO_HEIGHT;
+	// Grab memory address reserved for console framebuffer
+	frameBuffer.size = stride*VIDEO_HEIGHT;
+	SPGetConsoleFramebuffer(&s_platform, &frameBuffer);
 
-	SPAllocateBuffer(&s_platform, &frameBufferA);
-	SPAllocateBuffer(&s_platform, &frameBufferB);
-
+	// To handle key input
 	setupKeyboardInput();
 
+	// In case something happens to us
 	atexit(shutdowncleanup);
 	signal(SIGINT, &sigint_handler);
 	signal(SIGTERM, &sigint_handler);
 
-	// Write random pattern into both buffers
-	uint32_t* memA = (uint32_t*)frameBufferA.cpuAddress;
-	uint32_t* memB = (uint32_t*)frameBufferB.cpuAddress;
-	for (uint32_t i=0; i<stride*VIDEO_HEIGHT/4; i++)
-	{
-		memA[i] = (i/stride) ^ (i%64);
-		memB[i] = (i/stride) ^ (i%64);
-	}
-
-	VPUSetWriteAddress(&s_vctx, (uint32_t)frameBufferA.cpuAddress);
-	VPUSetScanoutAddress(&s_vctx, (uint32_t)frameBufferB.dmaAddress);
+	// Point at shared console memory
+	VPUSetWriteAddress(&s_vctx, (uint32_t)frameBuffer.cpuAddress);
+	VPUSetScanoutAddress(&s_vctx, (uint32_t)frameBuffer.dmaAddress);
 	VPUSetDefaultPalette(&s_vctx);
 	VPUSetVideoMode(&s_vctx, VIDEO_MODE, VIDEO_COLOR, EVS_Enable);
 
+	// Reset and start console
 	VPUConsoleSetColors(&s_vctx, CONSOLEDEFAULTFG, CONSOLEDEFAULTBG);
 	VPUConsoleClear(&s_vctx);
 
 	s_sctx.cycle = 0;
-	s_sctx.framebufferA = &frameBufferA;
-	s_sctx.framebufferB = &frameBufferB;
+	s_sctx.framebufferA = &frameBuffer;
+	s_sctx.framebufferB = &frameBuffer; // Single buffered
 
 	s_vctx.m_caretX = s_vctx.m_cursorX;
 	s_vctx.m_caretY = s_vctx.m_cursorY;
 	s_vctx.m_caretBlink = 0;
 	s_vctx.m_caretType = 0;
 
+	// Here we fork a terminal
 	if (forkpty(&masterfd, NULL, NULL, NULL) == 0)
 	{
 		// Child process
@@ -496,6 +486,7 @@ int main(int /*argc*/, char** /*argv*/)
 		FD_ZERO(&fdset);
 		FD_SET(masterfd, &fdset);
 
+		// NOTE: Without the timeout select() hangs
 		struct timeval timeout;
 		timeout.tv_sec = 0;
 		timeout.tv_usec = 10000;  // 10ms timeout
@@ -507,17 +498,23 @@ int main(int /*argc*/, char** /*argv*/)
 			needUpdate = readfrompty();
 		}
 
+		// Send key presses over to masterfd
 		handleKeyboardInput();
 
-		if (s_sctx.cycle % 15 == 0) // When we wait for vysync this makes a quarter second interval
+		// Cursor blinks every quarter of a second
+		if (s_sctx.cycle % 15 == 0)
 		{
 			s_vctx.m_caretBlink ^= 1;
 			needUpdate = 1;
 		}
 
+		// Resolve and display console contents
 		if (needUpdate)
 			VPUConsoleResolve(&s_vctx);
 
+		// Vsync is really not needed but nice to have to limit our pacing
+		// We could alternatively increase the timeout to 250ms and remove
+		// the vsync
 		VPUWaitVSync(&s_vctx);
 		VPUSwapPages(&s_vctx, &s_sctx);
 	} while(1);

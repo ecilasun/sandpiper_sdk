@@ -36,6 +36,7 @@ struct SPPlatform
 int SPInitPlatform(struct SPPlatform* _platform);
 void SPShutdownPlatform(struct SPPlatform* _platform);
 
+void SPGetConsoleFramebuffer(struct SPPlatform* _platform, struct SPSizeAlloc *_sizealloc);
 int SPAllocateBuffer(struct SPPlatform* _platform, struct SPSizeAlloc *_sizealloc);
 void SPFreeBuffer(struct SPPlatform* _platform, struct SPSizeAlloc *_sizealloc);
 

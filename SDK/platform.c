@@ -88,7 +88,16 @@ void SPShutdownPlatform(struct SPPlatform* _platform)
 	_platform->mapped_memory = (uint8_t*)MAP_FAILED;
 }
 
-int SPAllocateBuffer(struct SPPlatform* _platform, struct SPSizeAlloc *_sizealloc)
+void SPGetConsoleFramebuffer(struct SPPlatform* _platform, struct SPSizeAlloc* _sizealloc)
+{
+	if (_platform->mapped_memory != (uint8_t*)MAP_FAILED)
+	{
+		_sizealloc->cpuAddress = _platform->mapped_memory;
+		_sizealloc->dmaAddress = (uint8_t*)RESERVED_MEMORY_ADDRESS;
+	}
+}
+
+int SPAllocateBuffer(struct SPPlatform* _platform, struct SPSizeAlloc* _sizealloc)
 {
 	if (_platform->mapped_memory != (uint8_t*)MAP_FAILED)
 	{
