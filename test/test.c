@@ -1,14 +1,11 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include <signal.h>
+#include <sys/select.h>
 #include <pty.h>
 #include <unistd.h>
-
-#include <fcntl.h>
-#include <poll.h>
-#include <unistd.h>
-#include <linux/input.h>
 
 #include "core.h"
 #include "platform.h"
@@ -23,7 +20,10 @@ static struct EVideoSwapContext s_sctx;
 struct SPSizeAlloc frameBufferA;
 struct SPSizeAlloc frameBufferB;
 static struct SPPlatform s_platform;
-static uint32_t masterfd = 0;
+
+static int32_t masterfd = 0;
+static char buf[1024];
+static int32_t buflen = 0;
 
 void shutdowncleanup()
 {
@@ -47,7 +47,7 @@ void shutdowncleanup()
 	SPShutdownPlatform(&s_platform);
 }
 
-void sigint_handler(int s)
+void sigint_handler(int /*s*/)
 {
 	shutdowncleanup();
 	exit(0);
@@ -90,7 +90,7 @@ size_t readfrompty()
 	int32_t nbytes = read(masterfd, buf + buflen, sizeof(buf)-buflen);
 	buflen += nbytes;
 
-	uint32_t iter = 0;
+	int32_t iter = 0;
 	while(iter < buflen)
 	{
 		uint32_t codepoint = 0;
@@ -113,13 +113,13 @@ size_t readfrompty()
 
 void processpty()
 {
-	static char buf[SHRT_MAX];
-	static uint32_t buflen = 0;
-
 	fd_set ptyset;
 	FD_ZERO(&ptyset);
 	FD_SET(masterfd, &ptyset);
-	int selret = select(masterfd+1, &ptyset, NULL, NULL, NULL);
+	int selret = pselect(masterfd+1, &ptyset, NULL, NULL, NULL, NULL);
+
+	if (selret < 0)
+		return;
 
 	if (FD_ISSET(masterfd, &ptyset))
 	{
@@ -127,7 +127,7 @@ void processpty()
 	}
 }
 
-int main(int argc, char** argv)
+int main(int /*argc*/, char** /*argv*/)
 {
 	initterm();
 
