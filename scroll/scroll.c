@@ -39,8 +39,15 @@ void shutdowncleanup()
 
 void sigint_handler(int s)
 {
-	shutdowncleanup();
-	exit(0);
+	switch(s)
+	{
+		case SIGINT:
+		case SIGTERM:
+		case SIGHUP:
+			shutdowncleanup();
+			exit(0);
+		break;
+	}
 }
 
 int main(int argc, char** argv)
@@ -66,25 +73,20 @@ int main(int argc, char** argv)
 
 	int totalscroll = 0;
 	int direction = 1;
-
 	int A = 64;
+
 	do
 	{
-		if (s_sctx.cycle % 15 == 0)
-		{
-			// Every 15 frames, do something
-			totalscroll += direction;
-			if (totalscroll > A)
-				direction = -1;
-			else if (totalscroll <= 0) // NOTE: do not scroll in negative direction
-				direction = 1;
+		totalscroll += direction;
+		if (totalscroll > A)
+			direction = -1;
+		else if (totalscroll <= 0) // NOTE: do not scroll in negative direction
+			direction = 1;
+		int byteoffset = (totalscroll / 8);
+		int pixeloffset = totalscroll & 7;
 
-			int byteoffset = (totalscroll / 8);
-			int pixeloffset = totalscroll & 7;
-
-			VPUShiftScanout(&s_vctx, byteoffset);
-			VPUShiftPixel(&s_vctx, pixeloffset);
-		}
+		VPUShiftScanout(&s_vctx, byteoffset);
+		VPUShiftPixel(&s_vctx, pixeloffset);
 
 		VPUWaitVSync(&s_vctx);
 		//VPUSwapPages(&s_vctx, &s_sctx);
