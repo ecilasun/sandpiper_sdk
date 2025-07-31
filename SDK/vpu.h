@@ -116,7 +116,10 @@ void VPUPrintString(struct EVideoContext *_context, const uint8_t _foregroundInd
 
 void VPUConsoleResolve(struct EVideoContext *_context);
 void VPUConsoleScrollUp(struct EVideoContext *_context);
+void VPUConsoleScrollDown(struct EVideoContext *_context);
 void VPUConsoleSetColors(struct EVideoContext *_context, const uint8_t _foregroundIndex, const uint8_t _backgroundIndex);
+void VPUConsoleSetForeground(struct EVideoContext *_context, const uint8_t _foregroundIndex);
+void VPUConsoleSetBackground(struct EVideoContext *_context, const uint8_t _backgroundIndex);
 void VPUConsoleClear(struct EVideoContext *_context);
 void VPUConsolePrint(struct EVideoContext *_context, const char *_message, int _length);
 void VPUConsolePrintInPlace(struct EVideoContext *_context, const char *_message, int _length);
@@ -127,3 +130,4 @@ void VPUConsoleCopyLine(struct EVideoContext *_context, uint16_t _line, uint16_t
 void VPUInsertCharacter(struct EVideoContext *_context, uint16_t _line, uint16_t _column, uint8_t _character);
 void VPURemoveCharacter(struct EVideoContext *_context, uint16_t _line, uint16_t _column);
 int VPUConsoleFillLine(struct EVideoContext *_context, const char _character);
+void VPUConsoleSetCursor(struct EVideoContext *_context, uint16_t _x, uint16_t _y);

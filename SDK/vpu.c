@@ -447,9 +447,39 @@ void VPUConsoleScrollUp(struct EVideoContext *_context)
 	__builtin_memset((void*)lastcolorrow, (CONSOLEDEFAULTBG<<4) | (CONSOLEDEFAULTFG), W);
 }
 
+void VPUConsoleScrollDown(struct EVideoContext *_context)
+{
+	const uint16_t W = _context->m_consoleWidth;
+	const uint16_t H_1 = _context->m_consoleHeight - 1;
+	// We're trying to write before start of console; scroll down the contents of the console
+	// NOTE: This does not save the contents of the text buffer that has scrolled off
+	uint8_t* targettext = character_buffer + W;
+	uint8_t* targetcolor = color_buffer + W;
+	uint8_t* sourcetext = character_buffer;
+	uint8_t* sourcecolor = color_buffer;
+	uint8_t* firsttextrow = character_buffer;
+	uint8_t* firstcolorrow = color_buffer;
+	__builtin_memcpy((void*)targettext, (void*)sourcetext, W*H_1);
+	__builtin_memcpy((void*)targetcolor, (void*)sourcecolor, W*H_1);
+	// Fill first row with spaces
+	__builtin_memset((void*)firsttextrow, 0x20, W);
+	// Fill first row with default background
+	__builtin_memset((void*)firstcolorrow, (CONSOLEDEFAULTBG<<4) | (CONSOLEDEFAULTFG), W);
+}
+
 void VPUConsoleSetColors(struct EVideoContext *_context, const uint8_t _foregroundIndex, const uint8_t _backgroundIndex)
 {
 	_context->m_consoleColor = ((_backgroundIndex&0x0F)<<4) | (_foregroundIndex&0x0F);
+}
+
+void VPUConsoleSetForeground(struct EVideoContext *_context, const uint8_t _foregroundIndex)
+{
+	_context->m_consoleColor = (_context->m_consoleColor & 0xF0) | (_foregroundIndex&0x0F);
+}
+
+void VPUConsoleSetBackground(struct EVideoContext *_context, const uint8_t _backgroundIndex)
+{
+	_context->m_consoleColor = (_context->m_consoleColor & 0x0F) | ((_backgroundIndex&0x0F)<<4);
 }
 
 void VPUConsoleClear(struct EVideoContext *_context)
@@ -742,6 +772,24 @@ void VPURemoveCharacter(struct EVideoContext *_context, uint16_t _x, uint16_t _y
 			colorBase[_y*stride+x] = _context->m_consoleColor;
 		}
 	}
+}
+
+void VPUConsoleSetCursor(struct EVideoContext *_context, uint16_t _x, uint16_t _y)
+{
+	const uint16_t W_1 = _context->m_consoleWidth - 1;
+	const uint16_t H_1 = _context->m_consoleHeight - 1;
+	if (_x > W_1)
+		_x = W_1;
+	if (_y > H_1)
+		_y = H_1;
+
+	// Cursor and caret move at the same time in this scenario
+	_context->m_cursorX = _x;
+	_context->m_cursorY = _y;
+	_context->m_caretX = _x;
+	_context->m_caretY = _y;
+
+	_context->m_consoleUpdated = 1;
 }
 
 void VPUInitVideo(struct EVideoContext* _context, struct  SPPlatform* _platform)

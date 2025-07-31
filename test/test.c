@@ -144,7 +144,7 @@ void handleCSISequence(const char* seq, int len)
 			{
 				int lines = (param_count > 0 && params[0] > 0) ? params[0] : 1;
 				for (int i = 0; i < lines; i++) {
-					//VPUConsoleMoveUp(&s_vctx);
+					VPUConsoleMoveCursor(&s_vctx, 0, -1);
 				}
 			}
 			break;
@@ -153,7 +153,7 @@ void handleCSISequence(const char* seq, int len)
 			{
 				int lines = (param_count > 0 && params[0] > 0) ? params[0] : 1;
 				for (int i = 0; i < lines; i++) {
-					//VPUConsoleMoveDown(&s_vctx);
+					VPUConsoleMoveCursor(&s_vctx, 0, 1);
 				}
 			}
 			break;
@@ -162,7 +162,7 @@ void handleCSISequence(const char* seq, int len)
 			{
 				int cols = (param_count > 0 && params[0] > 0) ? params[0] : 1;
 				for (int i = 0; i < cols; i++) {
-					//VPUConsoleMoveRight(&s_vctx);
+					VPUConsoleMoveCursor(&s_vctx, 1, 0);
 				}
 			}
 			break;
@@ -171,7 +171,7 @@ void handleCSISequence(const char* seq, int len)
 			{
 				int cols = (param_count > 0 && params[0] > 0) ? params[0] : 1;
 				for (int i = 0; i < cols; i++) {
-					//VPUConsoleMoveLeft(&s_vctx);
+					VPUConsoleMoveCursor(&s_vctx, -1, 0);
 				}
 			}
 			break;
@@ -181,7 +181,7 @@ void handleCSISequence(const char* seq, int len)
 			{
 				int row = (param_count > 0 && params[0] > 0) ? params[0] - 1 : 0;
 				int col = (param_count > 1 && params[1] > 0) ? params[1] - 1 : 0;
-				//VPUConsoleSetCursor(&s_vctx, col, row);
+				VPUConsoleSetCursor(&s_vctx, col, row);
 			}
 			break;
 
@@ -197,7 +197,7 @@ void handleCSISequence(const char* seq, int len)
 						break;
 					case 2: // Clear entire screen
 					case 3: // Clear entire screen and scrollback (treat same as 2)
-						//VPUConsoleClear(&s_vctx);
+						VPUConsoleClear(&s_vctx);
 						break;
 				}
 			}
@@ -225,19 +225,19 @@ void handleCSISequence(const char* seq, int len)
 				for (int i = 0; i < param_count; i++) {
 					int param = params[i];
 					if (param == 0) { // Reset
-						//VPUConsoleSetColors(&s_vctx, CONSOLEDEFAULTFG, CONSOLEDEFAULTBG);
+						VPUConsoleSetColors(&s_vctx, CONSOLEDEFAULTFG, CONSOLEDEFAULTBG);
 					} else if (param >= 30 && param <= 37) { // Foreground colors
 						uint8_t color = param - 30;
-						//VPUConsoleSetForegroundColor(&s_vctx, color);
+						VPUConsoleSetForeground(&s_vctx, color);
 					} else if (param >= 40 && param <= 47) { // Background colors
 						uint8_t color = param - 40;
-						//VPUConsoleSetBackgroundColor(&s_vctx, color);
+						VPUConsoleSetBackground(&s_vctx, color);
 					} else if (param >= 90 && param <= 97) { // Bright foreground colors
 						uint8_t color = (param - 90) + 8;
-						//VPUConsoleSetForegroundColor(&s_vctx, color);
+						VPUConsoleSetForeground(&s_vctx, color);
 					} else if (param >= 100 && param <= 107) { // Bright background colors
 						uint8_t color = (param - 100) + 8;
-						//VPUConsoleSetBackgroundColor(&s_vctx, color);
+						VPUConsoleSetBackground(&s_vctx, color);
 					}
 					// Add more SGR parameters as needed (bold, italic, etc.)
 				}
@@ -248,7 +248,7 @@ void handleCSISequence(const char* seq, int len)
 			{
 				int lines = (param_count > 0 && params[0] > 0) ? params[0] : 1;
 				for (int i = 0; i < lines; i++) {
-					//VPUConsoleScrollUp(&s_vctx);
+					VPUConsoleScrollUp(&s_vctx);
 				}
 			}
 			break;
@@ -257,7 +257,7 @@ void handleCSISequence(const char* seq, int len)
 			{
 				int lines = (param_count > 0 && params[0] > 0) ? params[0] : 1;
 				for (int i = 0; i < lines; i++) {
-					//VPUConsoleScrollDown(&s_vctx);
+					VPUConsoleScrollDown(&s_vctx);
 				}
 			}
 			break;
@@ -332,7 +332,7 @@ void processCharacterWithCSI(uint32_t codepoint)
 					case 'c': // Reset terminal
 						VPUConsoleClear(&s_vctx);
 						VPUConsoleSetColors(&s_vctx, CONSOLEDEFAULTFG, CONSOLEDEFAULTBG);
-						//VPUConsoleSetCursor(&s_vctx, 0, 0);
+						VPUConsoleSetCursor(&s_vctx, 0, 0);
 						break;
 					case 'D': // Line feed
 						VPUConsolePrint(&s_vctx, "\n", 1);
