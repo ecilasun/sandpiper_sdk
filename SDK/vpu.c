@@ -426,6 +426,111 @@ void VPUConsoleResolve(struct EVideoContext *_context)
 	_context->m_consoleUpdated = 0;
 }
 
+void VPUConsoleResolveRGB16(struct EVideoContext *_context)
+{
+	uint16_t *vramBase = (uint16_t*)_context->m_cpuWriteAddressCacheAligned;
+	uint8_t *characterBase = character_buffer;
+	uint8_t *colorBase = color_buffer;
+	uint32_t stride = _context->m_strideInWords * 2; // Convert from 32-bit words to 16-bit words
+	const uint16_t H = _context->m_consoleHeight;
+	const uint16_t W = _context->m_consoleWidth;
+
+	for (uint16_t cy=0; cy<H; ++cy)
+	{
+		for (uint16_t cx=0; cx<W; ++cx)
+		{
+			int currentchar = characterBase[cx+cy*W];
+			if (currentchar<32)
+				continue;
+
+			uint8_t currentcolor = colorBase[cx+cy*W];
+			uint8_t bg_index = (currentcolor>>4)&0x0F;
+			uint8_t fg_index = currentcolor&0x0F;
+			
+			// Convert palette indices to RGB values using the VGA palette
+			uint32_t bg_rgb24 = vgapalette[bg_index] & 0xFFFFFF;
+			uint32_t fg_rgb24 = vgapalette[fg_index] & 0xFFFFFF;
+			
+			// Extract RGB components from 24-bit color
+			uint8_t bg_r = (bg_rgb24 >> 16) & 0xFF;
+			uint8_t bg_g = (bg_rgb24 >> 8) & 0xFF;
+			uint8_t bg_b = bg_rgb24 & 0xFF;
+			
+			uint8_t fg_r = (fg_rgb24 >> 16) & 0xFF;
+			uint8_t fg_g = (fg_rgb24 >> 8) & 0xFF;
+			uint8_t fg_b = fg_rgb24 & 0xFF;
+			
+			// Convert to 16-bit RGB565
+			uint16_t BG = MAKECOLORRGB16(bg_r, bg_g, bg_b);
+			uint16_t FG = MAKECOLORRGB16(fg_r, fg_g, fg_b);
+
+			int charrow = (currentchar>>4)*8;
+			int charcol = (currentchar%16);
+			
+			for (int y=0; y<8; ++y)
+			{
+				int yoffset = (cy*8+y)*stride;
+				// Expand bit packed character row into individual pixels
+				uint8_t chardata = residentfont[charcol+((charrow+y)*16)];
+				
+				// Output 8 pixels (16-bit each) for this row
+				for (int x=0; x<8; ++x)
+				{
+					// X offset in 16-bit words
+					int xoffset = cx*8 + x;
+					
+					// Check if this pixel should be foreground or background
+					// The font data is stored with bit 0 being the leftmost pixel
+					uint16_t pixel_color = (chardata & (1 << x)) ? FG : BG;
+					
+					// Output the pixel
+					vramBase[xoffset + yoffset] = pixel_color;
+				}
+			}
+		}
+	}
+
+	// Show caret if it's in the visible state
+	if (_context->m_caretBlink)
+	{
+		int cx = _context->m_caretX;
+		int cy = _context->m_caretY;
+		
+		// Convert CONSOLEDIMGREEN to RGB565
+		uint16_t caret_color = MAKECOLORRGB16(0, 128, 0); // Dim green
+		
+		if (_context->m_caretType == 0)
+		{
+			// Regular cursor is 8 pixels wide, 2 pixels high
+			uint32_t yoffset = (cy*8+7)*stride; // Last row of the character
+			uint32_t xoffset = cx*8; // 8 pixels per character
+			uint16_t *caret = &vramBase[xoffset + yoffset];
+			
+			// Draw 2 rows of 8 pixels
+			for (int i = 0; i < 8; i++) {
+				caret[i] = caret_color;
+				caret[i - stride] = caret_color; // Previous row
+			}
+		}
+		else
+		{
+			// Insert cursor shows differently and is taller (vertical line)
+			uint32_t yoffset = (cy*8+7)*stride;
+			uint32_t xoffset = cx*8;
+			uint16_t *caret = &vramBase[xoffset + yoffset];
+			
+			// Draw vertical line (2 pixels wide, 8 pixels tall)
+			for (int y = 0; y < 8; y++) {
+				caret[0] = caret_color;
+				caret[1] = caret_color;
+				caret -= stride; // Move up one row
+			}
+		}
+	}
+
+	_context->m_consoleUpdated = 0;
+}
+
 void VPUConsoleScrollUp(struct EVideoContext *_context)
 {
 	const uint16_t W = _context->m_consoleWidth;
