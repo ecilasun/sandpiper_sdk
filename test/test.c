@@ -24,6 +24,7 @@ static struct SPPlatform s_platform;
 static int32_t masterfd = 0;
 static char buf[1024];
 static int32_t buflen = 0;
+static fd_set fdset;
 
 void shutdowncleanup()
 {
@@ -71,20 +72,6 @@ int32_t utf8decode(const char *s, uint32_t *out_cp) {
 	return -1; // invalid UTF-8
 }
 
-void initterm()
-{
-	int32_t childpid = forkpty(&masterfd, NULL, NULL, NULL);
-	if (childpid == 0)
-	{
-		// Child process
-		execlp("/usr/bin/bash", "bash", NULL);
-		perror("execlp");
-		exit(1);
-	}
-
-	// Success
-}
-
 size_t readfrompty()
 {
 	int32_t nbytes = read(masterfd, buf + buflen, sizeof(buf)-buflen);
@@ -97,7 +84,7 @@ size_t readfrompty()
 		int32_t len = utf8decode(&buf[iter], &codepoint);
 		if (len == -1 || len > buflen)
 			break;
-		printf("%c", codepoint);
+		VPUConsolePrint(&s_vctx, (char*)&codepoint, 1);
 		iter += len;
 	}
 
@@ -111,26 +98,8 @@ size_t readfrompty()
 	return nbytes;
 }
 
-void processpty()
-{
-	fd_set ptyset;
-	FD_ZERO(&ptyset);
-	FD_SET(masterfd, &ptyset);
-	int selret = pselect(masterfd+1, &ptyset, NULL, NULL, NULL, NULL);
-
-	if (selret < 0)
-		return;
-
-	if (FD_ISSET(masterfd, &ptyset))
-	{
-		readfrompty();
-	}
-}
-
 int main(int /*argc*/, char** /*argv*/)
 {
-	initterm();
-
 	SPInitPlatform(&s_platform);
 
 	VPUInitVideo(&s_vctx, &s_platform);
@@ -151,8 +120,8 @@ int main(int /*argc*/, char** /*argv*/)
 	uint32_t* memB = (uint32_t*)frameBufferB.cpuAddress;
 	for (uint32_t i=0; i<stride*VIDEO_HEIGHT/4; i++)
 	{
-		memA[i] = (i/640) ^ (i%64);
-		memB[i] = (i/640) ^ (i%64);
+		memA[i] = (i/stride) ^ (i%64);
+		memB[i] = (i/stride) ^ (i%64);
 	}
 
 	VPUSetWriteAddress(&s_vctx, (uint32_t)frameBufferA.cpuAddress);
@@ -162,7 +131,6 @@ int main(int /*argc*/, char** /*argv*/)
 
 	VPUConsoleSetColors(&s_vctx, CONSOLEDEFAULTFG, CONSOLEDEFAULTBG);
 	VPUConsoleClear(&s_vctx);
-	VPUConsolePrint(&s_vctx, "sandpiper ready\n", VPU_AUTO);
 
 	s_sctx.cycle = 0;
 	s_sctx.framebufferA = &frameBufferA;
@@ -173,18 +141,40 @@ int main(int /*argc*/, char** /*argv*/)
 	s_vctx.m_caretBlink = 0;
 	s_vctx.m_caretType = 0;
 
+	if (forkpty(&masterfd, NULL, NULL, NULL) == 0)
+	{
+		// Child process
+		execlp("/bin/bash", "bash", NULL);
+		perror("execlp");
+		exit(1);
+	}
+
+	int needUpdate = 0;
+
 	do
 	{
-		processpty();
+		FD_ZERO(&fdset);
+		FD_SET(masterfd, &fdset);
+		select(masterfd+1, &fdset, NULL, NULL, NULL);
 
-		VPUConsoleResolve(&s_vctx);
+		if (FD_ISSET(masterfd, &fdset))
+		{
+			// Request update if number of bytes read is nonzero
+			needUpdate = readfrompty();
+		}
 
 		if (s_sctx.cycle % 15 == 0) // When we wait for vysync this makes a quarter second interval
+		{
 			s_vctx.m_caretBlink ^= 1;
+			needUpdate = 1;
+		}
+
+		if (needUpdate)
+			VPUConsoleResolve(&s_vctx);
 
 		VPUWaitVSync(&s_vctx);
 		VPUSwapPages(&s_vctx, &s_sctx);
-	} while(s_sctx.cycle < 4096);
+	} while(1);
 
 	return 0;
 }
