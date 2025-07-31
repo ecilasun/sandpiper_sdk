@@ -17,6 +17,13 @@
 #define VIDEO_COLOR     ECM_8bit_Indexed
 #define VIDEO_HEIGHT    480
 
+typedef enum {
+    CSI_STATE_NORMAL,
+    CSI_STATE_ESCAPE,
+    CSI_STATE_CSI,
+    CSI_STATE_OSC
+} CSIState;
+
 static struct EVideoContext s_vctx;
 static struct EVideoSwapContext s_sctx;
 struct SPSizeAlloc frameBufferA;
@@ -30,6 +37,10 @@ static fd_set fdset;
 
 static struct termios orig_termios;
 static int stdin_flags;
+
+static CSIState csi_state = CSI_STATE_NORMAL;
+static char csi_buffer[256];
+static int csi_buffer_len = 0;
 
 void setupKeyboardInput()
 {
@@ -95,6 +106,279 @@ void sigint_handler(int /*s*/)
 	exit(0);
 }
 
+void handleCSISequence(const char* seq, int len)
+{
+	if (len < 1) return;
+	
+	char final_char = seq[len - 1];
+	
+	// Parse parameters (numbers separated by semicolons)
+	int params[16];
+	int param_count = 0;
+	int current_param = 0;
+	int has_param = 0;
+	
+	for (int i = 0; i < len - 1; i++) {
+		char c = seq[i];
+		if (isdigit(c)) {
+			current_param = current_param * 10 + (c - '0');
+			has_param = 1;
+		} else if (c == ';') {
+			if (param_count < 16) {
+				params[param_count++] = has_param ? current_param : 0;
+			}
+			current_param = 0;
+			has_param = 0;
+		}
+		// Skip other intermediate characters
+	}
+	
+	// Add the last parameter
+	if (param_count < 16) {
+		params[param_count++] = has_param ? current_param : 0;
+	}
+	
+	// Default parameters to 1 if not specified for certain commands
+	if (param_count == 0) {
+		params[0] = 1;
+		param_count = 1;
+	}
+	
+	switch (final_char) {
+		case 'A': // Cursor Up
+			{
+				int lines = (param_count > 0 && params[0] > 0) ? params[0] : 1;
+				for (int i = 0; i < lines; i++) {
+					VPUConsoleMoveUp(&s_vctx);
+				}
+			}
+			break;
+			
+		case 'B': // Cursor Down
+			{
+				int lines = (param_count > 0 && params[0] > 0) ? params[0] : 1;
+				for (int i = 0; i < lines; i++) {
+					VPUConsoleMoveDown(&s_vctx);
+				}
+			}
+			break;
+			
+		case 'C': // Cursor Forward (Right)
+			{
+				int cols = (param_count > 0 && params[0] > 0) ? params[0] : 1;
+				for (int i = 0; i < cols; i++) {
+					VPUConsoleMoveRight(&s_vctx);
+				}
+			}
+			break;
+			
+		case 'D': // Cursor Backward (Left)
+			{
+				int cols = (param_count > 0 && params[0] > 0) ? params[0] : 1;
+				for (int i = 0; i < cols; i++) {
+					VPUConsoleMoveLeft(&s_vctx);
+				}
+			}
+			break;
+			
+		case 'H': // Cursor Position
+		case 'f': // Horizontal and Vertical Position
+			{
+				int row = (param_count > 0 && params[0] > 0) ? params[0] - 1 : 0;
+				int col = (param_count > 1 && params[1] > 0) ? params[1] - 1 : 0;
+				VPUConsoleSetCursor(&s_vctx, col, row);
+			}
+			break;
+			
+		case 'J': // Erase in Display
+			{
+				int mode = (param_count > 0) ? params[0] : 0;
+				switch (mode) {
+					case 0: // Clear from cursor to end of screen
+						VPUConsoleClearToEndOfScreen(&s_vctx);
+						break;
+					case 1: // Clear from cursor to beginning of screen
+						VPUConsoleClearToBeginningOfScreen(&s_vctx);
+						break;
+					case 2: // Clear entire screen
+					case 3: // Clear entire screen and scrollback (treat same as 2)
+						VPUConsoleClear(&s_vctx);
+						break;
+				}
+			}
+			break;
+			
+		case 'K': // Erase in Line
+			{
+				int mode = (param_count > 0) ? params[0] : 0;
+				switch (mode) {
+					case 0: // Clear from cursor to end of line
+						VPUConsoleClearToEndOfLine(&s_vctx);
+						break;
+					case 1: // Clear from cursor to beginning of line
+						VPUConsoleClearToBeginningOfLine(&s_vctx);
+						break;
+					case 2: // Clear entire line
+						VPUConsoleClearLine(&s_vctx);
+						break;
+				}
+			}
+			break;
+			
+		case 'm': // Select Graphic Rendition (SGR) - Colors and styles
+			{
+				for (int i = 0; i < param_count; i++) {
+					int param = params[i];
+					if (param == 0) { // Reset
+						VPUConsoleSetColors(&s_vctx, CONSOLEDEFAULTFG, CONSOLEDEFAULTBG);
+					} else if (param >= 30 && param <= 37) { // Foreground colors
+						uint8_t color = param - 30;
+						VPUConsoleSetForegroundColor(&s_vctx, color);
+					} else if (param >= 40 && param <= 47) { // Background colors
+						uint8_t color = param - 40;
+						VPUConsoleSetBackgroundColor(&s_vctx, color);
+					} else if (param >= 90 && param <= 97) { // Bright foreground colors
+						uint8_t color = (param - 90) + 8;
+						VPUConsoleSetForegroundColor(&s_vctx, color);
+					} else if (param >= 100 && param <= 107) { // Bright background colors
+						uint8_t color = (param - 100) + 8;
+						VPUConsoleSetBackgroundColor(&s_vctx, color);
+					}
+					// Add more SGR parameters as needed (bold, italic, etc.)
+				}
+			}
+			break;
+			
+		case 'S': // Scroll Up
+			{
+				int lines = (param_count > 0 && params[0] > 0) ? params[0] : 1;
+				for (int i = 0; i < lines; i++) {
+					VPUConsoleScrollUp(&s_vctx);
+				}
+			}
+			break;
+			
+		case 'T': // Scroll Down
+			{
+				int lines = (param_count > 0 && params[0] > 0) ? params[0] : 1;
+				for (int i = 0; i < lines; i++) {
+					VPUConsoleScrollDown(&s_vctx);
+				}
+			}
+			break;
+			
+		case 'L': // Insert Lines
+			{
+				int lines = (param_count > 0 && params[0] > 0) ? params[0] : 1;
+				for (int i = 0; i < lines; i++) {
+					VPUConsoleInsertLine(&s_vctx);
+				}
+			}
+			break;
+			
+		case 'M': // Delete Lines
+			{
+				int lines = (param_count > 0 && params[0] > 0) ? params[0] : 1;
+				for (int i = 0; i < lines; i++) {
+					VPUConsoleDeleteLine(&s_vctx);
+				}
+			}
+			break;
+			
+		case '@': // Insert Characters
+			{
+				int chars = (param_count > 0 && params[0] > 0) ? params[0] : 1;
+				for (int i = 0; i < chars; i++) {
+					VPUConsoleInsertChar(&s_vctx);
+				}
+			}
+			break;
+			
+		case 'P': // Delete Characters
+			{
+				int chars = (param_count > 0 && params[0] > 0) ? params[0] : 1;
+				for (int i = 0; i < chars; i++) {
+					VPUConsoleDeleteChar(&s_vctx);
+				}
+			}
+			break;
+			
+		default:
+			// Unknown CSI sequence - ignore
+			printf("Unknown CSI sequence: ESC[%.*s\n", len, seq);
+			break;
+	}
+}
+
+void processCharacterWithCSI(uint32_t codepoint)
+{
+	char c = (char)codepoint;
+	
+	switch (csi_state) {
+		case CSI_STATE_NORMAL:
+			if (c == '\033') { // ESC character
+				csi_state = CSI_STATE_ESCAPE;
+			} else {
+				// Normal character - print it
+				VPUConsolePrint(&s_vctx, &c, 1);
+			}
+			break;
+			
+		case CSI_STATE_ESCAPE:
+			if (c == '[') {
+				csi_state = CSI_STATE_CSI;
+				csi_buffer_len = 0;
+			} else if (c == ']') {
+				csi_state = CSI_STATE_OSC;
+				csi_buffer_len = 0;
+			} else {
+				// Not a CSI sequence - handle single ESC commands
+				switch (c) {
+					case 'c': // Reset terminal
+						VPUConsoleClear(&s_vctx);
+						VPUConsoleSetColors(&s_vctx, CONSOLEDEFAULTFG, CONSOLEDEFAULTBG);
+						VPUConsoleSetCursor(&s_vctx, 0, 0);
+						break;
+					case 'D': // Line feed
+						VPUConsolePrint(&s_vctx, "\n", 1);
+						break;
+					case 'M': // Reverse line feed
+						VPUConsoleMoveUp(&s_vctx);
+						break;
+					default:
+						// Unknown escape sequence
+						break;
+				}
+				csi_state = CSI_STATE_NORMAL;
+			}
+			break;
+			
+		case CSI_STATE_CSI:
+			if (csi_buffer_len < sizeof(csi_buffer) - 1) {
+				csi_buffer[csi_buffer_len++] = c;
+			}
+			
+			// Check if this is the final character of the sequence
+			if (c >= 0x40 && c <= 0x7E) {
+				csi_buffer[csi_buffer_len] = '\0';
+				handleCSISequence(csi_buffer, csi_buffer_len);
+				csi_state = CSI_STATE_NORMAL;
+			}
+			break;
+			
+		case CSI_STATE_OSC:
+			// Operating System Command - usually terminated by BEL (0x07) or ESC
+			if (c == 0x07 || (csi_buffer_len > 0 && csi_buffer[csi_buffer_len-1] == '\033' && c == '\\')) {
+				// OSC sequences are typically for setting window title, etc.
+				// Most can be ignored for a simple terminal
+				csi_state = CSI_STATE_NORMAL;
+			} else if (csi_buffer_len < sizeof(csi_buffer) - 1) {
+				csi_buffer[csi_buffer_len++] = c;
+			}
+			break;
+	}
+}
+
 int32_t utf8decode(const char *s, uint32_t *out_cp) {
 	unsigned char c = s[0];
 	if (c < 0x80) {
@@ -125,7 +409,7 @@ size_t readfrompty()
 		int32_t len = utf8decode(&buf[iter], &codepoint);
 		if (len == -1 || len > buflen)
 			break;
-		VPUConsolePrint(&s_vctx, (char*)&codepoint, 1);
+        processCharacterWithCSI(codepoint);
 		iter += len;
 	}
 
