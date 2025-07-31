@@ -144,6 +144,9 @@ int main(int /*argc*/, char** /*argv*/)
 	if (forkpty(&masterfd, NULL, NULL, NULL) == 0)
 	{
 		// Child process
+		setenv("TERM", "xterm", 1);  // Set terminal type
+		setenv("COLUMNS", "80", 1);  // Set terminal width
+		setenv("LINES", "25", 1);    // Set terminal height
 		execlp("/bin/bash", "bash", NULL);
 		perror("execlp");
 		exit(1);
@@ -155,7 +158,11 @@ int main(int /*argc*/, char** /*argv*/)
 	{
 		FD_ZERO(&fdset);
 		FD_SET(masterfd, &fdset);
-		select(masterfd+1, &fdset, NULL, NULL, NULL);
+
+		struct timeval timeout;
+		timeout.tv_sec = 0;
+		timeout.tv_usec = 10000;  // 10ms timeout
+		select(masterfd+1, &fdset, NULL, NULL, &timeout);
 
 		if (FD_ISSET(masterfd, &fdset))
 		{
