@@ -144,9 +144,9 @@ int main(int /*argc*/, char** /*argv*/)
 	if (forkpty(&masterfd, NULL, NULL, NULL) == 0)
 	{
 		// Child process
-		setenv("TERM", "xterm", 1);  // Set terminal type
-		setenv("COLUMNS", "80", 1);  // Set terminal width
-		setenv("LINES", "25", 1);    // Set terminal height
+		setenv("TERM", "linux", 1);  // Set terminal type (xterm for color escape codes etc)
+		setenv("COLUMNS", "80", 1);  // Set terminal width (640/8)
+		setenv("LINES", "60", 1);    // Set terminal height (480/8)
 		execlp("/bin/bash", "bash", NULL);
 		perror("execlp");
 		exit(1);
