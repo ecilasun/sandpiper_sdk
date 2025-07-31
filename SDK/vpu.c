@@ -474,6 +474,7 @@ void VPUConsoleResolveRGB16(struct EVideoContext *_context)
 				uint8_t chardata = residentfont[charcol+((charrow+y)*16)];
 				
 				// Output 8 pixels (16-bit each) for this row
+				uint8_t current_chardata = chardata;
 				for (int x=0; x<8; ++x)
 				{
 					// X offset in 16-bit words
