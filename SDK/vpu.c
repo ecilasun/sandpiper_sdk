@@ -484,20 +484,20 @@ void VPUConsoleResolveRGB16(struct EVideoContext *_context)
 					// For the font format used in 8-bit mode:
 					// - Low nibble (bits 0-3) contains pixels 0-3 
 					// - High nibble (bits 4-7) contains pixels 4-7
-                    uint8_t bit_position;
-                    if (x < 4) {
-                        // First 4 pixels use low nibble
-                        bit_position = x;
-                    } else {
-                        // Last 4 pixels use high nibble, but reset chardata after first 4
-                        if (x == 4) {
-                            current_chardata = chardata >> 4;
-                        }
-                        bit_position = x - 4;
-                    }
+					uint8_t bit_position;
+					if (x < 4) {
+						// First 4 pixels use low nibble
+						bit_position = x;
+					} else {
+						// Last 4 pixels use high nibble, but reset chardata after first 4
+						if (x == 4) {
+							current_chardata = chardata >> 4;
+						}
+						bit_position = x - 4;
+					}
 
 					// Check if this pixel should be foreground or background
-					uint16_t pixel_color = (chardata & (1 << bit_position)) ? FG : BG;
+					uint16_t pixel_color = (current_chardata & (1 << bit_position)) ? FG : BG;
 					
 					// Output the pixel
 					vramBase[xoffset + yoffset] = pixel_color;
