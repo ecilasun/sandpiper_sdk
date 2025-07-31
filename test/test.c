@@ -510,7 +510,7 @@ int main(int /*argc*/, char** /*argv*/)
 
 		// Resolve and display console contents
 		if (needUpdate)
-			VPUConsoleResolve(&s_vctx);
+			VPUConsoleResolveRGB16(&s_vctx);
 
 		// Vsync is really not needed but nice to have to limit our pacing
 		// We could alternatively increase the timeout to 250ms and remove
