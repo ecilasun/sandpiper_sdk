@@ -14,7 +14,7 @@
 #include "vpu.h"
 
 #define VIDEO_MODE      EVM_640_Wide
-#define VIDEO_COLOR     ECM_8bit_Indexed
+#define VIDEO_COLOR     ECM_16bit_RGB
 #define VIDEO_HEIGHT    480
 
 typedef enum {
@@ -45,7 +45,7 @@ void setupKeyboardInput()
 {
 	// Save original terminal settings
 	tcgetattr(STDIN_FILENO, &orig_termios);
-	
+
 	// Set terminal to raw mode for immediate character input
 	struct termios raw = orig_termios;
 	raw.c_lflag &= ~(ECHO | ICANON | IEXTEN | ISIG);
@@ -55,9 +55,9 @@ void setupKeyboardInput()
 	raw.c_oflag &= ~(OPOST);
 	raw.c_cc[VMIN] = 0;  // Non-blocking read
 	raw.c_cc[VTIME] = 0;
-	
+
 	tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
-	
+
 	// Set stdin to non-blocking
 	stdin_flags = fcntl(STDIN_FILENO, F_GETFL, 0);
 	fcntl(STDIN_FILENO, F_SETFL, stdin_flags | O_NONBLOCK);
@@ -471,7 +471,7 @@ int main(int /*argc*/, char** /*argv*/)
 	if (forkpty(&masterfd, NULL, NULL, NULL) == 0)
 	{
 		// Child process
-		setenv("TERM", "linux", 1);  // Set terminal type (xterm for color escape codes etc)
+		setenv("TERM", "xterm", 1);  // Set terminal type (xterm or linux)
 		setenv("COLUMNS", "80", 1);  // Set terminal width (640/8)
 		setenv("LINES", "60", 1);    // Set terminal height (480/8)
 		execlp("/bin/bash", "bash", NULL);

@@ -32,7 +32,7 @@
 #define CONSOLEWHITE 0x0F
 
 #define CONSOLEDEFAULTFG CONSOLEWHITE
-#define CONSOLEDEFAULTBG CONSOLEBLUE
+#define CONSOLEDEFAULTBG CONSOLEDIMGRAY
 
 // For setting up palette colors, r8g8b8
 #define MAKECOLORRGB24(_r, _g, _b) ((((_r&0xFF)<<16) | (_g&0xFF)<<8) | (_b&0xFF))
