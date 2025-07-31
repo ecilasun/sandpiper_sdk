@@ -95,6 +95,11 @@ void SPGetConsoleFramebuffer(struct SPPlatform* _platform, struct SPSizeAlloc* _
 		_sizealloc->cpuAddress = _platform->mapped_memory;
 		_sizealloc->dmaAddress = (uint8_t*)RESERVED_MEMORY_ADDRESS;
 	}
+	else
+	{
+		_sizealloc->cpuAddress = NULL;
+		_sizealloc->dmaAddress = NULL;
+	}
 }
 
 int SPAllocateBuffer(struct SPPlatform* _platform, struct SPSizeAlloc* _sizealloc)
