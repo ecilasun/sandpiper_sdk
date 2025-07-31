@@ -478,10 +478,22 @@ void VPUConsoleResolveRGB16(struct EVideoContext *_context)
 				{
 					// X offset in 16-bit words
 					int xoffset = cx*8 + x;
-					
+
+					// Determine which bit to check based on pixel position
+					// For the font format used in 8-bit mode:
+					// - Low nibble (bits 0-3) contains pixels 0-3 
+					// - High nibble (bits 4-7) contains pixels 4-7
+					uint8_t bit_position;
+					if (x < 4) {
+						// First 4 pixels use low nibble
+						bit_position = x;
+					} else {
+						// Last 4 pixels use high nibble  
+						bit_position = x;
+					}
+
 					// Check if this pixel should be foreground or background
-					// The font data is stored with bit 0 being the leftmost pixel
-					uint16_t pixel_color = (chardata & (1 << x)) ? FG : BG;
+					uint16_t pixel_color = (chardata & (1 << bit_position)) ? FG : BG;
 					
 					// Output the pixel
 					vramBase[xoffset + yoffset] = pixel_color;
