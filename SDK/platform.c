@@ -45,22 +45,20 @@ int SPInitPlatform(struct SPPlatform* _platform)
 	// Grab the contol registers for video and audio devices
 	// TODO: Should we make them ioremap() in driver instead of mmap() on client?
 
-	uint32_t video_ctl, audio_ctl;
-	if (ioctl(_platform->sandpiperfd, SP_IOCTL_GET_AUDIO_CTL, &audio_ctl) < 0)
+	if (ioctl(_platform->sandpiperfd, SP_IOCTL_GET_AUDIO_CTL, &_platform->audioio) < 0)
 	{
 		perror("Failed to get audio control");
 		close(_platform->sandpiperfd);
 		err = 1;
 	}
-	_platform->audioio = (uint32_t*)mmap(NULL, DEVICE_MEMORY_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, _platform->sandpiperfd, audio_ctl);
 
-	if (ioctl(_platform->sandpiperfd, SP_IOCTL_GET_VIDEO_CTL, &video_ctl) < 0)
+
+	if (ioctl(_platform->sandpiperfd, SP_IOCTL_GET_VIDEO_CTL, &_platform->videoio) < 0)
 	{
 		perror("Failed to get video control");
 		close(_platform->sandpiperfd);
 		err = 1;
 	}
-	_platform->videoio = (uint32_t*)mmap(NULL, DEVICE_MEMORY_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, _platform->sandpiperfd, video_ctl);
 
 	if (!err)
 		_platform->ready = 1;
@@ -138,20 +136,20 @@ void SPFreeBuffer(struct SPPlatform* /*_platform*/, struct SPSizeAlloc */*_sizea
 
 uint32_t audioread32(struct SPPlatform* _platform)
 {
-	return *_platform->audioio;
+	return ioread32(_platform->audioio);
 }
 
 void audiowrite32(struct SPPlatform* _platform, uint32_t value)
 {
-	*_platform->audioio = value;
+	iowrite32(value, _platform->audioio);
 }
 
 uint32_t videoread32(struct SPPlatform* _platform)
 {
-	return *_platform->videoio;
+	return ioread32(_platform->videoio);
 }
 
 void videowrite32(struct SPPlatform* _platform, uint32_t value)
 {
-	*_platform->videoio = value;
+	iowrite32(value, _platform->videoio);
 }
