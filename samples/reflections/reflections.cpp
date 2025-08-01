@@ -11,9 +11,6 @@ A small fixed point raytracer, @sylefeb
 #define g_Width  320
 #define g_Height 240
 
-#include "core.h"
-#include "basesystem.h"
-#include "vpu.h"
 #include "sine_table.h"
 #include <stdint.h>
 
