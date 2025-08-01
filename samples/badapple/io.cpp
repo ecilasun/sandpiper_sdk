@@ -19,7 +19,9 @@ int st_niccc_open(ST_NICCC_IO* io, const char* filename, int mode)
 		fsetpos(io->f, &pos);
 		uint32_t fsize = (uint32_t)endpos.__pos;
 		io->scenedata = (uint8_t*)malloc(fsize);
-		fread(io->scenedata, 1, fsize, io->f);
+		uint32_t rsize = fread(io->scenedata, 1, fsize, io->f);
+		if (fsize != rsize)
+			printf("mismatching size on read\n");
 		fclose(io->f);
 		io->f = NULL;
 	}

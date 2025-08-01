@@ -72,7 +72,9 @@ void DecodeJPEG(uint32_t stride, const char *fname)
 
 		printf("Reading %ld bytes\n", (long int)fsize);
 		uint8_t *rawjpeg = (uint8_t *)malloc(fsize);
-		fread(rawjpeg, fsize, 1, fp);
+		uint32_t readsize = fread(rawjpeg, fsize, 1, fp);
+		if (readsize != fsize)
+			printf("read length mismatch\n");
 		fclose(fp);
 
 		printf("Decoding image\n");
