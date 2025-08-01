@@ -4,7 +4,7 @@ A small fixed point raytracer, @sylefeb
 - 2012-02-09 (SL) created (OpenCL exercise)
 - 2023-06-02 (SL) reworked (iron demo)
 - 2024-01-15 (SL) added in gfxcat
-- 2024-01-29 (EC) Modified to work with tinysys
+- 2025-08-01 (EC) Modified to work with sandpiper
 */
 /* -------------------------------------------------------- */
 
@@ -17,10 +17,34 @@ A small fixed point raytracer, @sylefeb
 #include "sine_table.h"
 #include <stdint.h>
 
-static uint8_t *s_framebufferA;
-static uint8_t *s_framebufferB;
-struct EVideoContext vx;
-struct EVideoSwapContext sc;
+#include "core.h"
+#include "platform.h"
+#include "vpu.h"
+
+struct SPPlatform platform;
+static EVideoContext vx;
+static EVideoSwapContext sc;
+struct SPSizeAlloc framebufferA;
+struct SPSizeAlloc framebufferB;
+
+void shutdowncleanup()
+{
+	// Switch to fbcon buffer
+	VPUSetScanoutAddress(&vx, 0x18000000);
+	VPUSetVideoMode(&vx, EVM_640_Wide, ECM_16bit_RGB, EVS_Enable);
+
+	// Yield physical memory and reset video routines
+	VPUShutdownVideo();
+
+	// Shutdown platform
+	SPShutdownPlatform(&platform);
+}
+
+void sigint_handler(int s)
+{
+	shutdowncleanup();
+	exit(0);
+}
 
 /* -------------------------------------------------------- */
 int g_time = 280;
@@ -214,45 +238,53 @@ void tracePixel(stdi pi,stdi pj,t_pixel *pix)
   *pix = MAKECOLORRGB12(R,G,B);
 }
 /* -------------------------------------------------------- */
-void render()
+void render(uint32_t stride)
 {
-  uint16_t *pix = (uint16_t*)sc.writepage;
-  for ( int j = 0; j < g_Height ; j ++ ) {
-    for ( int i = 0; i < g_Width ; i ++ ) {
-      tracePixel( to_fixed(i-160), to_fixed(120-j), pix);
-      ++pix;
-    }
-  }
-  g_time+=16;
+	for ( int j = 0; j < g_Height ; j ++ ) {
+		for ( int i = 0; i < g_Width ; i ++ ) {
+			t_pixel *pix = (t_pixel*)(sc.writepage + j*(stride) + i);
+			tracePixel( to_fixed(i-160), to_fixed(120-j), pix);
+		}
+	}
+	g_time+=16;
 }
 /* -------------------------------------------------------- */
 int main(int argc, char **argv)
 {
-  s_framebufferB = VPUAllocateBuffer(g_Width*g_Height*2);
-  s_framebufferA = VPUAllocateBuffer(g_Width*g_Height*2);
-  __builtin_memset(s_framebufferA, 0x03, g_Width*g_Height*2);
-  __builtin_memset(s_framebufferB, 0x03, g_Width*g_Height*2);
+	// Initialize platform and video system
+	SPInitPlatform(&platform);
+	VPUInitVideo(&vx, &platform);
 
-  vx.m_vmode = EVM_320_Wide;
-  vx.m_cmode = ECM_16bit_RGB;
-  VPUSetVMode(&vx, EVS_Enable);
-  VPUSetDefaultPalette(&vx);
+	// Grab video buffer
+	uint32_t stride = VPUGetStride(EVM_320_Wide, ECM_8bit_Indexed);
+	framebufferA.size = stride*240;
+	framebufferB.size = stride*240;
+	SPAllocateBuffer(&platform, &framebufferA);
+	SPAllocateBuffer(&platform, &framebufferB);
 
-  sc.cycle = 0;
-  sc.framebufferA = s_framebufferA;
-  sc.framebufferB = s_framebufferB;
-  VPUSwapPages(&vx, &sc);
+	// Register exit handlers
+	atexit(shutdowncleanup);
+	signal(SIGINT, &sigint_handler);
+	signal(SIGTERM, &sigint_handler);
 
-  while (1)
-  {
-    render();
+	// Set up the video mode and frame pointers
+	VPUSetVideoMode(&vx, EVM_320_Wide, ECM_8bit_Indexed, EVS_Enable);
 
-    CFLUSH_D_L1();
+	struct EVideoSwapContext sc;
+	sc.cycle = 0;
+	sc.framebufferA = &framebufferA;
+	sc.framebufferB = &framebufferB;
+	VPUSwapPages(&vx, &sc);
+	VPUClear(&vx, 0x00000000);
 
-    VPUWaitVSync();
-    VPUSwapPages(&vx, &sc);
-  }
+	while (1)
+	{
+		render(stride);
 
-  return 0;
+		VPUWaitVSync(&vx);
+		VPUSwapPages(&vx, &sc);
+	}
+
+	return 0;
 }
 /* -------------------------------------------------------- */
