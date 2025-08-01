@@ -265,6 +265,7 @@ int main(int argc, char **argv)
 	atexit(shutdowncleanup);
 	signal(SIGINT, &sigint_handler);
 	signal(SIGTERM, &sigint_handler);
+	signal(SIGSEGV, &sigint_handler);
 
 	// Set up the video mode and frame pointers
 	VPUSetVideoMode(&vx, EVM_320_Wide, ECM_16bit_RGB, EVS_Enable);
