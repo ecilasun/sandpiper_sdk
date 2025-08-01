@@ -241,7 +241,7 @@ void render(uint32_t stride)
 {
 	for ( int j = 0; j < g_Height ; j ++ ) {
 		for ( int i = 0; i < g_Width ; i ++ ) {
-			t_pixel *pix = (t_pixel*)(sc.writepage + j*(stride) + i);
+			t_pixel *pix = (t_pixel*)(sc.writepage + j*(stride) + i*2);
 			tracePixel( to_fixed(i-160), to_fixed(120-j), pix);
 		}
 	}
@@ -270,7 +270,6 @@ int main(int argc, char **argv)
 	// Set up the video mode and frame pointers
 	VPUSetVideoMode(&vx, EVM_320_Wide, ECM_16bit_RGB, EVS_Enable);
 
-	struct EVideoSwapContext sc;
 	sc.cycle = 0;
 	sc.framebufferA = &framebufferA;
 	sc.framebufferB = &framebufferB;
@@ -287,4 +286,3 @@ int main(int argc, char **argv)
 
 	return 0;
 }
-/* -------------------------------------------------------- */
