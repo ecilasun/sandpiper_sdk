@@ -12,9 +12,34 @@
 #include <math.h>
 #include <cmath>
 
-#include "basesystem.h"
 #include "core.h"
+#include "platform.h"
 #include "vpu.h"
+
+struct SPPlatform platform;
+static EVideoContext vx;
+static EVideoSwapContext sc;
+struct SPSizeAlloc framebufferA;
+struct SPSizeAlloc framebufferB;
+
+void shutdowncleanup()
+{
+	// Switch to fbcon buffer
+	VPUSetScanoutAddress(&vx, 0x18000000);
+	VPUSetVideoMode(&vx, EVM_640_Wide, ECM_16bit_RGB, EVS_Enable);
+
+	// Yield physical memory and reset video routines
+	VPUShutdownVideo();
+
+	// Shutdown platform
+	SPShutdownPlatform(&platform);
+}
+
+void sigint_handler(int s)
+{
+	shutdowncleanup();
+	exit(0);
+}
 
 // Adapted from @sylefeb's julia sample
 
@@ -35,9 +60,6 @@ int x_c = (XCmin+XCmax)>>1;
 int x_c_i = 1;
 int y_c = (YCmin+YCmax)>>1;
 int y_c_i = 3;
-
-static uint8_t *s_framebufferA;
-static uint8_t *s_framebufferB;
 
 int tilex = 0;
 int tiley = 0;
@@ -76,20 +98,31 @@ void juliaTile(uint8_t* pixels)
 
 int main()
 {
-	s_framebufferB = VPUAllocateBuffer(320*240); // Or think of it as 1280*64 for tiles
-	s_framebufferA = VPUAllocateBuffer(320*240);
+	// Initialize platform and video system
+	SPInitPlatform(&platform);
+	VPUInitVideo(&vx, &platform);
 
-	struct EVideoContext vx;
-	vx.m_vmode = EVM_320_Wide;
-	vx.m_cmode = ECM_8bit_Indexed;
-	VPUSetVMode(&vx, EVS_Enable);
-	VPUSetDefaultPalette(&vx);
+	// Grab video buffer
+	uint32_t stride = VPUGetStride(EVM_320_Wide, ECM_8bit_Indexed);
+	framebufferA.size = stride*240;
+	framebufferB.size = stride*240;
+	SPAllocateBuffer(&platform, &framebufferA);
+	SPAllocateBuffer(&platform, &framebufferB);
+
+	// Register exit handlers
+	atexit(shutdowncleanup);
+	signal(SIGINT, &sigint_handler);
+	signal(SIGTERM, &sigint_handler);
+
+	// Set up the video mode and frame pointers
+	VPUSetVideoMode(&vx, EVM_320_Wide, ECM_8bit_Indexed, EVS_Enable);
 
 	struct EVideoSwapContext sc;
 	sc.cycle = 0;
-	sc.framebufferA = s_framebufferA;
-	sc.framebufferB = s_framebufferB;
+	sc.framebufferA = &framebufferA;
+	sc.framebufferB = &framebufferB;
 	VPUSwapPages(&vx, &sc);
+	VPUClear(&vx, 0x00000000);
 
 	// Grayscale palette
 	for (uint32_t i=0; i<256; ++i)
@@ -114,8 +147,7 @@ int main()
 		{
 			tiley = 0;
 
-			CFLUSH_D_L1();
-			VPUWaitVSync();
+			VPUWaitVSync(&vx);
 			VPUSwapPages(&vx, &sc);
 
 			x_c += x_c_i;
