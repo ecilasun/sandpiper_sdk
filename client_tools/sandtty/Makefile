@@ -1,5 +1,5 @@
 
-TARGET = test
+TARGET = sandtty
 
 default: $(TARGET)
 

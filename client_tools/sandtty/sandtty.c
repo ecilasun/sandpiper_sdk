@@ -512,9 +512,7 @@ int main(int /*argc*/, char** /*argv*/)
 		if (needUpdate)
 			VPUConsoleResolve(&s_vctx);
 
-		// Vsync is really not needed but nice to have to limit our pacing
-		// We could alternatively increase the timeout to 250ms and remove
-		// the vsync
+		// Vsync is really not needed but nice to limit our pacing
 		VPUWaitVSync(&s_vctx);
 		VPUSwapPages(&s_vctx, &s_sctx);
 	} while(1);

@@ -7,8 +7,8 @@ default: $(TARGET)
 # Directories
 
 src_dir = .
-corelib_dir = ../SDK
-libxmp = ../3rdparty/libxmp
+corelib_dir = ../../SDK
+libxmp = ../../3rdparty/libxmp
 
 # Rules
 

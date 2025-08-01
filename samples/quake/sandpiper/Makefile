@@ -4,8 +4,8 @@ ARM_GCC_OPTS = -std=c99 -Ofast -flto -mcpu=cortex-a9 -mfpu=vfpv3 -mfloat-abi=har
 ARM_GCC_LIBS = -lgcc -lc -lm
 
 SOURCES_quake_arch := \
-	../../SDK/platform.c \
-	../../SDK/vpu.c \
+	../../../SDK/platform.c \
+	../../../SDK/vpu.c \
 	display.c \
 	fio.c \
 	main.c \
@@ -79,7 +79,7 @@ SOURCES_quake_arch := \
 
 all: quake
 
-incs = -I../../SDK -I../include -I../winquake -I.
+incs = -I../../../SDK -I../include -I../winquake -I.
 
 quake: $(addprefix ../,$(SOURCES_quake)) $(SOURCES_quake_arch)
 	$(ARM_GCC) $(ARM_GCC_OPTS) -o ../$@ $(addprefix ../,$(SOURCES_quake)) $(incs) $(SOURCES_quake_arch) $(ARM_GCC_LIBS)

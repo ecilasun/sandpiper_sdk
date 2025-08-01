@@ -7,12 +7,13 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-#define SP_IOCTL_GET_VIDEO_CTL _IOR('k', 0, void*)
-#define SP_IOCTL_GET_AUDIO_CTL _IOR('k', 1, void*)
-#define SP_IOCTL_AUDIO_READ _IOR('k', 2, uint32_t*)
-#define SP_IOCTL_AUDIO_WRITE _IOW('k', 3, uint32_t*)
-#define SP_IOCTL_VIDEO_READ _IOR('k', 4, uint32_t*)
-#define SP_IOCTL_VIDEO_WRITE _IOW('k', 5, uint32_t*)
+// ioctl numbers for sandpiper device
+#define SP_IOCTL_GET_VIDEO_CTL	_IOR('k', 0, void*)
+#define SP_IOCTL_GET_AUDIO_CTL	_IOR('k', 1, void*)
+#define SP_IOCTL_AUDIO_READ		_IOR('k', 2, uint32_t*)
+#define SP_IOCTL_AUDIO_WRITE	_IOW('k', 3, uint32_t*)
+#define SP_IOCTL_VIDEO_READ		_IOR('k', 4, uint32_t*)
+#define SP_IOCTL_VIDEO_WRITE	_IOW('k', 5, uint32_t*)
 
 // NOTE: A list of all of the onboard devices can be found under /sys/bus/platform/devices/ including the audio and video devices.
 // The file names are annotated with the device addresses, which is useful for MMIO mapping.
@@ -30,7 +31,7 @@ int SPInitPlatform(struct SPPlatform* _platform)
 	_platform->sandpiperfd = open("/dev/sandpiper", O_RDWR | O_SYNC);
 	if (_platform->sandpiperfd < 1)
 	{
-		perror("can't access sandpiper device");
+		perror("Can't access sandpiper device");
 		err = 1;
 	}
 
@@ -38,13 +39,11 @@ int SPInitPlatform(struct SPPlatform* _platform)
 	_platform->mapped_memory = (uint8_t*)mmap(NULL, RESERVED_MEMORY_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, _platform->sandpiperfd, RESERVED_MEMORY_ADDRESS);
 	if (_platform->mapped_memory == (uint8_t*)MAP_FAILED)
 	{
-		perror("can't map reserved region for CPU");
+		perror("Can't map reserved region for CPU");
 		err = 1;
 	}
 
-	// Grab the contol registers for video and audio devices
-	// TODO: Should we make them ioremap() in driver instead of mmap() on client?
-
+	// Grab the contol registers for audio device
 	if (ioctl(_platform->sandpiperfd, SP_IOCTL_GET_AUDIO_CTL, &_platform->audioio) < 0)
 	{
 		perror("Failed to get audio control");
@@ -52,7 +51,7 @@ int SPInitPlatform(struct SPPlatform* _platform)
 		err = 1;
 	}
 
-
+	// Grab the contol registers for video device
 	if (ioctl(_platform->sandpiperfd, SP_IOCTL_GET_VIDEO_CTL, &_platform->videoio) < 0)
 	{
 		perror("Failed to get video control");

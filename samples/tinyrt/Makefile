@@ -1,12 +1,12 @@
 
-TARGET = badapple
+TARGET = tinyrt
 
 default: $(TARGET)
 
 # Directories
 
 src_dir = .
-corelib_dir = ../SDK
+corelib_dir = ../../SDK
 
 # Rules
 
