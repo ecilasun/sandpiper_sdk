@@ -2,7 +2,9 @@
 /* Displays on the small OLED display and/or HDMI                  */
 /* Bruno Levy, 2020                                                */
 /* Original tinyraytracer: https://github.com/ssloy/tinyraytracer  */
+/*                                                                 */
 /* Modified to fit custom architecture by Engin Cilasun            */
+/*                                                                 */
 /*******************************************************************/
 
 #include <math.h>
@@ -19,14 +21,14 @@ static struct SPPlatform platform;
 void shutdowncleanup()
 {
 	// Switch to fbcon buffer
+	VPUShiftCache(&vx, 0);
+	VPUShiftScanout(&vx, 0);
+	VPUShiftPixel(&vx, 0);
 	VPUSetScanoutAddress(&vx, 0x18000000);
 	VPUSetVideoMode(&vx, EVM_640_Wide, ECM_16bit_RGB, EVS_Enable);
 
 	// Yield physical memory and reset video routines
 	VPUShutdownVideo();
-
-	// Release allocations
-	SPFreeBuffer(&platform, &framebuffer);
 
 	// Shutdown platform
 	SPShutdownPlatform(&platform);
