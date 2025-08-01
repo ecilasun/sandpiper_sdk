@@ -11,6 +11,7 @@
 #include <memory.h>
 #include <math.h>
 #include <cmath>
+#include <signal.h>
 
 #include "core.h"
 #include "platform.h"
@@ -64,7 +65,7 @@ int y_c_i = 3;
 int tilex = 0;
 int tiley = 0;
 
-void juliaTile(uint8_t* pixels)
+void juliaTile(uint8_t* pixels, const uint32_t stride)
 {
 	for (int y = 0; y < 16; ++y)
 	{
@@ -91,7 +92,7 @@ void juliaTile(uint8_t* pixels)
 					break;
 			}
 
-			pixels[col + (row*320)] = clr8;
+			pixels[col + (row*stride)] = clr8;
 		}
 	}
 }
@@ -128,14 +129,14 @@ int main()
 	for (uint32_t i=0; i<256; ++i)
 	{
 		int j = (255-i)>>4;
-		VPUSetPal(i, j, j, j);
+		VPUSetPal(&vx, i, j, j, j);
 	}
 
 	printf("Julia test\n");
 
 	while(1)
 	{
-		juliaTile(sc.writepage);
+		juliaTile(sc.writepage, stride);
 
 		tilex++;
 		if (tilex == 20)
