@@ -13,6 +13,8 @@ A small fixed point raytracer, @sylefeb
 
 #include "sine_table.h"
 #include <stdint.h>
+#include <stdlib.h>
+#include <signal.h>
 
 #include "core.h"
 #include "platform.h"
@@ -232,7 +234,7 @@ void tracePixel(stdi pi,stdi pj,t_pixel *pix)
   uint8_t R    = clamp(from_fixed(clr.x),0,255)>>4;
   uint8_t G    = clamp(from_fixed(clr.y),0,255)>>4;
   uint8_t B    = clamp(from_fixed(clr.z),0,255)>>4;
-  *pix = MAKECOLORRGB12(R,G,B);
+  *pix = MAKECOLORRGB16(R,G,B);
 }
 /* -------------------------------------------------------- */
 void render(uint32_t stride)
