@@ -255,7 +255,7 @@ int main(int argc, char **argv)
 	VPUInitVideo(&vx, &platform);
 
 	// Grab video buffer
-	uint32_t stride = VPUGetStride(EVM_320_Wide, ECM_8bit_Indexed);
+	uint32_t stride = VPUGetStride(EVM_320_Wide, ECM_16bit_RGB);
 	framebufferA.size = stride*240;
 	framebufferB.size = stride*240;
 	SPAllocateBuffer(&platform, &framebufferA);
@@ -267,7 +267,7 @@ int main(int argc, char **argv)
 	signal(SIGTERM, &sigint_handler);
 
 	// Set up the video mode and frame pointers
-	VPUSetVideoMode(&vx, EVM_320_Wide, ECM_8bit_Indexed, EVS_Enable);
+	VPUSetVideoMode(&vx, EVM_320_Wide, ECM_16bit_RGB, EVS_Enable);
 
 	struct EVideoSwapContext sc;
 	sc.cycle = 0;
