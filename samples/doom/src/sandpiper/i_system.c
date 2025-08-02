@@ -66,7 +66,7 @@ I_GetTime (void)
 		return (uint64_t) secbase;
 	}
 
-	return cur_time/TICRATE;
+	return (cur_time/1000*TICRATE)/1000;
 	//return (ClockToMs(E32ReadTime())*TICRATE)/1000;
 }
 

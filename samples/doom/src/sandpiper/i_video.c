@@ -68,9 +68,9 @@ I_SetPalette(byte* palette)
 	// Copy palette to G-RAM
 	byte r, g, b;
 	for (int i=0 ; i<256 ; i++) {
-		r = gammatable[usegamma][*palette++]>>4;
-		g = gammatable[usegamma][*palette++]>>4;
-		b = gammatable[usegamma][*palette++]>>4;
+		r = gammatable[usegamma][*palette++];
+		g = gammatable[usegamma][*palette++];
+		b = gammatable[usegamma][*palette++];
 		VPUSetPal(&s_vctx, i, r, g, b);
 	}
 }
@@ -92,7 +92,8 @@ I_FinishUpdate (void)
 		for (uint32_t i=0;i<SCREENHEIGHT;++i)
 		{
 			uint32_t targetoffset = stride*i;
-			memcpy(s_sctx.writepage + targetoffset, screens[0] + SCREENWIDTH*i, SCREENWIDTH);
+			uint32_t sourceoffset = SCREENWIDTH*i;
+			memcpy(s_sctx.writepage + targetoffset, screens[0] + sourceoffset, SCREENWIDTH);
 		}
 	}
 }

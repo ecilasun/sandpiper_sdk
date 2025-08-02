@@ -488,10 +488,8 @@ void V_Init (void)
 
     // stick these in low dos memory on PCs
 
-    // Pad each screen with 128bytes
-    base = I_AllocLow ((SCREENWIDTH*SCREENHEIGHT+128)*4);
+    base = I_AllocLow (SCREENWIDTH*SCREENHEIGHT*4);
 
-    // Make sure each screen is 64 byte aligned
     for (i=0 ; i<4 ; i++)
-        screens[i] = (uint8_t*)E32AlignUp((uint32_t)(base + i*SCREENWIDTH*SCREENHEIGHT), 64);
+        screens[i] = (uint8_t*)(base + i*SCREENWIDTH*SCREENHEIGHT);
 }
