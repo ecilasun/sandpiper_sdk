@@ -573,8 +573,8 @@ void I_UpdateSound( void )
   // Mixing channel index.
   int                           chan;
 
-    mixbuffer = (currentmixbuffer%2)==0 ?  mixbufferA->cpuAddress : mixbufferB->cpuAddress;
-    playbackbuffer = (currentmixbuffer%2)==0 ?  mixbufferB->cpuAddress : mixbufferA->cpuAddress;
+    mixbuffer = (currentmixbuffer%2)==0 ? (signed short*)mixbufferA->cpuAddress : (signed short*)mixbufferB->cpuAddress;
+    playbackbuffer = (currentmixbuffer%2)==0 ? (signed short*)mixbufferB->cpuAddress : (signed short*)mixbufferA->cpuAddress;
     ++currentmixbuffer;
 
     // Left and right channel
