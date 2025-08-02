@@ -39,7 +39,7 @@
 #endif
 
 // Misc. other strings.
-#define SAVEGAMENAME    "sd:/doomsav"
+#define SAVEGAMENAME    "~/doomsav"
 
 
 //
