@@ -573,8 +573,8 @@ void I_UpdateSound( void )
   // Mixing channel index.
   int                           chan;
 
-    mixbuffer = (currentmixbuffer%2)==0 ? (signed short*)mixbufferA->cpuAddress : (signed short*)mixbufferB->cpuAddress;
-    playbackbuffer = (currentmixbuffer%2)==0 ? (signed short*)mixbufferB->cpuAddress : (signed short*)mixbufferA->cpuAddress;
+    mixbuffer = (currentmixbuffer%2)==0 ? (signed short*)mixbufferA.cpuAddress : (signed short*)mixbufferB.cpuAddress;
+    playbackbuffer = (currentmixbuffer%2)==0 ? (signed short*)mixbufferB.cpuAddress : (signed short*)mixbufferA.cpuAddress;
     ++currentmixbuffer;
 
     // Left and right channel
@@ -822,8 +822,8 @@ I_InitSound()
   // swap: mixbuffer = (currentmixbuffer%2)==0 ?  mixbufferA : mixbufferB;
   SPAllocateBuffer(&s_platform, &mixbufferA);
   SPAllocateBuffer(&s_platform, &mixbufferB);
-  mixbuffer = mixbufferA->cpuAddress;
-  playbackbuffer = mixbufferB->cpuAddress;
+  mixbuffer = (signed short*)mixbufferA.cpuAddress;
+  playbackbuffer = (signed short*)mixbufferB.cpuAddress;
   APUSetBufferSize(&s_actx, ABS_2048Bytes); // Number of 16 bit stereo samples
   APUSetSampleRate(&s_actx, ASR_11_025_Hz);
 
@@ -851,10 +851,12 @@ I_InitSound()
   fprintf( stderr, " pre-cached all sound data\n");
 
   // Now initialize mix buffers with zero.
+  signed short *mA = (signed short *)mixbufferA.cpuAddress;
+  signed short *mB = (signed short *)mixbufferB.cpuAddress;
   for ( i = 0; i< SAMPLECOUNT*SAMPLESTEREO; i++ )
   {
-    mixbufferA->cpuAddress[i] = 0;
-    mixbufferB->cpuAddress[i] = 0;
+    mA[i] = 0;
+    mB[i] = 0;
   }
 
   // Finished initialization.
