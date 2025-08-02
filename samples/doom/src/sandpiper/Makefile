@@ -1,5 +1,3 @@
-TARGET = doom
-
 ARM_GCC = gcc
 
 ARM_GCC_OPTS += -std=gnu99 -Ofast -flto -mcpu=cortex-a9 -mfpu=vfpv3 -mfloat-abi=hard
@@ -16,7 +14,6 @@ include ../sources.mk
 SOURCES_doom := $(filter-out d_main.c,$(SOURCES_doom))
 
 SOURCES_doom_arch := \
-	../../../../SDK/core.c \
 	../../../../SDK/platform.c \
 	../../../../SDK/apu.c \
 	../../../../SDK/vpu.c \
@@ -29,10 +26,10 @@ SOURCES_doom_arch := \
 	i_video.c \
 	$(NULL)
 
-$(TARGET):
-	$(addprefix ../,$(SOURCES_doom)) $(SOURCES_doom_arch)
-	$(CC) $(CFLAGS) -o $@ $(addprefix ../,$(SOURCES_doom)) $(SOURCES_doom_arch) $(CLIBS)
+all: doom
+doom: $(addprefix ../,$(SOURCES_doom)) $(SOURCES_doom_arch)
+	$(ARM_GCC) $(CFLAGS) -o $@ $(addprefix ../,$(SOURCES_doom)) $(SOURCES_doom_arch) $(CLIBS)
 
 .PHONY: clean
 clean:
-	rm $(TARGET)
+	rm doom
