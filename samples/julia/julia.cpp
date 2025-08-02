@@ -128,7 +128,7 @@ int main()
 	// Grayscale palette
 	for (uint32_t i=0; i<256; ++i)
 	{
-		int j = (255-i)>>4;
+		int j = (255-i);
 		VPUSetPal(&vx, i, j, j, j);
 	}
 
