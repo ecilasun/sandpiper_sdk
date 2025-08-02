@@ -823,6 +823,7 @@ I_InitSound()
   playbackbuffer = (signed short*)mixbufferB.cpuAddress;
 
   fprintf(stderr, " configured audio device\n" );
+  fprintf(stderr, " mixbuffer: 0x%x\n", playbackbuffer);
 
   // Initialize external data (all sounds) at start, keep static.
   fprintf( stderr, "I_InitSound: ");
