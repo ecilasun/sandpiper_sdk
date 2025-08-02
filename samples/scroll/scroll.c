@@ -95,8 +95,8 @@ int main(int argc, char** argv)
 		else if (totalscroll <= 0) // NOTE: do not scroll in negative direction
 			direction = 1;
 
-		int byteoffset = totalscroll >> 3;  // This shift is in actual memory bytes
-		int pixeloffset = totalscroll & 15; // This shift is in 640-wide pixel units
+		int byteoffset = totalscroll >> 4;
+		int pixeloffset = totalscroll & 15;
 
 		VPUShiftScanout(&s_vctx, byteoffset);
 		VPUShiftPixel(&s_vctx, pixeloffset);
