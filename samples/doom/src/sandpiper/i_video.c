@@ -35,8 +35,7 @@ extern struct SPPlatform s_platform;
 extern struct EVideoContext s_vctx;
 
 struct EVideoSwapContext s_sctx;
-struct SPSizeAlloc frameBufferA;
-struct SPSizeAlloc frameBufferB;
+struct SPSizeAlloc frameBuffer;
 
 void
 I_InitGraphics(void)
@@ -45,14 +44,14 @@ I_InitGraphics(void)
 
 	VPUInitVideo(&s_vctx, &s_platform);
 	uint32_t stride = VPUGetStride(EVM_320_Wide, ECM_8bit_Indexed);
-	frameBufferB.size = frameBufferA.size = stride*SCREENHEIGHT;
-	SPAllocateBuffer(&s_platform, &frameBufferA);
+	frameBuffer.size = stride*SCREENHEIGHT;
+	SPAllocateBuffer(&s_platform, &frameBuffer);
 
 	VPUSetVideoMode(&s_vctx, EVM_320_Wide, ECM_8bit_Indexed, EVS_Enable);
 
 	s_sctx.cycle = 0;
-	s_sctx.framebufferA = &frameBufferA;
-	s_sctx.framebufferB = &frameBufferB;
+	s_sctx.framebufferA = &frameBuffer; // No double buffering
+	s_sctx.framebufferB = &frameBuffer;
 	VPUSwapPages(&s_vctx, &s_sctx);
 	VPUClear(&s_vctx, 0x00000000);
 }
@@ -87,7 +86,15 @@ void
 I_FinishUpdate (void)
 {
 	// Copy screen to framebuffer
-	memcpy(s_sctx.writepage, screens[0], SCREENWIDTH*SCREENHEIGHT);
+	if (s_sctx.writepage != 0x0)
+	{
+		uint32_t stride = VPUGetStride(EVM_320_Wide, ECM_8bit_Indexed);
+		for (uint32_t i=0;i<SCREENHEIGHT;++i)
+		{
+			uint32_t targetoffset = stride*i;
+			memcpy(s_sctx.writepage + targetoffset, screens[0] + SCREENWIDTH*i, SCREENWIDTH);
+		}
+	}
 }
 
 
