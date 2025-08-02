@@ -573,7 +573,7 @@ void I_UpdateSound( void )
   int                           chan;
 
     mixbuffer = (currentmixbuffer%2)==0 ? (signed short*)mixbufferA.cpuAddress : (signed short*)mixbufferB.cpuAddress;
-    playbackbuffer = (currentmixbuffer%2)==0 ? (signed short*)mixbufferB.cpuAddress : (signed short*)mixbufferA.cpuAddress;
+    playbackbuffer = (currentmixbuffer%2)==0 ? (signed short*)mixbufferB.dmaAddress : (signed short*)mixbufferA.dmaAddress;
     ++currentmixbuffer;
 
     // Left and right channel
