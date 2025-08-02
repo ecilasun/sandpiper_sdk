@@ -29,11 +29,18 @@
 #include "vpu.h"
 #include "apu.h"
 
+// Platform context
 struct SPPlatform s_platform;
+
+// Device contexts
 struct EVideoContext s_vctx;
 struct EAudioContext s_actx;
 struct EVideoSwapContext s_sctx;
+
+// Video and audio buffers
 struct SPSizeAlloc frameBuffer;
+struct SPSizeAlloc mixbufferA;
+struct SPSizeAlloc mixbufferB;
 
 void shutdowncleanup()
 {
