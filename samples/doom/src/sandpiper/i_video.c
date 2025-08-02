@@ -55,8 +55,6 @@ I_InitGraphics(void)
 	s_sctx.framebufferB = &frameBufferB;
 	VPUSwapPages(&s_vctx, &s_sctx);
 	VPUClear(&s_vctx, 0x00000000);
-
-	APUInitAudio(&s_actx, &s_platform);
 }
 
 void
