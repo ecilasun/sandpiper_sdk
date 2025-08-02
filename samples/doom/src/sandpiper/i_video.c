@@ -20,6 +20,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <stdlib.h>
+#include <signal.h>
 
 #include "../doomdef.h"
 
@@ -62,8 +63,8 @@ I_InitGraphics(void)
 
 	SPInitPlatform(&s_platform);
 	VPUInitVideo(&s_vctx, &s_platform);
-	uint32_t stride = VPUGetStride(VIDEO_MODE, VIDEO_COLOR);
-	frameBufferB.size = frameBufferA.size = stride*VIDEO_HEIGHT;
+	uint32_t stride = VPUGetStride(EVM_320_Wide, ECM_8bit_Indexed);
+	frameBufferB.size = frameBufferA.size = stride*SCREENHEIGHT;
 	SPAllocateBuffer(&s_platform, &frameBufferA);
 
 	atexit(shutdowncleanup);
@@ -71,7 +72,7 @@ I_InitGraphics(void)
 	signal(SIGTERM, &sigint_handler);
 	signal(SIGSEGV, &sigint_handler);
 
-	VPUSetVideoMode(&s_vctx, VIDEO_MODE, VIDEO_COLOR, EVS_Enable);
+	VPUSetVideoMode(&s_vctx, EVM_320_Wide, ECM_8bit_Indexed, EVS_Enable);
 
 	s_sctx.cycle = 0;
 	s_sctx.framebufferA = &frameBufferA;
