@@ -26,6 +26,8 @@
 #define VIDEO_WIDTH     640
 #define VIDEO_HEIGHT    480
 
+static int havekeyboard = 1;
+static struct pollfd fds[1];
 static struct EVideoContext s_vctx;
 static struct EVideoSwapContext s_sctx;
 struct SPSizeAlloc frameBuffer;
@@ -33,6 +35,12 @@ static struct SPPlatform s_platform;
 
 void shutdowncleanup()
 {
+	if (havekeyboard)
+	{
+		havekeyboard = 0;
+		close(fds[0].fd);
+	}
+
 	// Switch to fbcon buffer
 	VPUSetScanoutAddress(&s_vctx, 0x18000000);
 	VPUSetVideoMode(&s_vctx, EVM_640_Wide, ECM_16bit_RGB, EVS_Enable);
@@ -74,7 +82,7 @@ void DecodeJPEG(uint32_t stride, const char *fname)
 		uint8_t *rawjpeg = (uint8_t *)malloc(fsize);
 		uint32_t readsize = fread(rawjpeg, fsize, 1, fp);
 		if (readsize != fsize)
-			printf("read length mismatch\n");
+			printf("read length mismatch: %d read, %d bytes in file\n", readsize, fsize);
 		fclose(fp);
 
 		printf("Decoding image\n");
@@ -87,33 +95,45 @@ void DecodeJPEG(uint32_t stride, const char *fname)
 			int W = njGetWidth();
 			int H = njGetHeight();
 
-			int iW = W>=VIDEO_WIDTH ? VIDEO_WIDTH : W;
-			int iH = H>=VIDEO_HEIGHT ? VIDEO_HEIGHT : H;
+			float wStep = float(W) / 640.f;
+			float hStep = float(H) / 480.f;
+			float maxStep = wStep > hStep ? wStep : hStep;
+			printf("image width:%d height:%d stepx:%f stepy:%f\n", W, H, wStep, hStep);
 
 			uint8_t *img = njGetImage();
 			if (njIsColor())
 			{
 				// Copy, dither and convert to indexed color
-				for (int y=0;y<iH;++y)
+				float fy = 0.f;
+				for (int ry=0; ry<480, fy<H; ry++)
 				{
-					for (int x=0;x<iW;++x)
+					int y = int(fy);
+					fy += maxStep;
+
+					float fx = 0.f;
+					for (int rx=0; rx<640, fx<W; rx++)
 					{
+						int x = int(fx);
+						fx += maxStep;
+
 						uint32_t red = uint32_t(31.f*float(img[(x+y*W)*3+0])/255.f);
 						uint32_t green = uint32_t(63.f*float(img[(x+y*W)*3+1])/255.f);
 						uint32_t blue = uint32_t(31.f*float(img[(x+y*W)*3+2])/255.f);
-						image[x+y*stride] = MAKECOLORRGB16(red, green, blue);
+						image[rx+ry*stride] = MAKECOLORRGB16(red, green, blue);
 					}
 				}
 			}
 			else
 			{
 				// Grayscale
-				for (int j=0;j<iH;++j)
-					for (int i=0;i<iW;++i)
+				for (int y=0,ry=0;y<H,ry<480;y+=hStep,ry++)
+				{
+					for (int x=0,rx=0;x<W,rx<640;x+=wStep,rx++)
 					{
-						uint8_t V = img[i+j*W]>>4;
-						image[i+j*stride] = MAKECOLORRGB16(V,V,V);
+						uint8_t V = img[x+y*W];
+						image[rx+ry*stride] = MAKECOLORRGB16(V,V,V);
 					}
+				}
 			}
 		}
 		free(rawjpeg);
@@ -144,9 +164,6 @@ int main(int argc, char** argv )
 	VPUSetScanoutAddress(&s_vctx, (uint32_t)frameBuffer.dmaAddress);
 	VPUSetDefaultPalette(&s_vctx);
 	VPUSetVideoMode(&s_vctx, VIDEO_MODE, VIDEO_COLOR, EVS_Enable);
-
-	int havekeyboard = 1;
-	struct pollfd fds[1];
 
 	if (argc<=1)
 	{
@@ -186,8 +203,6 @@ int main(int argc, char** argv )
 		}
 	}
 
-	if (havekeyboard)
-		close(fds[0].fd);
-
+	shutdowncleanup();
 	return 0;
 }
