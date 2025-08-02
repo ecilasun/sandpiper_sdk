@@ -43,8 +43,6 @@ void
 I_Init(void)
 {
 	I_InitSound();
-
-	struct STaskContext* taskctx = TaskGetContext(0);
 }
 
 
