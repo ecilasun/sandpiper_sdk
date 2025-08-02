@@ -1,3 +1,12 @@
+/*
+	@file scroll.c
+	@brief Demonstrates horizontal scrolling using VPUShiftScanout and VPUShiftPixel.
+
+	@note: Inherently, in 320x240 8 bit mode, screen buffer has a stride of 3*128 bytes,
+	@note: which leaves us with 64 pixels of horizontal scrolling space.
+	@note: We can write off-screen data to that narrow area, which can then be scrolled into view.
+*/
+
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -39,16 +48,8 @@ void shutdowncleanup()
 
 void sigint_handler(int s)
 {
-	switch(s)
-	{
-		case SIGINT:
-		case SIGTERM:
-		case SIGHUP:
-		case SIGSEGV:
-			shutdowncleanup();
-			exit(0);
-		break;
-	}
+	shutdowncleanup();
+	exit(0);
 }
 
 int main(int argc, char** argv)
@@ -75,6 +76,16 @@ int main(int argc, char** argv)
 	int totalscroll = 0;
 	int direction = 1;
 	int A = 64;
+
+	for (int y = 0; y < VIDEO_HEIGHT; y++)
+	{
+		for (int x = 0; x < stride; x++)
+		{
+			// Write a test pattern to test scroll
+			uint8_t* pixel = (uint8_t*)frameBuffer.cpuAddress + (y * stride) + x;
+			*pixel = (x ^ y) % 256;
+		}
+	}
 
 	do
 	{
