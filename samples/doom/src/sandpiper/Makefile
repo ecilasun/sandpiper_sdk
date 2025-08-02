@@ -28,7 +28,7 @@ SOURCES_doom_arch := \
 
 all: doom
 doom: $(addprefix ../,$(SOURCES_doom)) $(SOURCES_doom_arch)
-	$(ARM_GCC) $(CFLAGS) -o $@ $(addprefix ../,$(SOURCES_doom)) $(SOURCES_doom_arch) $(CLIBS)
+	$(ARM_GCC) $(CFLAGS) -o $@ -I../../../../SDK -I../../src $(addprefix ../,$(SOURCES_doom)) $(SOURCES_doom_arch) $(CLIBS)
 
 .PHONY: clean
 clean:
