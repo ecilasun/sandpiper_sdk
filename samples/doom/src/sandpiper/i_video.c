@@ -33,27 +33,13 @@
 
 extern struct SPPlatform s_platform;
 extern struct EVideoContext s_vctx;
-
-struct EVideoSwapContext s_sctx;
-struct SPSizeAlloc frameBuffer;
+extern struct EVideoSwapContext s_sctx;
+extern struct SPSizeAlloc frameBuffer;
 
 void
 I_InitGraphics(void)
 {
 	usegamma = 1;
-
-	VPUInitVideo(&s_vctx, &s_platform);
-	uint32_t stride = VPUGetStride(EVM_320_Wide, ECM_8bit_Indexed);
-	frameBuffer.size = stride*SCREENHEIGHT;
-	SPAllocateBuffer(&s_platform, &frameBuffer);
-
-	VPUSetVideoMode(&s_vctx, EVM_320_Wide, ECM_8bit_Indexed, EVS_Enable);
-
-	s_sctx.cycle = 0;
-	s_sctx.framebufferA = &frameBuffer; // No double buffering
-	s_sctx.framebufferB = &frameBuffer;
-	VPUSwapPages(&s_vctx, &s_sctx);
-	VPUClear(&s_vctx, 0x00000000);
 }
 
 void

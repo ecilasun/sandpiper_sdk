@@ -108,6 +108,9 @@ void I_SoundDelTimer( void );
 
 extern struct SPPlatform s_platform;
 extern struct EAudioContext s_actx;
+int currentmixbuffer = 0;
+extern struct SPSizeAlloc mixbufferA;
+extern struct SPSizeAlloc mixbufferB;
 
 // The actual lengths of all sound effects.
 int             lengths[NUMSFX];
@@ -121,10 +124,6 @@ int             lengths[NUMSFX];
 //  that is submitted to the audio device.
 signed short    *mixbuffer;
 signed short    *playbackbuffer;
-// Double-buffered
-int currentmixbuffer = 0;
-struct SPSizeAlloc mixbufferA;
-struct SPSizeAlloc mixbufferB;
 
 // The channel step amount...
 unsigned int    channelstep[NUM_CHANNELS];
@@ -820,13 +819,8 @@ I_InitSound()
     fprintf(stderr, "Could not play signed 16 data\n");*/
 
   // swap: mixbuffer = (currentmixbuffer%2)==0 ?  mixbufferA : mixbufferB;
-  APUInitAudio(&s_actx, &s_platform);
-  SPAllocateBuffer(&s_platform, &mixbufferA);
-  SPAllocateBuffer(&s_platform, &mixbufferB);
   mixbuffer = (signed short*)mixbufferA.cpuAddress;
   playbackbuffer = (signed short*)mixbufferB.cpuAddress;
-  APUSetBufferSize(&s_actx, ABS_2048Bytes); // Number of 16 bit stereo samples
-  APUSetSampleRate(&s_actx, ASR_11_025_Hz);
 
   fprintf(stderr, " configured audio device\n" );
 

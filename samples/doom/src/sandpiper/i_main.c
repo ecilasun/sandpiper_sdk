@@ -32,6 +32,8 @@
 struct SPPlatform s_platform;
 struct EVideoContext s_vctx;
 struct EAudioContext s_actx;
+struct EVideoSwapContext s_sctx;
+struct SPSizeAlloc frameBuffer;
 
 void shutdowncleanup()
 {
@@ -58,13 +60,32 @@ int main(int argc, char *argv[])
     myargc = argc;
     myargv = argv;
 
+	// Initialize platform and subsystems
 	SPInitPlatform(&s_platform);
+	APUInitAudio(&s_actx, &s_platform);
+	SPAllocateBuffer(&s_platform, &mixbufferA);
+	SPAllocateBuffer(&s_platform, &mixbufferB);
+	APUSetBufferSize(&s_actx, ABS_2048Bytes); // Number of 16 bit stereo samples
+	APUSetSampleRate(&s_actx, ASR_11_025_Hz);
 
+	VPUInitVideo(&s_vctx, &s_platform);
+	uint32_t stride = VPUGetStride(EVM_320_Wide, ECM_8bit_Indexed);
+	frameBuffer.size = stride*SCREENHEIGHT;
+	SPAllocateBuffer(&s_platform, &frameBuffer);
+	VPUSetVideoMode(&s_vctx, EVM_320_Wide, ECM_8bit_Indexed, EVS_Enable);
+	s_sctx.cycle = 0;
+	s_sctx.framebufferA = &frameBuffer; // No double buffering
+	s_sctx.framebufferB = &frameBuffer;
+	VPUSwapPages(&s_vctx, &s_sctx);
+	VPUClear(&s_vctx, 0x00000000);
+
+	// Setup exit handlers
 	atexit(shutdowncleanup);
 	signal(SIGINT, &sigint_handler);
 	signal(SIGTERM, &sigint_handler);
 	signal(SIGSEGV, &sigint_handler);
 
+	// Enter Doom main loop
 	D_DoomMain();
 	return 0;
 }
