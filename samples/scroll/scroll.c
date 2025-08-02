@@ -44,6 +44,7 @@ void sigint_handler(int s)
 		case SIGINT:
 		case SIGTERM:
 		case SIGHUP:
+		case SIGSEGV:
 			shutdowncleanup();
 			exit(0);
 		break;
@@ -58,9 +59,9 @@ int main(int argc, char** argv)
 	frameBuffer.size = stride*VIDEO_HEIGHT;
 	SPAllocateBuffer(&s_platform, &frameBuffer);
 
-	atexit(shutdowncleanup);
 	signal(SIGINT, &sigint_handler);
 	signal(SIGTERM, &sigint_handler);
+	signal(SIGSEGV, &sigint_handler);
 
 	VPUSetWriteAddress(&s_vctx, (uint32_t)frameBuffer.cpuAddress);
 	VPUSetScanoutAddress(&s_vctx, (uint32_t)frameBuffer.dmaAddress);

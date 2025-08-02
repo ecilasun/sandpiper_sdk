@@ -245,7 +245,7 @@ void render(uint32_t stride)
 			tracePixel( to_fixed(i-160), to_fixed(120-j), pix);
 		}
 	}
-	g_time+=16;
+	g_time+=32;
 }
 /* -------------------------------------------------------- */
 int main(int argc, char **argv)
@@ -262,7 +262,6 @@ int main(int argc, char **argv)
 	SPAllocateBuffer(&platform, &framebufferB);
 
 	// Register exit handlers
-	atexit(shutdowncleanup);
 	signal(SIGINT, &sigint_handler);
 	signal(SIGTERM, &sigint_handler);
 	signal(SIGSEGV, &sigint_handler);

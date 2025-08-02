@@ -26,9 +26,6 @@ void shutdowncleanup()
 	// Yield physical memory and reset video routines
 	VPUShutdownVideo();
 
-	// Release allocations
-	SPFreeBuffer(&platform, &framebuffer);
-
 	// Shutdown platform
 	SPShutdownPlatform(&platform);
 }
@@ -61,9 +58,9 @@ void qembd_vidinit()
 	SPAllocateBuffer(&platform, &framebuffer);
 
 	// Register exit handlers
-	atexit(shutdowncleanup);
 	signal(SIGINT, &sigint_handler);
 	signal(SIGTERM, &sigint_handler);
+	signal(SIGSEGV, &sigint_handler);
 
 	// Set up the video mode and frame pointers
 	VPUSetVideoMode(&vx, EVM_320_Wide, ECM_8bit_Indexed, EVS_Enable);
