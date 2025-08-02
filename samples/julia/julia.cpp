@@ -111,9 +111,9 @@ int main()
 	SPAllocateBuffer(&platform, &framebufferB);
 
 	// Register exit handlers
-	atexit(shutdowncleanup);
 	signal(SIGINT, &sigint_handler);
 	signal(SIGTERM, &sigint_handler);
+	signal(SIGSEGV, &sigint_handler);
 
 	// Set up the video mode and frame pointers
 	VPUSetVideoMode(&vx, EVM_320_Wide, ECM_8bit_Indexed, EVS_Enable);

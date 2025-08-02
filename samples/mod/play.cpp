@@ -257,9 +257,9 @@ int main(int argc, char *argv[])
 	SPAllocateBuffer(&platform, &bufferB);
 	printf("VPU buffer: 0x%08X <-0x%08X - %dbytes \n", (unsigned int)bufferB.cpuAddress, (unsigned int)bufferB.dmaAddress, bufferB.size);
 
-	atexit(shutdowncleanup);
 	signal(SIGINT, &sigint_handler);
 	signal(SIGTERM, &sigint_handler);
+	signal(SIGSEGV, &sigint_handler);
 
 	VPUSetVideoMode(&vx, EVM_320_Wide, ECM_8bit_Indexed, EVS_Enable);
 	VPUSetDefaultPalette(&vx);
