@@ -35,12 +35,7 @@
 
 #include "i_system.h"
 
-#include "basesystem.h"
 #include "core.h"
-#include "serialinringbuffer.h"
-#include "task.h"
-#include "keyboard.h"
-#include "joystick.h"
 
 void
 I_Init(void)
@@ -69,7 +64,7 @@ I_GetTime (void)
 static void
 I_GetRemoteEvent(void)
 {
-	static uint32_t oldcountKey = 0xAAAABBBB;
+	/*static uint32_t oldcountKey = 0xAAAABBBB;
 	static uint32_t oldcountJoystick = 0xAAAABBBB;
 
 	volatile struct SKeyboardState* keyState = KeyboardGetState();
@@ -127,7 +122,7 @@ I_GetRemoteEvent(void)
 		event.data2 = (int)joystickState->axis[0];
 		event.data3 = (int)joystickState->axis[1];
 		D_PostEvent(&event);
-	}
+	}*/
 }
 
 void
