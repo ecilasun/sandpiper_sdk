@@ -688,13 +688,10 @@ I_SubmitSound(void)
   /*for(int i=0;i<SAMPLECOUNT;++i)
     *IO_AUDIOOUT = (mixbuffer[i*2+1]<<16) | mixbuffer[i*2+0];*/
 
-  uint32_t cbuf = APUFrameCount(&s_actx);
+  uint32_t cbuf = APUFrame(&s_actx);
   if (cbuf != pbuf)
   {
     pbuf = cbuf;
-
-    // Ensure writes are visible by audio DMA
-    CFLUSH_D_L1();
 
     // Fill current write buffer with new mix data
     APUStartDMA(&s_actx, (uint32_t)playbackbuffer);

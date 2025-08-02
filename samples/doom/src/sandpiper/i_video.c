@@ -32,12 +32,12 @@
 #include "vpu.h"
 #include "apu.h"
 
+struct SPPlatform s_platform;
+struct EAudioContext s_actx;
 struct EVideoContext s_vctx;
 struct EVideoSwapContext s_sctx;
-struct EAudioContext s_actx;
 struct SPSizeAlloc frameBufferA;
 struct SPSizeAlloc frameBufferB;
-static struct SPPlatform s_platform;
 
 void shutdowncleanup()
 {
