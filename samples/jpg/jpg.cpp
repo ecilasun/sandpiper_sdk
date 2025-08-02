@@ -152,6 +152,7 @@ int main(int argc, char** argv )
 	frameBuffer.size = stride*VIDEO_HEIGHT;
 	SPAllocateBuffer(&s_platform, &frameBuffer);
 
+	atexit(shutdowncleanup);
 	signal(SIGINT, &sigint_handler);
 	signal(SIGTERM, &sigint_handler);
 	signal(SIGSEGV, &sigint_handler);
@@ -204,6 +205,5 @@ int main(int argc, char** argv )
 		}
 	}
 
-	shutdowncleanup();
 	return 0;
 }
