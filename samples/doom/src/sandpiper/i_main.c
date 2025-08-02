@@ -70,6 +70,7 @@ int main(int argc, char *argv[])
 	// Initialize platform and subsystems
 	SPInitPlatform(&s_platform);
 	APUInitAudio(&s_actx, &s_platform);
+	mixbufferB.size = mixbufferA.size = 512*2*2;
 	SPAllocateBuffer(&s_platform, &mixbufferA);
 	SPAllocateBuffer(&s_platform, &mixbufferB);
 	APUSetBufferSize(&s_actx, ABS_2048Bytes); // Number of 16 bit stereo samples
