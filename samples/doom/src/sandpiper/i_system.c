@@ -23,6 +23,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/time.h>
+#include <time.h>
 
 #include "doomdef.h"
 #include "doomstat.h"
@@ -58,7 +60,16 @@ I_ZoneBase(int *size)
 int
 I_GetTime (void)
 {
-	return (ClockToMs(E32ReadTime())*TICRATE)/1000;
+	uint64_t cur_time = (uint64_t) clock();
+	static int secbase;
+
+	if (!secbase) {
+		secbase = cur_time / 1000000;
+		return (uint64_t) secbase;
+	}
+
+	return cur_time/TICRATE;
+	//return (ClockToMs(E32ReadTime())*TICRATE)/1000;
 }
 
 static void

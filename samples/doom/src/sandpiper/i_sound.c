@@ -123,8 +123,8 @@ signed short    *mixbuffer;
 signed short    *playbackbuffer;
 // Double-buffered
 int currentmixbuffer = 0;
-struct SPSizeAlloc *mixbufferA;
-struct SPSizeAlloc *mixbufferB;
+struct SPSizeAlloc mixbufferA;
+struct SPSizeAlloc mixbufferB;
 
 // The channel step amount...
 unsigned int    channelstep[NUM_CHANNELS];
