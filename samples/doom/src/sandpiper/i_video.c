@@ -30,9 +30,11 @@
 
 #include "platform.h"
 #include "vpu.h"
+#include "apu.h"
 
 struct EVideoContext s_vctx;
 struct EVideoSwapContext s_sctx;
+struct EAudioContext s_actx;
 struct SPSizeAlloc frameBufferA;
 struct SPSizeAlloc frameBufferB;
 static struct SPPlatform s_platform;
@@ -45,6 +47,7 @@ void shutdowncleanup()
 
 	// Yield physical memory and reset video routines
 	VPUShutdownVideo();
+	APUShutdownAudio(&s_actx);
 
 	// Shutdown platform
 	SPShutdownPlatform(&s_platform);
@@ -79,6 +82,8 @@ I_InitGraphics(void)
 	s_sctx.framebufferB = &frameBufferB;
 	VPUSwapPages(&s_vctx, &s_sctx);
 	VPUClear(&s_vctx, 0x00000000);
+
+	APUInitAudio(&s_actx, &s_platform);
 }
 
 void

@@ -24,8 +24,6 @@
 #include "../d_main.h"
 #include <stdlib.h>
 
-#include "basesystem.h"
-
 int main(int argc, char *argv[])
 {
     myargc = argc;

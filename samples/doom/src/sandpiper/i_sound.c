@@ -106,6 +106,9 @@ void I_SoundDelTimer( void );
 
 #define SAMPLERATE              11025   // Hz
 
+extern struct EAudioContext s_actx;
+extern struct SPPlatform s_platform;
+
 // The actual lengths of all sound effects.
 int             lengths[NUMSFX];
 
@@ -120,9 +123,8 @@ signed short    *mixbuffer;
 signed short    *playbackbuffer;
 // Double-buffered
 int currentmixbuffer = 0;
-signed short    *mixbufferA;
-signed short    *mixbufferB;
-
+struct SPSizeAlloc *mixbufferA;
+struct SPSizeAlloc *mixbufferB;
 
 // The channel step amount...
 unsigned int    channelstep[NUM_CHANNELS];
@@ -571,8 +573,8 @@ void I_UpdateSound( void )
   // Mixing channel index.
   int                           chan;
 
-    mixbuffer = (currentmixbuffer%2)==0 ?  mixbufferA : mixbufferB;
-    playbackbuffer = (currentmixbuffer%2)==0 ?  mixbufferB : mixbufferA;
+    mixbuffer = (currentmixbuffer%2)==0 ?  mixbufferA->cpuAddress : mixbufferB->cpuAddress;
+    playbackbuffer = (currentmixbuffer%2)==0 ?  mixbufferB->cpuAddress : mixbufferA->cpuAddress;
     ++currentmixbuffer;
 
     // Left and right channel
@@ -686,7 +688,7 @@ I_SubmitSound(void)
   /*for(int i=0;i<SAMPLECOUNT;++i)
     *IO_AUDIOOUT = (mixbuffer[i*2+1]<<16) | mixbuffer[i*2+0];*/
 
-  uint32_t cbuf = APUFrame();
+  uint32_t cbuf = APUFrameCount(&s_actx);
   if (cbuf != pbuf)
   {
     pbuf = cbuf;
@@ -695,7 +697,7 @@ I_SubmitSound(void)
     CFLUSH_D_L1();
 
     // Fill current write buffer with new mix data
-    APUStartDMA((uint32_t)playbackbuffer);
+    APUStartDMA(&s_actx, (uint32_t)playbackbuffer);
   }
 }
 
@@ -821,12 +823,12 @@ I_InitSound()
     fprintf(stderr, "Could not play signed 16 data\n");*/
 
   // swap: mixbuffer = (currentmixbuffer%2)==0 ?  mixbufferA : mixbufferB;
-  mixbufferA = (short*)APUAllocateBuffer(MIXBUFFERSIZE);
-  mixbufferB = (short*)APUAllocateBuffer(MIXBUFFERSIZE); // Size of mix buffer in bytes (16-bit stereo)
-  mixbuffer = mixbufferA;
-  playbackbuffer = mixbufferB;
-  APUSetBufferSize(SAMPLECOUNT); // Number of stereo sample pairs in buffer
-  APUSetSampleRate(ASR_11_025_Hz);
+  SPAllocateBuffer(&s_platform, &mixbufferA);
+  SPAllocateBuffer(&s_platform, &mixbufferB);
+  mixbuffer = mixbufferA->cpuAddress;
+  playbackbuffer = mixbufferB->cpuAddress;
+  APUSetBufferSize(&s_actx, ABS_2048Bytes); // Number of 16 bit stereo samples
+  APUSetSampleRate(&s_actx, ASR_11_025_Hz);
 
   fprintf(stderr, " configured audio device\n" );
 
@@ -854,8 +856,8 @@ I_InitSound()
   // Now initialize mix buffers with zero.
   for ( i = 0; i< SAMPLECOUNT*SAMPLESTEREO; i++ )
   {
-    mixbufferA[i] = 0;
-    mixbufferB[i] = 0;
+    mixbufferA->cpuAddress[i] = 0;
+    mixbufferB->cpuAddress[i] = 0;
   }
 
   // Finished initialization.
