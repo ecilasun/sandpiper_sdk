@@ -20,7 +20,6 @@
 #include <stdint.h>
 #include <string.h>
 #include <stdlib.h>
-#include <signal.h>
 
 #include "../doomdef.h"
 
@@ -32,48 +31,22 @@
 #include "vpu.h"
 #include "apu.h"
 
-struct SPPlatform s_platform;
-struct EAudioContext s_actx;
-struct EVideoContext s_vctx;
+extern struct SPPlatform s_platform;
+extern struct EVideoContext s_vctx;
+
 struct EVideoSwapContext s_sctx;
 struct SPSizeAlloc frameBufferA;
 struct SPSizeAlloc frameBufferB;
-
-void shutdowncleanup()
-{
-	// Switch to fbcon buffer
-	VPUSetScanoutAddress(&s_vctx, 0x18000000);
-	VPUSetVideoMode(&s_vctx, EVM_640_Wide, ECM_16bit_RGB, EVS_Enable);
-
-	// Yield physical memory and reset video routines
-	VPUShutdownVideo();
-	APUShutdownAudio(&s_actx);
-
-	// Shutdown platform
-	SPShutdownPlatform(&s_platform);
-}
-
-void sigint_handler(int s)
-{
-	shutdowncleanup();
-	exit(0);
-}
 
 void
 I_InitGraphics(void)
 {
 	usegamma = 1;
 
-	SPInitPlatform(&s_platform);
 	VPUInitVideo(&s_vctx, &s_platform);
 	uint32_t stride = VPUGetStride(EVM_320_Wide, ECM_8bit_Indexed);
 	frameBufferB.size = frameBufferA.size = stride*SCREENHEIGHT;
 	SPAllocateBuffer(&s_platform, &frameBufferA);
-
-	atexit(shutdowncleanup);
-	signal(SIGINT, &sigint_handler);
-	signal(SIGTERM, &sigint_handler);
-	signal(SIGSEGV, &sigint_handler);
 
 	VPUSetVideoMode(&s_vctx, EVM_320_Wide, ECM_8bit_Indexed, EVS_Enable);
 

@@ -106,8 +106,8 @@ void I_SoundDelTimer( void );
 
 #define SAMPLERATE              11025   // Hz
 
-extern struct EAudioContext s_actx;
 extern struct SPPlatform s_platform;
+extern struct EAudioContext s_actx;
 
 // The actual lengths of all sound effects.
 int             lengths[NUMSFX];
@@ -820,6 +820,7 @@ I_InitSound()
     fprintf(stderr, "Could not play signed 16 data\n");*/
 
   // swap: mixbuffer = (currentmixbuffer%2)==0 ?  mixbufferA : mixbufferB;
+  APUInitAudio(&s_actx, &s_platform);
   SPAllocateBuffer(&s_platform, &mixbufferA);
   SPAllocateBuffer(&s_platform, &mixbufferB);
   mixbuffer = (signed short*)mixbufferA.cpuAddress;
