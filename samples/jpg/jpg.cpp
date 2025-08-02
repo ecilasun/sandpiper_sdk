@@ -159,6 +159,7 @@ int main(int argc, char** argv )
 	// Set aside space for the decompressed image
 	// NOTE: Video scanout buffer has to be aligned at 64 byte boundary
 	image = (uint16_t*)frameBuffer.cpuAddress;
+	memset(image, 0, stride*VIDEO_HEIGHT);
 
 	VPUSetWriteAddress(&s_vctx, (uint32_t)frameBuffer.cpuAddress);
 	VPUSetScanoutAddress(&s_vctx, (uint32_t)frameBuffer.dmaAddress);
@@ -169,7 +170,7 @@ int main(int argc, char** argv )
 	{
 		printf("Usage: %s <image.jpg>\n", argv[0]);
 		return 1;
-	}	
+	}
 	else
 	{
 		// Open keyboard device (note: how do we know which one is the keyboard and which one is the mouse?)
