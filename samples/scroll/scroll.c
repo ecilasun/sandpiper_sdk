@@ -16,9 +16,9 @@
 #include "platform.h"
 #include "vpu.h"
 
-#define VIDEO_MODE      EVM_640_Wide
+#define VIDEO_MODE      EVM_320_Wide
 #define VIDEO_COLOR     ECM_8bit_Indexed
-#define VIDEO_HEIGHT    480
+#define VIDEO_HEIGHT    240
 
 static struct EVideoContext s_vctx;
 static struct EVideoSwapContext s_sctx;
@@ -94,14 +94,14 @@ int main(int argc, char** argv)
 			direction = -1;
 		else if (totalscroll <= 0) // NOTE: do not scroll in negative direction
 			direction = 1;
-		int byteoffset = (totalscroll / 8);
-		int pixeloffset = totalscroll & 7;
+
+		int byteoffset = totalscroll >> 3;  // This shift is in actual memory bytes
+		int pixeloffset = totalscroll & 15; // This shift is in 640-wide pixel units
 
 		VPUShiftScanout(&s_vctx, byteoffset);
 		VPUShiftPixel(&s_vctx, pixeloffset);
 
 		VPUWaitVSync(&s_vctx);
-		//VPUSwapPages(&s_vctx, &s_sctx);
 	} while(1);
 
 	return 0;
