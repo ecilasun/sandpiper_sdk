@@ -23,7 +23,7 @@
 static byte *vid_buffer;
 static byte *surfcache;
 
-extern struct EPlatform *s_platform;
+extern struct SPPlatform *s_platform;
 
 /* Global allocation for the renderer */
 unsigned short d_8to16table[256];
