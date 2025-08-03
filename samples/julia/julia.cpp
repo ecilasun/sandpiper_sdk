@@ -17,30 +17,9 @@
 #include "platform.h"
 #include "vpu.h"
 
-struct SPPlatform platform;
-static EVideoContext vx;
-static EVideoSwapContext sc;
+struct SPPlatform* s_platform = NULL;
 struct SPSizeAlloc framebufferA;
 struct SPSizeAlloc framebufferB;
-
-void shutdowncleanup()
-{
-	// Switch to fbcon buffer
-	VPUSetScanoutAddress(&vx, 0x18000000);
-	VPUSetVideoMode(&vx, EVM_640_Wide, ECM_16bit_RGB, EVS_Enable);
-
-	// Yield physical memory and reset video routines
-	VPUShutdownVideo();
-
-	// Shutdown platform
-	SPShutdownPlatform(&platform);
-}
-
-void sigint_handler(int s)
-{
-	shutdowncleanup();
-	exit(0);
-}
 
 // Adapted from @sylefeb's julia sample
 
@@ -100,43 +79,38 @@ void juliaTile(uint8_t* pixels, const uint32_t stride)
 int main()
 {
 	// Initialize platform and video system
-	SPInitPlatform(&platform);
-	VPUInitVideo(&vx, &platform);
+	s_platform = SPInitPlatform();
+	VPUInitVideo(s_platform->vx, s_platform);
 
 	// Grab video buffer
 	uint32_t stride = VPUGetStride(EVM_320_Wide, ECM_8bit_Indexed);
 	framebufferA.size = stride*240;
 	framebufferB.size = stride*240;
-	SPAllocateBuffer(&platform, &framebufferA);
-	SPAllocateBuffer(&platform, &framebufferB);
-
-	// Register exit handlers
-	signal(SIGINT, &sigint_handler);
-	signal(SIGTERM, &sigint_handler);
-	signal(SIGSEGV, &sigint_handler);
+	SPAllocateBuffer(s_platform, &framebufferA);
+	SPAllocateBuffer(s_platform, &framebufferB);
 
 	// Set up the video mode and frame pointers
-	VPUSetVideoMode(&vx, EVM_320_Wide, ECM_8bit_Indexed, EVS_Enable);
+	VPUSetVideoMode(s_platform->vx, EVM_320_Wide, ECM_8bit_Indexed, EVS_Enable);
 
-	struct EVideoSwapContext sc;
-	sc.cycle = 0;
-	sc.framebufferA = &framebufferA;
-	sc.framebufferB = &framebufferB;
-	VPUSwapPages(&vx, &sc);
-	VPUClear(&vx, 0x00000000);
+	struct EVideoSwapContext* sc = &s_platform->sc;
+	sc->cycle = 0;
+	sc->framebufferA = &framebufferA;
+	sc->framebufferB = &framebufferB;
+	VPUSwapPages(s_platform->vx, sc);
+	VPUClear(s_platform->vx, 0x00000000);
 
 	// Grayscale palette
 	for (uint32_t i=0; i<256; ++i)
 	{
 		int j = (255-i);
-		VPUSetPal(&vx, i, j, j, j);
+		VPUSetPalette(s_platform->vx, i, j, j, j);
 	}
 
 	printf("Julia test\n");
 
 	while(1)
 	{
-		juliaTile(sc.writepage, stride);
+		juliaTile(s_platform->sc->writepage, stride);
 
 		tilex++;
 		if (tilex == 20)
