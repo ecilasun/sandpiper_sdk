@@ -468,7 +468,7 @@ int main()
 		return -1;
 	}
 
-	VPUInitVideo(&s_platform->vx, s_platform);
+	VPUInitVideo(s_platform->vx, s_platform);
 
 	// Grab video buffer
 	uint32_t stride = VPUGetStride(EVM_320_Wide, ECM_16bit_RGB);
@@ -476,12 +476,12 @@ int main()
 	SPAllocateBuffer(s_platform, &framebuffer);
 
 	// Set up the video mode and frame pointers
-	VPUSetVideoMode(&s_platform->vx, EVM_320_Wide, ECM_16bit_RGB, EVS_Enable);
+	VPUSetVideoMode(s_platform->vx, EVM_320_Wide, ECM_16bit_RGB, EVS_Enable);
 	s_platform->sc.cycle = 0;
 	s_platform->sc.framebufferA = &framebuffer; // Not double-buffering
 	s_platform->sc.framebufferB = &framebuffer;
-	VPUSwapPages(&s_platform->vx, &s_platform->sc);
-	VPUClear(&s_platform->vx, 0x03030303);
+	VPUSwapPages(s_platform->vx, s_platform->sc);
+	VPUClear(s_platform->vx, 0x03030303);
 
 	init_scene();
 
