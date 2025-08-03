@@ -39,9 +39,9 @@ void shutdowncleanup()
 			VPUShutdownVideo();
 		}
 
-		if (s_platform->ac)
+		if (g_activePlatform->ac)
 		{
-			APUShutdownAudio(s_platform->ac);
+			APUShutdownAudio(g_activePlatform->ac);
 		}
 
 		// Shutdown platform
