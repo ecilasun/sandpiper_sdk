@@ -80,7 +80,7 @@ int main()
 	// Grab video buffer
 	uint32_t stride = VPUGetStride(EVM_320_Wide, ECM_16bit_RGB);
 	framebuffer.size = stride*240;
-	SPAllocateBuffer(&platform, &framebuffer);
+	SPAllocateBuffer(s_platform, &framebuffer);
 
 	// Set up the video mode and frame pointers
 	VPUSetVideoMode(s_platform->vx, EVM_320_Wide, ECM_16bit_RGB, EVS_Enable);
