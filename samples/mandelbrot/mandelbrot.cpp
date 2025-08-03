@@ -75,7 +75,12 @@ int main()
 {
 	// Initialize platform and video system
 	s_platform = SPInitPlatform();
-	VPUInitVideo(s_platform->vx, &s_platform);
+	if (!s_platform)
+	{
+		printf("Failed to initialize platform\n");
+		return -1;
+	}
+	VPUInitVideo(s_platform->vx, s_platform);
 
 	// Grab video buffer
 	uint32_t stride = VPUGetStride(EVM_320_Wide, ECM_16bit_RGB);
