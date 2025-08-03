@@ -161,7 +161,7 @@ int main(int argc, char** argv)
 
 	printf("Allocating buffers\n");
 	uint32_t stride = VPUGetStride(VIDEO_MODE, VIDEO_COLOR);
-	framebufferB.size = framebufferA.size = stride*VIDEO_HEIGHT;
+	frameBufferB.size = frameBufferA.size = stride*VIDEO_HEIGHT;
 	SPAllocateBuffer(s_platform, &frameBufferA);
 	SPAllocateBuffer(s_platform, &frameBufferB);
 
