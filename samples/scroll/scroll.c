@@ -10,7 +10,6 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <signal.h>
 
 #include "core.h"
 #include "platform.h"
@@ -20,58 +19,25 @@
 #define VIDEO_COLOR     ECM_8bit_Indexed
 #define VIDEO_HEIGHT    240
 
-static struct EVideoContext s_vctx;
-static struct EVideoSwapContext s_sctx;
+static struct SPPlatform* s_platform;
 struct SPSizeAlloc frameBuffer;
-static struct SPPlatform s_platform;
-
-void shutdowncleanup()
-{
-	// Reset shifts
-	VPUShiftCache(&s_vctx, 0);
-	VPUShiftScanout(&s_vctx, 0);
-	VPUShiftPixel(&s_vctx, 0);
-
-	// Switch to fbcon buffer
-	VPUSetScanoutAddress(&s_vctx, 0x18000000);
-	VPUSetVideoMode(&s_vctx, EVM_640_Wide, ECM_16bit_RGB, EVS_Enable);
-
-	// Yield physical memory and reset video routines
-	VPUShutdownVideo();
-
-	// Release allocations
-	SPFreeBuffer(&s_platform, &frameBuffer);
-
-	// Shutdown platform
-	SPShutdownPlatform(&s_platform);
-}
-
-void sigint_handler(int s)
-{
-	shutdowncleanup();
-	exit(0);
-}
 
 int main(int argc, char** argv)
 {
-	SPInitPlatform(&s_platform);
-	VPUInitVideo(&s_vctx, &s_platform);
+	s_platform = SPInitPlatform();
+	VPUInitVideo(s_platform->vx, s_platform);
 	uint32_t stride = VPUGetStride(VIDEO_MODE, VIDEO_COLOR);
 	frameBuffer.size = stride*VIDEO_HEIGHT;
-	SPAllocateBuffer(&s_platform, &frameBuffer);
+	SPAllocateBuffer(s_platform, &frameBuffer);
 
-	signal(SIGINT, &sigint_handler);
-	signal(SIGTERM, &sigint_handler);
-	signal(SIGSEGV, &sigint_handler);
+	VPUSetWriteAddress(s_platform->vx, (uint32_t)frameBuffer.cpuAddress);
+	VPUSetScanoutAddress(s_platform->vx, (uint32_t)frameBuffer.dmaAddress);
+	VPUSetDefaultPalette(s_platform->vx);
+	VPUSetVideoMode(s_platform->vx, VIDEO_MODE, VIDEO_COLOR, EVS_Enable);
 
-	VPUSetWriteAddress(&s_vctx, (uint32_t)frameBuffer.cpuAddress);
-	VPUSetScanoutAddress(&s_vctx, (uint32_t)frameBuffer.dmaAddress);
-	VPUSetDefaultPalette(&s_vctx);
-	VPUSetVideoMode(&s_vctx, VIDEO_MODE, VIDEO_COLOR, EVS_Enable);
-
-	VPUShiftCache(&s_vctx, 0);
-	VPUShiftScanout(&s_vctx, 0);
-	VPUShiftPixel(&s_vctx, 0);
+	VPUShiftCache(s_platform->vx, 0);
+	VPUShiftScanout(s_platform->vx, 0);
+	VPUShiftPixel(s_platform->vx, 0);
 
 	int totalscroll = 0;
 	int direction = 1;
@@ -95,13 +61,13 @@ int main(int argc, char** argv)
 		else if (totalscroll <= 0) // NOTE: do not scroll in negative direction
 			direction = 1;
 
-		int byteoffset = totalscroll >> 4;
-		int pixeloffset = totalscroll & 15;
+		int byteoffset = totalscroll >> 4;		// div 16
+		int pixeloffset = totalscroll & 15;		// mod 16
 
-		VPUShiftScanout(&s_vctx, byteoffset);
-		VPUShiftPixel(&s_vctx, pixeloffset);
+		VPUShiftScanout(s_platform->vx, byteoffset);
+		VPUShiftPixel(s_platform->vx, pixeloffset);
 
-		VPUWaitVSync(&s_vctx);
+		VPUWaitVSync(s_platform->vx);
 	} while(1);
 
 	return 0;
