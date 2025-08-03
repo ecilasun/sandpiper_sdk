@@ -14,6 +14,7 @@ A small fixed point raytracer, @sylefeb
 #include "sine_table.h"
 #include <stdint.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 #include "platform.h"
 #include "vpu.h"
