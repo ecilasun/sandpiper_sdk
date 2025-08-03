@@ -20,14 +20,12 @@ static struct SPPlatform platform;
 
 void shutdowncleanup()
 {
-	// Switch to fbcon buffer
+	// Switch to fbcon buffer and shut down video
 	VPUShiftCache(&vx, 0);
 	VPUShiftScanout(&vx, 0);
 	VPUShiftPixel(&vx, 0);
 	VPUSetScanoutAddress(&vx, 0x18000000);
 	VPUSetVideoMode(&vx, EVM_640_Wide, ECM_16bit_RGB, EVS_Enable);
-
-	// Yield physical memory and reset video routines
 	VPUShutdownVideo();
 
 	// Shutdown platform
@@ -291,7 +289,7 @@ vec3 reflect(vec3 I, vec3 N) {
 vec3 refract(vec3 I, vec3 N, float eta_t, float eta_i /* =1.f */) {
   // Snell's law
   float cosi = -max(-1.f, min(1.f, vec3_dot(I,N)));
-  // if the ray comes from the inside the object, swap the air and the media  
+  // if the ray comes from the inside the object, swap the air and the media
   if (cosi<0) return refract(I, vec3_neg(N), eta_i, eta_t); 
     float eta = eta_i / eta_t;
     float k = 1 - eta*eta*(1 - cosi*cosi);
@@ -354,7 +352,7 @@ vec3 cast_ray(
 
   vec3 reflect_dir=vec3_normalize(reflect(dir, N));
   vec3 refract_dir=vec3_normalize(refract(dir,N,material.refractive_index,1));
-  
+
   // offset the original point to avoid occlusion by the object itself 
   vec3 reflect_orig =
     vec3_dot(reflect_dir,N) < 0
@@ -372,7 +370,7 @@ vec3 cast_ray(
        refract_orig, refract_dir, spheres, nb_spheres,
        lights, nb_lights, depth + 1
   );
-  
+
   float diffuse_light_intensity = 0, specular_light_intensity = 0;
   for (int i=0; i<nb_lights; i++) {
     vec3  light_dir = vec3_normalize(vec3_sub(lights[i].position,point));
@@ -393,10 +391,10 @@ vec3 cast_ray(
   	 vec3_length(vec3_sub(shadow_pt,shadow_orig)) < light_distance
 	     )
     ) continue ;
-    
+
     diffuse_light_intensity  +=
                   lights[i].intensity * max(0.f, vec3_dot(light_dir,N));
-     
+
     float abc = max(
 	           0.f, vec3_dot(vec3_neg(reflect(vec3_neg(light_dir), N)),dir)
 	        );
@@ -437,15 +435,15 @@ static inline void render_pixel(
 void render(Sphere* spheres, int nb_spheres, Light* lights, int nb_lights) {
 	stats_begin_frame();
 	uint32_t stride = VPUGetStride(EVM_320_Wide, ECM_16bit_RGB);
-#ifdef graphics_double_lines  
-   for (int j = 0; j<graphics_height; j+=2) { 
+#ifdef graphics_double_lines
+   for (int j = 0; j<graphics_height; j+=2) {
       for (int i = 0; i<graphics_width; i++) {
 	  render_pixel(i,j  ,spheres,nb_spheres,lights,nb_lights);
-	  render_pixel(i,j+1,spheres,nb_spheres,lights,nb_lights);	  
+	  render_pixel(i,j+1,spheres,nb_spheres,lights,nb_lights);
       }
    }
 #else
-  for (int j = 0; j<graphics_height; j++) { 
+  for (int j = 0; j<graphics_height; j++) {
     for (int i = 0; i<graphics_width; i++) {
       render_pixel((uint32_t)sc.writepage, stride, i,j ,spheres,nb_spheres,lights,nb_lights);
     }
@@ -496,6 +494,7 @@ int main()
 	SPAllocateBuffer(&platform, &framebuffer);
 
 	// Register exit handlers
+	atexit(shutdowncleanup);
 	signal(SIGINT, &sigint_handler);
 	signal(SIGTERM, &sigint_handler);
 	signal(SIGSEGV, &sigint_handler);
@@ -515,7 +514,8 @@ int main()
 	graphics_height = 240;
 	render(spheres, nb_spheres, lights, nb_lights);
 
-	while(1){}
+	while(1) {
+	}
 
-  return 0;
+	return 0;
 }

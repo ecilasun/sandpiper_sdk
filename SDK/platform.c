@@ -10,9 +10,9 @@
 // ioctl numbers for sandpiper device
 #define SP_IOCTL_GET_VIDEO_CTL	_IOR('k', 0, void*)
 #define SP_IOCTL_GET_AUDIO_CTL	_IOR('k', 1, void*)
-#define SP_IOCTL_AUDIO_READ		_IOR('k', 2, uint32_t*)
+#define SP_IOCTL_AUDIO_READ	_IOR('k', 2, uint32_t*)
 #define SP_IOCTL_AUDIO_WRITE	_IOW('k', 3, uint32_t*)
-#define SP_IOCTL_VIDEO_READ		_IOR('k', 4, uint32_t*)
+#define SP_IOCTL_VIDEO_READ	_IOR('k', 4, uint32_t*)
 #define SP_IOCTL_VIDEO_WRITE	_IOW('k', 5, uint32_t*)
 
 // NOTE: A list of all of the onboard devices can be found under /sys/bus/platform/devices/ including the audio and video devices.
@@ -74,15 +74,21 @@ void SPShutdownPlatform(struct SPPlatform* _platform)
 {
 	_platform->ready = 0;
 
-	munmap((void*)_platform->audioio, DEVICE_MEMORY_SIZE);
-	munmap((void*)_platform->videoio, DEVICE_MEMORY_SIZE);
-	munmap((void*)_platform->mapped_memory, RESERVED_MEMORY_SIZE);
-	close(_platform->sandpiperfd);
+	if (_platform->mapped_memory != (uint8_t*)MAP_FAILED)
+	{
+		munmap((void*)_platform->mapped_memory, RESERVED_MEMORY_SIZE);
+		_platform->mapped_memory = (uint8_t*)MAP_FAILED;
+	}
+
+	if (_platform->sandpiperfd != -1)
+	{
+		close(_platform->sandpiperfd);
+		_platform->sandpiperfd = -1;
+	}
 
 	_platform->alloc_cursor = 0x96000;
 	_platform->audioio = 0;
 	_platform->videoio = 0;
-	_platform->mapped_memory = (uint8_t*)MAP_FAILED;
 }
 
 void SPGetConsoleFramebuffer(struct SPPlatform* _platform, struct SPSizeAlloc* _sizealloc)

@@ -9,8 +9,8 @@
 #include <stdio.h>
 #include <fcntl.h>
 
-static uint8_t* color_buffer;
-static uint8_t* character_buffer;
+static uint8_t* color_buffer = 0;
+static uint8_t* character_buffer = 0;
 
 // Video mode control word
 #define MAKEVMODEINFO(_cmode, _vmode, _scanEnable) ((_cmode&0x1)<<2) | ((_vmode&0x1)<<1) | (_scanEnable&0x1)
@@ -802,6 +802,10 @@ void VPUInitVideo(struct EVideoContext* _context, struct  SPPlatform* _platform)
 
 void VPUShutdownVideo()
 {
-	free(character_buffer);
-	free(color_buffer);
+	if (character_buffer)
+		free(character_buffer);
+	if (color_buffer)
+		free(color_buffer);
+	character_buffer = 0;
+	color_buffer = 0;
 }
