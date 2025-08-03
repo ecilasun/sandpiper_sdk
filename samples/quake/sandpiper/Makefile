@@ -1,6 +1,21 @@
-ARM_GCC = gcc
+# Check OS type
+ifeq ($(OS),Windows_NT)
+	ifeq ($(MSYSTEM), MINGW32)
+		UNAME := MSYS
+	else
+		UNAME := Windows
+	endif
+else
+	UNAME := $(shell uname)
+endif
 
-ARM_GCC_OPTS = -std=c99 -Ofast -flto -mcpu=cortex-a9 -mfpu=vfpv3 -mfloat-abi=hard
+ifeq ($(UNAME), Windows)
+ARM_GCC ?= arm-none-linux-gnueabihf-gcc
+else
+ARM_GCC ?= gcc
+endif
+
+ARM_GCC_OPTS = -std=gnu99 -Ofast -flto -mcpu=cortex-a9 -mfpu=vfpv3 -mfloat-abi=hard
 ARM_GCC_LIBS = -lgcc -lc -lm
 
 SOURCES_quake_arch := \
@@ -85,7 +100,10 @@ incs = -I../../../SDK -I../include -I../winquake -I.
 quake: $(addprefix ../,$(SOURCES_quake)) $(SOURCES_quake_arch)
 	$(ARM_GCC) $(ARM_GCC_OPTS) -o ../$@ $(addprefix ../,$(SOURCES_quake)) $(incs) $(SOURCES_quake_arch) $(ARM_GCC_LIBS)
 
-clean:
-	rm -rf *.elf *.o *.gen.h
-
 .PHONY: all clean
+clean:
+ifeq ($(UNAME), Windows)
+	del quake
+else
+	rm quake
+endif

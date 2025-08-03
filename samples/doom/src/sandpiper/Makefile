@@ -1,4 +1,19 @@
-ARM_GCC = gcc
+# Check OS type
+ifeq ($(OS),Windows_NT)
+	ifeq ($(MSYSTEM), MINGW32)
+		UNAME := MSYS
+	else
+		UNAME := Windows
+	endif
+else
+	UNAME := $(shell uname)
+endif
+
+ifeq ($(UNAME), Windows)
+ARM_GCC ?= arm-none-linux-gnueabihf-gcc
+else
+ARM_GCC ?= gcc
+endif
 
 ARM_GCC_OPTS += -std=gnu99 -Ofast -flto -mcpu=cortex-a9 -mfpu=vfpv3 -mfloat-abi=hard
 
@@ -32,4 +47,8 @@ doom: $(addprefix ../,$(SOURCES_doom)) $(SOURCES_doom_arch)
 
 .PHONY: clean
 clean:
+ifeq ($(UNAME), Windows)
+	del doom
+else
 	rm doom
+endif
