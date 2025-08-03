@@ -8,6 +8,9 @@
 #include <fcntl.h>
 #include <signal.h>
 
+#include "vpu.h"
+#include "apu.h"
+
 static SPPlatform* g_activePlatform = NULL;
 
 // ioctl numbers for sandpiper device
