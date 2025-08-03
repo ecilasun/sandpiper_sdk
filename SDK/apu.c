@@ -1,6 +1,13 @@
 #include "core.h"
 #include "apu.h"
 
+// Command codes for APU control
+#define APUCMD_BUFFERSIZE   0x00000000
+#define APUCMD_START        0x00000001
+#define APUCMD_NOOP         0x00000002
+#define APUCMD_SWAPCHANNELS 0x00000003
+#define APUCMD_SETRATE      0x00000004
+
 void APUSetBufferSize(struct EAudioContext* _context, enum EAPUBufferSize _bufferSize)
 {
 	_context->m_bufferSize = 128 << (uint32_t)_bufferSize;
