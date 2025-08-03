@@ -209,9 +209,9 @@ void tracePixel(stdi pi,stdi pj,t_pixel *pix)
   t_ray r   = { eye, vr };
   t_hit h;
   v3f clr   = intersectScene( &r, &h, 1, 0 );
-  uint8_t R    = clamp(from_fixed(clr.x),0,255);
-  uint8_t G    = clamp(from_fixed(clr.y),0,255);
-  uint8_t B    = clamp(from_fixed(clr.z),0,255);
+  uint8_t R    = clamp(from_fixed(clr.x),0,255)>>2;
+  uint8_t G    = clamp(from_fixed(clr.y),0,255)>>3;
+  uint8_t B    = clamp(from_fixed(clr.z),0,255)>>2;
   *pix = MAKECOLORRGB16(R,G,B);
 }
 /* -------------------------------------------------------- */
