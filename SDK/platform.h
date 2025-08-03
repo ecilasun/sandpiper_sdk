@@ -41,13 +41,6 @@ struct SPPlatform
 	struct EAudioContext* ac;
 };
 
-struct EAudioContext
-{
-	struct SPPlatform *m_platform;
-	enum EAPUSampleRate m_sampleRate;
-	uint32_t m_bufferSize;
-};
-
 enum EAPUSampleRate
 {
 	ASR_44_100_Hz = 0,	// 44.1000 KHz
@@ -64,6 +57,34 @@ enum EAPUBufferSize
 	ABS_2048Bytes = 3,	// 512 16bit stereo samples
 	ABS_4096Bytes = 4,	// 1024 16bit stereo samples
 	ABS_128Bytes = 5,	// 32 16bit stereo samples - minimum allowed
+};
+
+enum EVideoMode
+{
+	EVM_320_Wide,
+	EVM_640_Wide,
+	EVM_Count
+};
+
+enum EColorMode
+{
+	ECM_8bit_Indexed,
+	ECM_16bit_RGB,
+	ECM_Count
+};
+
+enum EVideoScanoutEnable
+{
+	EVS_Disable,
+	EVS_Enable,
+	EVS_Count
+};
+
+struct EAudioContext
+{
+	struct SPPlatform *m_platform;
+	enum EAPUSampleRate m_sampleRate;
+	uint32_t m_bufferSize;
 };
 
 struct EVideoContext

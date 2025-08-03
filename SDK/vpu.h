@@ -40,27 +40,6 @@
 // For building colors for 16bit RGB, r5g6b5
 #define MAKECOLORRGB16(_r, _g, _b) ((((_r&0x1F)<<11) | (_g&0x3F)<<5) | (_b&0x1F))
 
-enum EVideoMode
-{
-	EVM_320_Wide,
-	EVM_640_Wide,
-	EVM_Count
-};
-
-enum EColorMode
-{
-	ECM_8bit_Indexed,
-	ECM_16bit_RGB,
-	ECM_Count
-};
-
-enum EVideoScanoutEnable
-{
-	EVS_Disable,
-	EVS_Enable,
-	EVS_Count
-};
-
 void VPUInitVideo(struct EVideoContext* _context, struct SPPlatform* _platform);
 void VPUShutdownVideo();
 
