@@ -422,7 +422,7 @@ void render(Sphere* spheres, int nb_spheres, Light* lights, int nb_lights) {
 #else
   for (int j = 0; j<graphics_height; j++) {
     for (int i = 0; i<graphics_width; i++) {
-      render_pixel((uint32_t)platform.sc.writepage, stride, i,j ,spheres,nb_spheres,lights,nb_lights);
+      render_pixel((uint32_t)s_platform->sc->writepage, stride, i,j ,spheres,nb_spheres,lights,nb_lights);
     }
   }
 #endif
@@ -477,9 +477,9 @@ int main()
 
 	// Set up the video mode and frame pointers
 	VPUSetVideoMode(s_platform->vx, EVM_320_Wide, ECM_16bit_RGB, EVS_Enable);
-	s_platform->sc.cycle = 0;
-	s_platform->sc.framebufferA = &framebuffer; // Not double-buffering
-	s_platform->sc.framebufferB = &framebuffer;
+	s_platform->sc->cycle = 0;
+	s_platform->sc->framebufferA = &framebuffer; // Not double-buffering
+	s_platform->sc->framebufferB = &framebuffer;
 	VPUSwapPages(s_platform->vx, s_platform->sc);
 	VPUClear(s_platform->vx, 0x03030303);
 
