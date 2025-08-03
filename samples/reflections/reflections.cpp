@@ -246,10 +246,10 @@ int main(int argc, char **argv)
 	// Set up the video mode and frame pointers
 	VPUSetVideoMode(s_platform->vx, EVM_320_Wide, ECM_16bit_RGB, EVS_Enable);
 
-	sc.cycle = 0;
-	sc.framebufferA = &framebufferA;
-	sc.framebufferB = &framebufferB;
-	VPUSwapPages(s_platform->vx, &sc);
+	s_platform->sc->cycle = 0;
+	s_platform->sc->framebufferA = &framebufferA;
+	s_platform->sc->framebufferB = &framebufferB;
+	VPUSwapPages(s_platform->vx, s_platform->sc);
 	VPUClear(s_platform->vx, 0x00000000);
 
 	while (1)
