@@ -92,7 +92,7 @@ int main()
 	// Set up the video mode and frame pointers
 	VPUSetVideoMode(s_platform->vx, EVM_320_Wide, ECM_8bit_Indexed, EVS_Enable);
 
-	struct EVideoSwapContext* sc = &s_platform->sc;
+	struct EVideoSwapContext* sc = s_platform->sc;
 	sc->cycle = 0;
 	sc->framebufferA = &framebufferA;
 	sc->framebufferB = &framebufferB;
@@ -103,7 +103,7 @@ int main()
 	for (uint32_t i=0; i<256; ++i)
 	{
 		int j = (255-i);
-		VPUSetPalette(s_platform->vx, i, j, j, j);
+		VPUSetPal(s_platform->vx, i, j, j, j);
 	}
 
 	printf("Julia test\n");
@@ -122,8 +122,8 @@ int main()
 		{
 			tiley = 0;
 
-			VPUWaitVSync(&vx);
-			VPUSwapPages(&vx, &sc);
+			VPUWaitVSync(s_platform->vx);
+			VPUSwapPages(s_platform->vx, s_platform->sc);
 
 			x_c += x_c_i;
 			if (x_c < XCmin || x_c > XCmax) { x_c_i = - x_c_i; }
