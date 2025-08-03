@@ -119,7 +119,7 @@ void *draw_wave(void *data)
 				{
 					int16_t L = std::min<int16_t>(239, std::max<int16_t>(0, barsL[i]));
 					for (int16_t k=L; k<200; ++k)
-						s_platform->sc.writepage[16 + logi+j + k*stride] = 255;
+						s_platform->sc->writepage[16 + logi+j + k*stride] = 255;
 				}
 			}
 
@@ -130,13 +130,13 @@ void *draw_wave(void *data)
 				{
 					int16_t R = std::min<int16_t>(239, std::max<int16_t>(0, barsR[i]));
 					for (int16_t k=R; k<200; ++k)
-						s_platform->sc.writepage[304 - logi-j + k*stride] = 255;
+						s_platform->sc->writepage[304 - logi-j + k*stride] = 255;
 				}
 			}
 		}
 
 		for (uint32_t i=0;i<320*240;++i)
-			s_platform->sc.writepage[i] = std::max(0, s_platform->sc.writepage[i]>>1);
+			s_platform->sc->writepage[i] = std::max(0, s_platform->sc->writepage[i]>>1);
 
 		VPUWaitVSync(s_platform->vx);
 		VPUSwapPages(s_platform->vx, s_platform->sc);
@@ -230,9 +230,9 @@ int main(int argc, char *argv[])
 	VPUSetVideoMode(s_platform->vx, EVM_320_Wide, ECM_8bit_Indexed, EVS_Enable);
 	VPUSetDefaultPalette(s_platform->vx);
 
-	sc.cycle = 0;
-	sc.framebufferA = &bufferA;
-	sc.framebufferB = &bufferB;
+	s_platform->sc->cycle = 0;
+	s_platform->sc->framebufferA = &bufferA;
+	s_platform->sc->framebufferB = &bufferB;
 	VPUSwapPages(s_platform->vx, s_platform->sc);
 	VPUClear(s_platform->vx, 0x00000000);
 	VPUSwapPages(s_platform->vx, s_platform->sc);
