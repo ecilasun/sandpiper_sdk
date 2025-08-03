@@ -33,6 +33,8 @@ uint8_t *filedata;
 #define VIDEO_COLOR     ECM_8bit_Indexed
 #define VIDEO_HEIGHT    240
 
+struct SPSizeAlloc frameBufferA;
+struct SPSizeAlloc frameBufferB;
 static struct SPPlatform* s_platform = NULL;
 
 void gfx_fillpoly(uint8_t* buffer, uint32_t stride, int nb_pts, int* points, uint8_t color)
@@ -151,13 +153,9 @@ int main(int argc, char** argv)
 	s_platform = SPInitPlatform();
 	VPUInitVideo(s_platform->vx, s_platform);
 	uint32_t stride = VPUGetStride(VIDEO_MODE, VIDEO_COLOR);
-	frameBufferB.size = frameBufferA.size = stride*VIDEO_HEIGHT;
+	s_platform->sc->framebufferB->size = s_platform->sc->framebufferA->size = stride*VIDEO_HEIGHT;
 	SPAllocateBuffer(s_platform, &frameBufferA);
 	SPAllocateBuffer(s_platform, &frameBufferB);
-
-	signal(SIGINT, &sigint_handler);
-	signal(SIGTERM, &sigint_handler);
-	signal(SIGSEGV, &sigint_handler);
 
 	VPUSetVideoMode(s_platform->vx, VIDEO_MODE, VIDEO_COLOR, EVS_Enable);
 
@@ -175,13 +173,13 @@ int main(int argc, char** argv)
 	for(;;)
 	{
 		st_niccc_rewind(&io);
-		while(st_niccc_read_frame(&s_platform->vx, &io, &frame))
+		while(st_niccc_read_frame(s_platform->vx, &io, &frame))
 		{
 			if(frame.flags & CLEAR_BIT)
 				VPUClear(s_platform->vx, 0x07070707);
 
 			while(st_niccc_read_polygon(&io, &frame, &polygon))
-				gfx_fillpoly(s_platform->sc->framebufferA, stride, polygon.nb_vertices, polygon.XY, polygon.color);
+				gfx_fillpoly(s_platform->sc->framebufferA->cpuAddress, stride, polygon.nb_vertices, polygon.XY, polygon.color);
 
 			if (haveVsync)
 				VPUWaitVSync(s_platform->vx);
