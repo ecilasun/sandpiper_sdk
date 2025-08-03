@@ -156,19 +156,15 @@ int main(int argc, char** argv)
 		return -1;
 	}
 
-	printf("Starting video\n");
 	VPUInitVideo(s_platform->vx, s_platform);
 
-	printf("Allocating buffers\n");
 	uint32_t stride = VPUGetStride(VIDEO_MODE, VIDEO_COLOR);
 	frameBufferB.size = frameBufferA.size = stride*VIDEO_HEIGHT;
 	SPAllocateBuffer(s_platform, &frameBufferA);
 	SPAllocateBuffer(s_platform, &frameBufferB);
 
-	printf("Setting video mode\n");
 	VPUSetVideoMode(s_platform->vx, VIDEO_MODE, VIDEO_COLOR, EVS_Enable);
 
-	printf("Setting up framebuffers\n");
 	s_platform->sc->cycle = 0;
 	s_platform->sc->framebufferA = &frameBufferA;
 	s_platform->sc->framebufferB = &frameBufferB;
@@ -180,7 +176,6 @@ int main(int argc, char** argv)
 	// More than one parameter on command line triggers no-vsync mode
 	int haveVsync = argc <= 2 ? 1 : 0;
 
-	printf("Main loop\n");
 	for(;;)
 	{
 		st_niccc_rewind(&io);
@@ -190,7 +185,7 @@ int main(int argc, char** argv)
 				VPUClear(s_platform->vx, 0x07070707);
 
 			while(st_niccc_read_polygon(&io, &frame, &polygon))
-				gfx_fillpoly(s_platform->sc->framebufferA->cpuAddress, stride, polygon.nb_vertices, polygon.XY, polygon.color);
+				gfx_fillpoly(s_platform->sc->writepage, stride, polygon.nb_vertices, polygon.XY, polygon.color);
 
 			if (haveVsync)
 				VPUWaitVSync(s_platform->vx);
