@@ -210,7 +210,7 @@ void tracePixel(stdi pi,stdi pj,t_pixel *pix)
   t_hit h;
   v3f clr   = intersectScene( &r, &h, 1, 0 );
   uint8_t R    = clamp(from_fixed(clr.x),0,255)>>4;
-  uint8_t G    = clamp(from_fixed(clr.y),0,255)>>4;
+  uint8_t G    = clamp(from_fixed(clr.y),0,255)>>3;
   uint8_t B    = clamp(from_fixed(clr.z),0,255)>>4;
   *pix = MAKECOLORRGB16(R,G,B);
 }
