@@ -26,37 +26,11 @@
 #define VIDEO_WIDTH     640
 #define VIDEO_HEIGHT    480
 
+static struct SPPlatform* s_platform = NULL;
+struct SPSizeAlloc frameBuffer;
+
 static int havekeyboard = 1;
 static struct pollfd fds[1];
-static struct EVideoContext s_vctx;
-static struct EVideoSwapContext s_sctx;
-struct SPSizeAlloc frameBuffer;
-static struct SPPlatform s_platform;
-
-void shutdowncleanup()
-{
-	if (havekeyboard)
-	{
-		havekeyboard = 0;
-		close(fds[0].fd);
-	}
-
-	// Switch to fbcon buffer
-	VPUSetScanoutAddress(&s_vctx, 0x18000000);
-	VPUSetVideoMode(&s_vctx, EVM_640_Wide, ECM_16bit_RGB, EVS_Enable);
-
-	// Free console buffer memory
-	VPUShutdownVideo();
-
-	// Shutdown platform
-	SPShutdownPlatform(&s_platform);
-}
-
-void sigint_handler(int s)
-{
-	shutdowncleanup();
-	exit(0);
-}
 
 uint16_t *image;
 
@@ -146,26 +120,21 @@ void DecodeJPEG(uint32_t stride, const char *fname)
 
 int main(int argc, char** argv )
 {
-	SPInitPlatform(&s_platform);
-	VPUInitVideo(&s_vctx, &s_platform);
+	s_platform = SPInitPlatform();
+	VPUInitVideo(s_platform->vx, s_platform);
 	uint32_t stride = VPUGetStride(VIDEO_MODE, VIDEO_COLOR);
 	frameBuffer.size = stride*VIDEO_HEIGHT;
-	SPAllocateBuffer(&s_platform, &frameBuffer);
-
-	atexit(shutdowncleanup);
-	signal(SIGINT, &sigint_handler);
-	signal(SIGTERM, &sigint_handler);
-	signal(SIGSEGV, &sigint_handler);
+	SPAllocateBuffer(s_platform, &frameBuffer);
 
 	// Set aside space for the decompressed image
 	// NOTE: Video scanout buffer has to be aligned at 64 byte boundary
 	image = (uint16_t*)frameBuffer.cpuAddress;
 	memset(image, 0, stride*VIDEO_HEIGHT);
 
-	VPUSetWriteAddress(&s_vctx, (uint32_t)frameBuffer.cpuAddress);
-	VPUSetScanoutAddress(&s_vctx, (uint32_t)frameBuffer.dmaAddress);
-	VPUSetDefaultPalette(&s_vctx);
-	VPUSetVideoMode(&s_vctx, VIDEO_MODE, VIDEO_COLOR, EVS_Enable);
+	VPUSetWriteAddress(s_platform->vx, (uint32_t)frameBuffer.cpuAddress);
+	VPUSetScanoutAddress(s_platform->vx, (uint32_t)frameBuffer.dmaAddress);
+	VPUSetDefaultPalette(s_platform->vx);
+	VPUSetVideoMode(s_platform->vx, VIDEO_MODE, VIDEO_COLOR, EVS_Enable);
 
 	if (argc<=1)
 	{
