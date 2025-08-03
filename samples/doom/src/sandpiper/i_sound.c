@@ -106,8 +106,7 @@ void I_SoundDelTimer( void );
 
 #define SAMPLERATE              11025   // Hz
 
-extern struct SPPlatform s_platform;
-extern struct EAudioContext s_actx;
+extern struct SPPlatform* s_platform;
 int currentmixbuffer = 0;
 extern struct SPSizeAlloc mixbufferA;
 extern struct SPSizeAlloc mixbufferB;
@@ -687,13 +686,13 @@ I_SubmitSound(void)
   /*for(int i=0;i<SAMPLECOUNT;++i)
     *IO_AUDIOOUT = (mixbuffer[i*2+1]<<16) | mixbuffer[i*2+0];*/
 
-  uint32_t cbuf = APUFrame(&s_actx);
+  uint32_t cbuf = APUFrame(s_platform->ac);
   if (cbuf != pbuf)
   {
     pbuf = cbuf;
 
     // Fill current write buffer with new mix data
-    APUStartDMA(&s_actx, (uint32_t)playbackbuffer);
+    APUStartDMA(s_platform->ac, (uint32_t)playbackbuffer);
   }
 }
 

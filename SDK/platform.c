@@ -29,14 +29,20 @@ void shutdowncleanup()
 	if (g_activePlatform)
 	{
 		// Switch to fbcon buffer and shut down video
-		VPUShiftCache(g_activePlatform->vx, 0);
-		VPUShiftScanout(g_activePlatform->vx, 0);
-		VPUShiftPixel(g_activePlatform->vx, 0);
-		VPUSetScanoutAddress(g_activePlatform->vx, 0x18000000);
-		VPUSetVideoMode(g_activePlatform->vx, EVM_640_Wide, ECM_16bit_RGB, EVS_Enable);
-		VPUShutdownVideo();
+		if (g_activePlatform->vx)
+		{
+			VPUShiftCache(g_activePlatform->vx, 0);
+			VPUShiftScanout(g_activePlatform->vx, 0);
+			VPUShiftPixel(g_activePlatform->vx, 0);
+			VPUSetScanoutAddress(g_activePlatform->vx, 0x18000000);
+			VPUSetVideoMode(g_activePlatform->vx, EVM_640_Wide, ECM_16bit_RGB, EVS_Enable);
+			VPUShutdownVideo();
+		}
 
-		// TODO: Add audio shutdown here
+		if (s_platform->ac)
+		{
+			APUShutdownAudio(s_platform->ac);
+		}
 
 		// Shutdown platform
 		SPShutdownPlatform(g_activePlatform);

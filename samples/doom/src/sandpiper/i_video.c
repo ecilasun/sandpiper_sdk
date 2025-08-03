@@ -29,12 +29,8 @@
 
 #include "platform.h"
 #include "vpu.h"
-#include "apu.h"
 
-extern struct SPPlatform s_platform;
-extern struct EVideoContext s_vctx;
-extern struct EVideoSwapContext s_sctx;
-extern struct SPSizeAlloc frameBuffer;
+extern struct SPPlatform* s_platform;
 
 void
 I_InitGraphics(void)
@@ -57,7 +53,7 @@ I_SetPalette(byte* palette)
 		r = gammatable[usegamma][*palette++];
 		g = gammatable[usegamma][*palette++];
 		b = gammatable[usegamma][*palette++];
-		VPUSetPal(&s_vctx, i, r, g, b);
+		VPUSetPal(s_platform->vx, i, r, g, b);
 	}
 }
 
@@ -72,14 +68,14 @@ void
 I_FinishUpdate (void)
 {
 	// Copy screen to framebuffer
-	if (s_sctx.writepage != 0x0)
+	if (s_platform->sc->writepage != 0x0)
 	{
 		uint32_t stride = VPUGetStride(EVM_320_Wide, ECM_8bit_Indexed);
 		for (uint32_t i=0;i<SCREENHEIGHT;++i)
 		{
 			uint32_t targetoffset = stride*i;
 			uint32_t sourceoffset = SCREENWIDTH*i;
-			memcpy(s_sctx.writepage + targetoffset, screens[0] + sourceoffset, SCREENWIDTH);
+			memcpy(s_platform->sc->writepage + targetoffset, screens[0] + sourceoffset, SCREENWIDTH);
 		}
 	}
 }
@@ -89,7 +85,7 @@ void
 I_WaitVBL(int count)
 {
 	// Wait until we exit current frame's vbcounter and enter the next one
-	VPUWaitVSync(&s_vctx);
+	VPUWaitVSync(s_platform->vx);
 }
 
 void
