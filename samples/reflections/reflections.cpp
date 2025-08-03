@@ -218,7 +218,7 @@ void render(uint32_t stride)
 {
 	for ( int j = 0; j < g_Height ; j ++ ) {
 		for ( int i = 0; i < g_Width ; i ++ ) {
-			t_pixel *pix = (t_pixel*)(sc.writepage + j*(stride) + i*2);
+			t_pixel *pix = (t_pixel*)(s_platform->sc->writepage + j*(stride) + i*2);
 			tracePixel( to_fixed(i-160), to_fixed(120-j), pix);
 		}
 	}
@@ -234,7 +234,7 @@ int main(int argc, char **argv)
 		return -1;
 	}
 
-	VPUInitVideo(s_platform->vx, &platform);
+	VPUInitVideo(s_platform->vx, s_platform);
 
 	// Grab video buffer
 	uint32_t stride = VPUGetStride(EVM_320_Wide, ECM_16bit_RGB);
