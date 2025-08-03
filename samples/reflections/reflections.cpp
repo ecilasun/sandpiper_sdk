@@ -257,7 +257,7 @@ int main(int argc, char **argv)
 		render(stride);
 
 		VPUWaitVSync(s_platform->vx);
-		VPUSwapPages(s_platform->vx, &sc);
+		VPUSwapPages(s_platform->vx, s_platform->sc);
 	}
 
 	return 0;
