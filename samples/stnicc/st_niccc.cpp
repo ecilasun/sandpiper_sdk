@@ -32,9 +32,9 @@ uint8_t *filedata;
 #define VIDEO_COLOR     ECM_8bit_Indexed
 #define VIDEO_HEIGHT    240
 
+static struct SPPlatform* s_platform = NULL;
 struct SPSizeAlloc frameBufferA;
 struct SPSizeAlloc frameBufferB;
-static struct SPPlatform* s_platform = NULL;
 
 void gfx_fillpoly(uint8_t* buffer, uint32_t stride, int nb_pts, int* points, uint8_t color)
 {

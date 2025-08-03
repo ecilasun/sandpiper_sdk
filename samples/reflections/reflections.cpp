@@ -14,36 +14,13 @@ A small fixed point raytracer, @sylefeb
 #include "sine_table.h"
 #include <stdint.h>
 #include <stdlib.h>
-#include <signal.h>
 
-#include "core.h"
 #include "platform.h"
 #include "vpu.h"
 
-struct SPPlatform platform;
-static EVideoContext vx;
-static EVideoSwapContext sc;
+struct SPPlatform* s_platform = NULL;
 struct SPSizeAlloc framebufferA;
 struct SPSizeAlloc framebufferB;
-
-void shutdowncleanup()
-{
-	// Switch to fbcon buffer
-	VPUSetScanoutAddress(&vx, 0x18000000);
-	VPUSetVideoMode(&vx, EVM_640_Wide, ECM_16bit_RGB, EVS_Enable);
-
-	// Yield physical memory and reset video routines
-	VPUShutdownVideo();
-
-	// Shutdown platform
-	SPShutdownPlatform(&platform);
-}
-
-void sigint_handler(int s)
-{
-	shutdowncleanup();
-	exit(0);
-}
 
 /* -------------------------------------------------------- */
 int g_time = 280;
@@ -251,36 +228,36 @@ void render(uint32_t stride)
 int main(int argc, char **argv)
 {
 	// Initialize platform and video system
-	SPInitPlatform(&platform);
-	VPUInitVideo(&vx, &platform);
+	s_platform = SPInitPlatform();
+	if (!s_platform) {
+		printf("Failed to init platform\n");
+		return -1;
+	}
+
+	VPUInitVideo(s_platform->vx, &platform);
 
 	// Grab video buffer
 	uint32_t stride = VPUGetStride(EVM_320_Wide, ECM_16bit_RGB);
 	framebufferA.size = stride*240;
 	framebufferB.size = stride*240;
-	SPAllocateBuffer(&platform, &framebufferA);
-	SPAllocateBuffer(&platform, &framebufferB);
-
-	// Register exit handlers
-	signal(SIGINT, &sigint_handler);
-	signal(SIGTERM, &sigint_handler);
-	signal(SIGSEGV, &sigint_handler);
+	SPAllocateBuffer(s_platform, &framebufferA);
+	SPAllocateBuffer(s_platform, &framebufferB);
 
 	// Set up the video mode and frame pointers
-	VPUSetVideoMode(&vx, EVM_320_Wide, ECM_16bit_RGB, EVS_Enable);
+	VPUSetVideoMode(s_platform->vx, EVM_320_Wide, ECM_16bit_RGB, EVS_Enable);
 
 	sc.cycle = 0;
 	sc.framebufferA = &framebufferA;
 	sc.framebufferB = &framebufferB;
-	VPUSwapPages(&vx, &sc);
-	VPUClear(&vx, 0x00000000);
+	VPUSwapPages(s_platform->vx, &sc);
+	VPUClear(s_platform->vx, 0x00000000);
 
 	while (1)
 	{
 		render(stride);
 
-		VPUWaitVSync(&vx);
-		VPUSwapPages(&vx, &sc);
+		VPUWaitVSync(s_platform->vx);
+		VPUSwapPages(s_platform->vx, &sc);
 	}
 
 	return 0;

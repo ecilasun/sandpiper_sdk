@@ -19,7 +19,7 @@
 #define VIDEO_COLOR     ECM_8bit_Indexed
 #define VIDEO_HEIGHT    240
 
-static struct SPPlatform* s_platform;
+static struct SPPlatform* s_platform = NULL;
 struct SPSizeAlloc frameBuffer;
 
 int main(int argc, char** argv)
