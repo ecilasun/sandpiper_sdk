@@ -209,9 +209,9 @@ void tracePixel(stdi pi,stdi pj,t_pixel *pix)
   t_ray r   = { eye, vr };
   t_hit h;
   v3f clr   = intersectScene( &r, &h, 1, 0 );
-  uint8_t R    = clamp(from_fixed(clr.x),0,255)>>4;
-  uint8_t G    = clamp(from_fixed(clr.y),0,255)>>4;
-  uint8_t B    = clamp(from_fixed(clr.z),0,255)>>4;
+  uint8_t R    = clamp(from_fixed(clr.x),0,255);
+  uint8_t G    = clamp(from_fixed(clr.y),0,255);
+  uint8_t B    = clamp(from_fixed(clr.z),0,255);
   *pix = MAKECOLORRGB16(R,G,B);
 }
 /* -------------------------------------------------------- */
@@ -239,8 +239,7 @@ int main(int argc, char **argv)
 
 	// Grab video buffer
 	uint32_t stride = VPUGetStride(EVM_320_Wide, ECM_16bit_RGB);
-	framebufferA.size = stride*240;
-	framebufferB.size = stride*240;
+	framebufferA.size = framebufferB.size = stride*240;
 	SPAllocateBuffer(s_platform, &framebufferA);
 	SPAllocateBuffer(s_platform, &framebufferB);
 
