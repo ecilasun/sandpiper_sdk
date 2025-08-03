@@ -43,21 +43,21 @@ int main(int argc, char *argv[])
 
 	// Initialize platform and subsystems
 	s_platform = SPInitPlatform();
-	APUInitAudio(&s_actx, s_platform);
+	APUInitAudio(s_platform->ac, s_platform);
 	mixbufferB.size = mixbufferA.size = 512*2*2;
 	SPAllocateBuffer(s_platform, &mixbufferA);
 	SPAllocateBuffer(s_platform, &mixbufferB);
-	APUSetBufferSize(&s_actx, ABS_2048Bytes); // Number of 16 bit stereo samples
-	APUSetSampleRate(&s_actx, ASR_11_025_Hz);
+	APUSetBufferSize(s_platform->ac, ABS_2048Bytes); // Number of 16 bit stereo samples
+	APUSetSampleRate(s_platform->ac, ASR_11_025_Hz);
 
-	VPUInitVideo(&s_vctx, s_platform);
+	VPUInitVideo(s_platform->vx, s_platform);
 	uint32_t stride = VPUGetStride(EVM_320_Wide, ECM_8bit_Indexed);
 	frameBuffer.size = stride*SCREENHEIGHT;
 	SPAllocateBuffer(s_platform, &frameBuffer);
-	VPUSetVideoMode(&s_vctx, EVM_320_Wide, ECM_8bit_Indexed, EVS_Enable);
+	VPUSetVideoMode(s_platform->vx, EVM_320_Wide, ECM_8bit_Indexed, EVS_Enable);
 	s_platform->cycle = 0;
-	s_platform->framebufferA = &frameBuffer; // No double buffering
-	s_platform->framebufferB = &frameBuffer;
+	s_platform->sc->framebufferA = &frameBuffer; // No double buffering
+	s_platform->sc->framebufferB = &frameBuffer;
 	VPUSwapPages(s_platform->vx, s_platform->sc);
 	VPUClear(s_platform->vx, 0x00000000);
 
