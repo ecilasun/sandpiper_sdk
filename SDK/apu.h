@@ -26,13 +26,6 @@ enum EAPUBufferSize
 	ABS_128Bytes = 5,	// 32 16bit stereo samples - minimum allowed
 };
 
-struct EAudioContext
-{
-	struct SPPlatform *m_platform;
-	enum EAPUSampleRate m_sampleRate;
-	uint32_t m_bufferSize;
-};
-
 int APUInitAudio(struct EAudioContext* _context, struct SPPlatform* _platform);
 void APUShutdownAudio(struct EAudioContext* _context);
 

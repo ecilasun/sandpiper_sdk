@@ -6,73 +6,126 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <signal.h>
+
+static SPPlatform* g_activePlatform = NULL;
 
 // ioctl numbers for sandpiper device
 #define SP_IOCTL_GET_VIDEO_CTL	_IOR('k', 0, void*)
 #define SP_IOCTL_GET_AUDIO_CTL	_IOR('k', 1, void*)
-#define SP_IOCTL_AUDIO_READ	_IOR('k', 2, uint32_t*)
+#define SP_IOCTL_AUDIO_READ		_IOR('k', 2, uint32_t*)
 #define SP_IOCTL_AUDIO_WRITE	_IOW('k', 3, uint32_t*)
-#define SP_IOCTL_VIDEO_READ	_IOR('k', 4, uint32_t*)
+#define SP_IOCTL_VIDEO_READ		_IOR('k', 4, uint32_t*)
 #define SP_IOCTL_VIDEO_WRITE	_IOW('k', 5, uint32_t*)
 
 // NOTE: A list of all of the onboard devices can be found under /sys/bus/platform/devices/ including the audio and video devices.
 // The file names are annotated with the device addresses, which is useful for MMIO mapping.
 
-int SPInitPlatform(struct SPPlatform* _platform)
+void shutdowncleanup()
 {
-	_platform->audioio = (uint32_t*)MAP_FAILED;
-	_platform->videoio = (uint32_t*)MAP_FAILED;
-	_platform->mapped_memory = (uint8_t*)MAP_FAILED;
-	_platform->alloc_cursor = 0x96000; // The cursor has to stay outside the framebuffer region, which is 640*480*2 bytes in size.
-	_platform->sandpiperfd = -1;
-	_platform->ready = 0;
+	if (g_activePlatform)
+	{
+		// Switch to fbcon buffer and shut down video
+		VPUShiftCache(g_activePlatform->vx, 0);
+		VPUShiftScanout(g_activePlatform->vx, 0);
+		VPUShiftPixel(g_activePlatform->vx, 0);
+		VPUSetScanoutAddress(g_activePlatform->vx, 0x18000000);
+		VPUSetVideoMode(g_activePlatform->vx, EVM_640_Wide, ECM_16bit_RGB, EVS_Enable);
+		VPUShutdownVideo();
+
+		// TODO: Add audio shutdown here
+
+		// Shutdown platform
+		SPShutdownPlatform(g_activePlatform);
+	}
+}
+
+void sigint_handler(int s)
+{
+	shutdowncleanup();
+	exit(0);
+}
+
+struct SPPlatform* SPInitPlatform()
+{
+	struct SPPlatform* platform = (struct SPPlatform*)malloc(sizeof(struct SPPlatform));
+	if (!platform)
+	{
+		fprintf(stderr, "Failed to allocate SPPlatform\n");
+		return NULL;
+	}
+
+	platform->audioio = (uint32_t*)MAP_FAILED;
+	platform->videoio = (uint32_t*)MAP_FAILED;
+	platform->mapped_memory = (uint8_t*)MAP_FAILED;
+	platform->alloc_cursor = 0x96000; // The cursor has to stay outside the framebuffer region, which is 640*480*2 bytes in size.
+	platform->sandpiperfd = -1;
+	platform->vx = 0;
+	platform->ac = 0;
+	platform->sc = 0;
+	platform->ready = 0;
+
 	int err = 0;
 
-	_platform->sandpiperfd = open("/dev/sandpiper", O_RDWR | O_SYNC);
-	if (_platform->sandpiperfd < 1)
+	platform->sandpiperfd = open("/dev/sandpiper", O_RDWR | O_SYNC);
+	if (platform->sandpiperfd < 1)
 	{
 		perror("Can't access sandpiper device");
 		err = 1;
 	}
 
 	// Map the 32MByte reserved region for CPU usage
-	_platform->mapped_memory = (uint8_t*)mmap(NULL, RESERVED_MEMORY_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, _platform->sandpiperfd, RESERVED_MEMORY_ADDRESS);
-	if (_platform->mapped_memory == (uint8_t*)MAP_FAILED)
+	platform->mapped_memory = (uint8_t*)mmap(NULL, RESERVED_MEMORY_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, platform->sandpiperfd, RESERVED_MEMORY_ADDRESS);
+	if (platform->mapped_memory == (uint8_t*)MAP_FAILED)
 	{
 		perror("Can't map reserved region for CPU");
 		err = 1;
 	}
 
 	// Grab the contol registers for audio device
-	if (ioctl(_platform->sandpiperfd, SP_IOCTL_GET_AUDIO_CTL, &_platform->audioio) < 0)
+	if (ioctl(platform->sandpiperfd, SP_IOCTL_GET_AUDIO_CTL, &platform->audioio) < 0)
 	{
 		perror("Failed to get audio control");
-		close(_platform->sandpiperfd);
+		close(platform->sandpiperfd);
 		err = 1;
 	}
 
 	// Grab the contol registers for video device
-	if (ioctl(_platform->sandpiperfd, SP_IOCTL_GET_VIDEO_CTL, &_platform->videoio) < 0)
+	if (ioctl(platform->sandpiperfd, SP_IOCTL_GET_VIDEO_CTL, &platform->videoio) < 0)
 	{
 		perror("Failed to get video control");
-		close(_platform->sandpiperfd);
+		close(platform->sandpiperfd);
 		err = 1;
 	}
 
 	if (!err)
-		_platform->ready = 1;
+	{
+		platform->vx = (struct EVideoContext*)malloc(sizeof(struct EVideoContext));
+		platform->ac = (struct EAudioContext*)malloc(sizeof(struct EAudioContext));
+		platform->sc = (struct EVideoSwapContext*)malloc(sizeof(struct EVideoSwapContext));
+		g_activePlatform = platform;
+
+		// Register exit handlers
+		atexit(shutdowncleanup);
+		signal(SIGINT, &sigint_handler);
+		signal(SIGTERM, &sigint_handler);
+		signal(SIGSEGV, &sigint_handler);
+
+		platform->ready = 1;
+	}
 	else
 	{
-		SPShutdownPlatform(_platform);
-		return -1;
+		SPShutdownPlatform(platform);
+		return NULL;
 	}
 
-	return 0;
+	return platform;
 }
 
 void SPShutdownPlatform(struct SPPlatform* _platform)
 {
 	_platform->ready = 0;
+	g_activePlatform = NULL;
 
 	if (_platform->mapped_memory != (uint8_t*)MAP_FAILED)
 	{
@@ -85,6 +138,18 @@ void SPShutdownPlatform(struct SPPlatform* _platform)
 		close(_platform->sandpiperfd);
 		_platform->sandpiperfd = -1;
 	}
+
+	if (_platform->vx)
+		free(_platform->vx);
+	_platform->vx = 0;
+
+	if (_platform->ac)
+		free(_platform->ac);
+	_platform->ac = 0;
+
+	if (_platform->sc)
+		free(_platform->sc);
+	_platform->sc = 0;
 
 	_platform->alloc_cursor = 0x96000;
 	_platform->audioio = 0;

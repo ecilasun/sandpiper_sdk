@@ -9,34 +9,11 @@
 
 #include <math.h>
 #include <stdio.h>
-#include <signal.h>
 #include "platform.h"
 #include "vpu.h"
 
-static struct EVideoContext vx;
-static struct EVideoSwapContext sc;
 struct SPSizeAlloc framebuffer;
-static struct SPPlatform platform;
-
-void shutdowncleanup()
-{
-	// Switch to fbcon buffer and shut down video
-	VPUShiftCache(&vx, 0);
-	VPUShiftScanout(&vx, 0);
-	VPUShiftPixel(&vx, 0);
-	VPUSetScanoutAddress(&vx, 0x18000000);
-	VPUSetVideoMode(&vx, EVM_640_Wide, ECM_16bit_RGB, EVS_Enable);
-	VPUShutdownVideo();
-
-	// Shutdown platform
-	SPShutdownPlatform(&platform);
-}
-
-void sigint_handler(int s)
-{
-	shutdowncleanup();
-	exit(0);
-}
+static struct SPPlatform* s_platform = NULL;
 
 typedef int BOOL;
 
@@ -445,7 +422,7 @@ void render(Sphere* spheres, int nb_spheres, Light* lights, int nb_lights) {
 #else
   for (int j = 0; j<graphics_height; j++) {
     for (int i = 0; i<graphics_width; i++) {
-      render_pixel((uint32_t)sc.writepage, stride, i,j ,spheres,nb_spheres,lights,nb_lights);
+      render_pixel((uint32_t)platform.sc.writepage, stride, i,j ,spheres,nb_spheres,lights,nb_lights);
     }
   }
 #endif
@@ -485,27 +462,26 @@ void init_scene() {
 int main()
 {
 	// Initialize platform and video system
-	SPInitPlatform(&platform);
-	VPUInitVideo(&vx, &platform);
+	s_platform = SPInitPlatform();
+	if (!s_platform) {
+		fprintf(stderr, "Failed to initialize platform\n");
+		return -1;
+	}
+
+	VPUInitVideo(&s_platform->vx, s_platform);
 
 	// Grab video buffer
 	uint32_t stride = VPUGetStride(EVM_320_Wide, ECM_16bit_RGB);
 	framebuffer.size = stride*240;
-	SPAllocateBuffer(&platform, &framebuffer);
-
-	// Register exit handlers
-	atexit(shutdowncleanup);
-	signal(SIGINT, &sigint_handler);
-	signal(SIGTERM, &sigint_handler);
-	signal(SIGSEGV, &sigint_handler);
+	SPAllocateBuffer(s_platform, &framebuffer);
 
 	// Set up the video mode and frame pointers
-	VPUSetVideoMode(&vx, EVM_320_Wide, ECM_16bit_RGB, EVS_Enable);
-	sc.cycle = 0;
-	sc.framebufferA = &framebuffer; // Not double-buffering
-	sc.framebufferB = &framebuffer;
-	VPUSwapPages(&vx, &sc);
-	VPUClear(&vx, 0x03030303);
+	VPUSetVideoMode(&s_platform->vx, EVM_320_Wide, ECM_16bit_RGB, EVS_Enable);
+	s_platform->sc.cycle = 0;
+	s_platform->sc.framebufferA = &framebuffer; // Not double-buffering
+	s_platform->sc.framebufferB = &framebuffer;
+	VPUSwapPages(&s_platform->vx, &s_platform->sc);
+	VPUClear(&s_platform->vx, 0x03030303);
 
 	init_scene();
 

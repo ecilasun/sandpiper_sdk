@@ -25,15 +25,62 @@ struct SPSizeAlloc
 
 struct SPPlatform
 {
+	// Internal state
 	volatile uint32_t *videoio;
 	volatile uint32_t *audioio;
 	uint8_t* mapped_memory;
 	uint32_t alloc_cursor;
 	int sandpiperfd;
+
+	// Status
 	int ready;
+
+	// Device contexts
+	struct EVideoContext* vx;
+	struct EVideoSwapContext* sc;
+	struct EAudioContext* ac;
 };
 
-int SPInitPlatform(struct SPPlatform* _platform);
+struct EAudioContext
+{
+	struct SPPlatform *m_platform;
+	enum EAPUSampleRate m_sampleRate;
+	uint32_t m_bufferSize;
+};
+
+struct EVideoContext
+{
+	struct SPPlatform *m_platform;
+	enum EVideoMode m_vmode;
+	enum EColorMode m_cmode;
+	enum EVideoScanoutEnable m_scanEnable;
+	uint32_t m_strideInWords;
+	uint32_t m_scanoutAddressCacheAligned;
+	uint32_t m_cpuWriteAddressCacheAligned;
+	uint32_t m_graphicsWidth, m_graphicsHeight;
+	uint16_t m_consoleWidth, m_consoleHeight;
+	uint16_t m_cursorX, m_cursorY;
+	uint16_t m_consoleUpdated;
+	uint16_t m_caretX;
+	uint16_t m_caretY;
+	uint8_t m_consoleColor;
+	uint8_t m_caretBlink;
+    uint8_t m_caretType;
+};
+
+struct EVideoSwapContext
+{
+	// Swap cycle counter
+	uint32_t cycle;
+	// Current read and write pages based on cycle
+	uint8_t *readpage;	// CPU address
+	uint8_t *writepage;	// VPU address
+	// Frame buffers to toggle between
+	struct SPSizeAlloc *framebufferA;
+	struct SPSizeAlloc *framebufferB;
+};
+
+struct SPPlatform* SPInitPlatform();
 void SPShutdownPlatform(struct SPPlatform* _platform);
 
 void SPGetConsoleFramebuffer(struct SPPlatform* _platform, struct SPSizeAlloc *_sizealloc);
