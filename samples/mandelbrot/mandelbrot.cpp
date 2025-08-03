@@ -17,32 +17,8 @@
 #include "platform.h"
 #include "vpu.h"
 
-struct SPPlatform platform;
-static EVideoContext vx;
-static EVideoSwapContext sc;
+static struct SPPlatform* s_platform = NULL;
 struct SPSizeAlloc framebuffer;
-
-void shutdowncleanup()
-{
-	// Switch to fbcon buffer
-	VPUSetScanoutAddress(&vx, 0x18000000);
-	VPUSetVideoMode(&vx, EVM_640_Wide, ECM_16bit_RGB, EVS_Enable);
-
-	// Yield physical memory and reset video routines
-	VPUShutdownVideo();
-
-	// Release allocations
-	SPFreeBuffer(&platform, &framebuffer);
-
-	// Shutdown platform
-	SPShutdownPlatform(&platform);
-}
-
-void sigint_handler(int s)
-{
-	shutdowncleanup();
-	exit(0);
-}
 
 inline int evalMandel(const int maxiter, int col, int row, float ox, float oy, float sx)
 {
@@ -70,7 +46,7 @@ int tiley = 0;
 void mandelbrotFloat(float ox, float oy, float sx)
 {
 	uint32_t stride = VPUGetStride(EVM_320_Wide, ECM_16bit_RGB);
-	uint16_t* framebuffer = (uint16_t*)sc.writepage;
+	uint16_t* framebuffer = (uint16_t*)s_platform->sc->writepage;
 
 	// http://blog.recursiveprocess.com/2014/04/05/mandelbrot-fractal-v2/
 	int R = int(27.71f-5.156f*logf(sx));
@@ -84,8 +60,8 @@ void mandelbrotFloat(float ox, float oy, float sx)
 
 			int M = evalMandel(R, col, row, ox, oy, sx);
 			float ratio = float(M) / float(R);
-			int c = int(ratio*65535.f);
-			framebuffer[col + (row*stride>>1)] = c;//int(16384.f*M/64.f);
+			int c = int(ratio*255.f);
+			framebuffer[col + (row*stride>>1)] = MAKECOLORRGB16(c, c, c);
 		}
 	}
 
@@ -98,32 +74,25 @@ void mandelbrotFloat(float ox, float oy, float sx)
 int main()
 {
 	// Initialize platform and video system
-	SPInitPlatform(&platform);
-	VPUInitVideo(&vx, &platform);
+	s_platform = SPInitPlatform();
+	VPUInitVideo(s_platform->vx, &s_platform);
 
 	// Grab video buffer
 	uint32_t stride = VPUGetStride(EVM_320_Wide, ECM_16bit_RGB);
 	framebuffer.size = stride*240;
 	SPAllocateBuffer(&platform, &framebuffer);
 
-	// Register exit handlers
-	signal(SIGINT, &sigint_handler);
-	signal(SIGTERM, &sigint_handler);
-	signal(SIGSEGV, &sigint_handler);
-
 	// Set up the video mode and frame pointers
-	VPUSetVideoMode(&vx, EVM_320_Wide, ECM_16bit_RGB, EVS_Enable);
-	sc.cycle = 0;
-	sc.framebufferA = &framebuffer; // Not double-buffering
-	sc.framebufferB = &framebuffer;
-	VPUSwapPages(&vx, &sc);
-	VPUClear(&vx, 0x00000000);
+	VPUSetVideoMode(s_platform->vx, EVM_320_Wide, ECM_16bit_RGB, EVS_Enable);
+	s_platform->sc->cycle = 0;
+	s_platform->sc->framebufferA = &framebuffer; // Not double-buffering
+	s_platform->sc->framebufferB = &framebuffer;
+	VPUSwapPages(s_platform->vx, s_platform->sc);
+	VPUClear(s_platform->vx, 0x00000000);
 
 	float R = 4.0E-6f + 0.01f; // Step once to see some detail due to adaptive code
 	float X = -0.235125f;
 	float Y = 0.827215f;
-
-	printf("Mandelbrot test\n");
 
 	while(1)
 	{
