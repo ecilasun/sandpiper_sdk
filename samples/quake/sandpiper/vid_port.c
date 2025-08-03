@@ -22,7 +22,8 @@
 
 static byte *vid_buffer;
 static byte *surfcache;
-extern struct EVideoContext vx; 
+
+extern struct EPlatform *s_platform;
 
 /* Global allocation for the renderer */
 unsigned short d_8to16table[256];
@@ -36,7 +37,7 @@ void VID_SetPalette(unsigned char *palette)
 		r = *palette++;
 		g = *palette++;
 		b = *palette++;
-		VPUSetPal(&vx, i, r, g, b);
+		VPUSetPal(s_platform->vx, i, r, g, b);
 	}
 }
 
