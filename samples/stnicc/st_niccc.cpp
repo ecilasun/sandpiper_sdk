@@ -33,34 +33,7 @@ uint8_t *filedata;
 #define VIDEO_COLOR     ECM_8bit_Indexed
 #define VIDEO_HEIGHT    240
 
-struct EVideoContext s_vctx;
-struct EVideoSwapContext s_sctx;
-struct SPSizeAlloc frameBufferA;
-struct SPSizeAlloc frameBufferB;
-static struct SPPlatform s_platform;
-
-void shutdowncleanup()
-{
-	// Switch to fbcon buffer
-	VPUSetScanoutAddress(&s_vctx, 0x18000000);
-	VPUSetVideoMode(&s_vctx, EVM_640_Wide, ECM_16bit_RGB, EVS_Enable);
-
-	// Yield physical memory and reset video routines
-	VPUShutdownVideo();
-
-	// Release allocations
-	SPFreeBuffer(&s_platform, &frameBufferB);
-	SPFreeBuffer(&s_platform, &frameBufferA);
-
-	// Shutdown platform
-	SPShutdownPlatform(&s_platform);
-}
-
-void sigint_handler(int s)
-{
-	shutdowncleanup();
-	exit(0);
-}
+static struct SPPlatform* s_platform = NULL;
 
 void gfx_fillpoly(uint8_t* buffer, uint32_t stride, int nb_pts, int* points, uint8_t color)
 {
@@ -175,26 +148,26 @@ int main(int argc, char** argv)
 	        exit(-1);
     	}
 
-	SPInitPlatform(&s_platform);
-	VPUInitVideo(&s_vctx, &s_platform);
+	s_platform = SPInitPlatform();
+	VPUInitVideo(s_platform->vx, s_platform);
 	uint32_t stride = VPUGetStride(VIDEO_MODE, VIDEO_COLOR);
 	frameBufferB.size = frameBufferA.size = stride*VIDEO_HEIGHT;
-	SPAllocateBuffer(&s_platform, &frameBufferA);
-	SPAllocateBuffer(&s_platform, &frameBufferB);
+	SPAllocateBuffer(s_platform, &frameBufferA);
+	SPAllocateBuffer(s_platform, &frameBufferB);
 
 	signal(SIGINT, &sigint_handler);
 	signal(SIGTERM, &sigint_handler);
 	signal(SIGSEGV, &sigint_handler);
 
-	VPUSetVideoMode(&s_vctx, VIDEO_MODE, VIDEO_COLOR, EVS_Enable);
+	VPUSetVideoMode(s_platform->vx, VIDEO_MODE, VIDEO_COLOR, EVS_Enable);
 
-	s_sctx.cycle = 0;
-	s_sctx.framebufferA = &frameBufferA;
-	s_sctx.framebufferB = &frameBufferB;
-	VPUSwapPages(&s_vctx, &s_sctx);
-	VPUClear(&s_vctx, 0x00000000);
-	VPUSwapPages(&s_vctx, &s_sctx);
-	VPUClear(&s_vctx, 0x00000000);
+	s_platform->sc->cycle = 0;
+	s_platform->sc->framebufferA = &frameBufferA;
+	s_platform->sc->framebufferB = &frameBufferB;
+	VPUSwapPages(s_platform->vx, s_platform->sc);
+	VPUClear(s_platform->vx, 0x00000000);
+	VPUSwapPages(s_platform->vx, s_platform->sc);
+	VPUClear(s_platform->vx, 0x00000000);
 
 	// More than one parameter on command line triggers no-vsync mode
 	int haveVsync = argc <= 2 ? 1 : 0;
@@ -202,17 +175,17 @@ int main(int argc, char** argv)
 	for(;;)
 	{
 		st_niccc_rewind(&io);
-		while(st_niccc_read_frame(&s_vctx, &io, &frame))
+		while(st_niccc_read_frame(&s_platform->vx, &io, &frame))
 		{
 			if(frame.flags & CLEAR_BIT)
-				VPUClear(&s_vctx, 0x07070707);
+				VPUClear(s_platform->vx, 0x07070707);
 
 			while(st_niccc_read_polygon(&io, &frame, &polygon))
-				gfx_fillpoly(s_sctx.writepage, stride, polygon.nb_vertices, polygon.XY, polygon.color);
+				gfx_fillpoly(s_platform->sc->framebufferA, stride, polygon.nb_vertices, polygon.XY, polygon.color);
 
 			if (haveVsync)
-				VPUWaitVSync(&s_vctx);
-			VPUSwapPages(&s_vctx, &s_sctx);
+				VPUWaitVSync(s_platform->vx);
+			VPUSwapPages(s_platform->vx, s_platform->sc);
 		}
 	}
 }
