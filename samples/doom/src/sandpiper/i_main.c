@@ -55,7 +55,7 @@ int main(int argc, char *argv[])
 	frameBuffer.size = stride*SCREENHEIGHT;
 	SPAllocateBuffer(s_platform, &frameBuffer);
 	VPUSetVideoMode(s_platform->vx, EVM_320_Wide, ECM_8bit_Indexed, EVS_Enable);
-	s_platform->cycle = 0;
+	s_platform->sc->cycle = 0;
 	s_platform->sc->framebufferA = &frameBuffer; // No double buffering
 	s_platform->sc->framebufferB = &frameBuffer;
 	VPUSwapPages(s_platform->vx, s_platform->sc);
