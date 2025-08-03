@@ -151,14 +151,24 @@ int main(int argc, char** argv)
     	}
 
 	s_platform = SPInitPlatform();
+	if (!s_platform) {
+		fprintf(stderr, "Failed to initialize platform\n");
+		return -1;
+	}
+
+	printf("Starting video\n");
 	VPUInitVideo(s_platform->vx, s_platform);
+
+	printf("Allocating buffers\n");
 	uint32_t stride = VPUGetStride(VIDEO_MODE, VIDEO_COLOR);
 	s_platform->sc->framebufferB->size = s_platform->sc->framebufferA->size = stride*VIDEO_HEIGHT;
 	SPAllocateBuffer(s_platform, &frameBufferA);
 	SPAllocateBuffer(s_platform, &frameBufferB);
 
+	printf("Setting video mode\n");
 	VPUSetVideoMode(s_platform->vx, VIDEO_MODE, VIDEO_COLOR, EVS_Enable);
 
+	printf("Setting up framebuffers\n");
 	s_platform->sc->cycle = 0;
 	s_platform->sc->framebufferA = &frameBufferA;
 	s_platform->sc->framebufferB = &frameBufferB;
@@ -170,6 +180,7 @@ int main(int argc, char** argv)
 	// More than one parameter on command line triggers no-vsync mode
 	int haveVsync = argc <= 2 ? 1 : 0;
 
+	printf("Main loop\n");
 	for(;;)
 	{
 		st_niccc_rewind(&io);
