@@ -15,12 +15,9 @@
 
 #include "xmp.h"
 
-struct SPPlatform platform;
+struct SPPlatform* s_platform = NULL;
 
 static xmp_context ctx;
-static EVideoContext vx;
-static EAudioContext ax;
-static EVideoSwapContext sc;
 static SPSizeAlloc apubuffer;
 struct SPSizeAlloc bufferA;
 struct SPSizeAlloc bufferB;
@@ -35,34 +32,6 @@ std::complex<float> outputL[BUFFER_SAMPLE_COUNT];
 std::complex<float> outputR[BUFFER_SAMPLE_COUNT];
 int16_t barsL[256];
 int16_t barsR[256];
-
-void shutdowncleanup()
-{
-	// Stop audio
-	APUSetSampleRate(&ax, ASR_Halt);
-
-	// Switch to fbcon buffer
-	VPUSetScanoutAddress(&vx, 0x18000000);
-	VPUSetVideoMode(&vx, EVM_640_Wide, ECM_16bit_RGB, EVS_Enable);
-
-	// Yield physical memory and reset video routines
-	VPUShutdownVideo();
-	APUShutdownAudio(&ax);
-
-	// Release allocations
-	SPFreeBuffer(&platform, &apubuffer);
-	SPFreeBuffer(&platform, &bufferB);
-	SPFreeBuffer(&platform, &bufferA);
-
-	// Shutdown platform
-	SPShutdownPlatform(&platform);
-}
-
-void sigint_handler(int s)
-{
-	shutdowncleanup();
-	exit(0);
-}
 
 void fft(std::complex<float>* data)
 {
@@ -107,7 +76,7 @@ void *draw_wave(void *data)
 
 	while(1)
 	{
-		//VPUClear(&vx, 0x00000000);
+		//VPUClear(s_platform->vx, 0x00000000);
 
 		short* buf = (short*)apubuffer.cpuAddress;
 		for (size_t i = 0; i < BUFFER_SAMPLE_COUNT; ++i)
@@ -150,7 +119,7 @@ void *draw_wave(void *data)
 				{
 					int16_t L = std::min<int16_t>(239, std::max<int16_t>(0, barsL[i]));
 					for (int16_t k=L; k<200; ++k)
-						sc.writepage[16 + logi+j + k*stride] = 255;
+						s_platform->sc.writepage[16 + logi+j + k*stride] = 255;
 				}
 			}
 
@@ -161,16 +130,17 @@ void *draw_wave(void *data)
 				{
 					int16_t R = std::min<int16_t>(239, std::max<int16_t>(0, barsR[i]));
 					for (int16_t k=R; k<200; ++k)
-						sc.writepage[304 - logi-j + k*stride] = 255;
+						s_platform->sc.writepage[304 - logi-j + k*stride] = 255;
 				}
 			}
 		}
 
 		for (uint32_t i=0;i<320*240;++i)
-			sc.writepage[i] = std::max(0, sc.writepage[i]>>1);
+			s_platform->sc.writepage[i] = std::max(0, s_platform->sc.writepage[i]>>1);
 
-		VPUWaitVSync(&vx);
-		VPUSwapPages(&vx, &sc);
+		VPUWaitVSync(s_platform->vx);
+		VPUSwapPages(s_platform->vx, s_platform->sc);
+
 		sched_yield();
 	}
 	return NULL;
@@ -192,12 +162,12 @@ void *PlayXMP(void *data)
 		return NULL;
 	}
 
-	APUSetBufferSize(&ax, ABS_4096Bytes);
-	APUSetSampleRate(&ax, ASR_22_050_Hz);
+	APUSetBufferSize(s_platform->ac, ABS_4096Bytes);
+	APUSetSampleRate(s_platform->ac, ASR_22_050_Hz);
 
 	printf("Checking device status\n");
-	printf(" Word count:%d\n", APUGetWordCount(&ax));
-	printf(" Cursor: %d\n", APUFrame(&ax));
+	printf(" Word count:%d\n", APUGetWordCount(s_platform->ac));
+	printf(" Cursor: %d\n", APUFrame(s_platform->ac));
 
 	if (xmp_start_player(ctx, 22050, 0) == 0)
 	{
@@ -211,10 +181,10 @@ void *PlayXMP(void *data)
 			playing = xmp_play_buffer(ctx, buf, BUFFER_BYTE_COUNT, 0) == 0;
 
 			// Fill current write buffer with new mix data
-			APUStartDMA(&ax, (uint32_t)apubuffer.dmaAddress);
+			APUStartDMA(s_platform->ac, (uint32_t)apubuffer.dmaAddress);
 
 			// Wait for the APU to be done with current read buffer which is still playing
-			APUWaitSync(&ax);
+			APUWaitSync(s_platform->ac);
 
 			// Once we reach this point, the APU has switched to the other buffer we just filled, and playback resumes uninterrupted
 			sched_yield();
@@ -235,15 +205,15 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
-	SPInitPlatform(&platform);
+	s_platform = SPInitPlatform();
 
-	VPUInitVideo(&vx, &platform);
-	APUInitAudio(&ax, &platform);
+	VPUInitVideo(s_platform->vx, s_platform);
+	APUInitAudio(s_platform->ac, s_platform);
 
 	// 4Kbytes of space for the APU
 	// Total APU memory is 8Kbytes and it alternates between two halves each time we call APUStartDMA
 	apubuffer.size = BUFFER_BYTE_COUNT;
-	SPAllocateBuffer(&platform, &apubuffer);
+	SPAllocateBuffer(s_platform, &apubuffer);
 	{
 		short* buf = (short*)apubuffer.cpuAddress;
 		memset(buf, 0, BUFFER_BYTE_COUNT);
@@ -252,25 +222,21 @@ int main(int argc, char *argv[])
 
 	uint32_t stride = VPUGetStride(EVM_320_Wide, ECM_8bit_Indexed);
 	bufferB.size = bufferA.size = stride*240;
-	SPAllocateBuffer(&platform, &bufferA);
+	SPAllocateBuffer(s_platform, &bufferA);
 	printf("VPU buffer: 0x%08X <-0x%08X - %dbytes \n", (unsigned int)bufferA.cpuAddress, (unsigned int)bufferA.dmaAddress, bufferB.size);
-	SPAllocateBuffer(&platform, &bufferB);
+	SPAllocateBuffer(s_platform, &bufferB);
 	printf("VPU buffer: 0x%08X <-0x%08X - %dbytes \n", (unsigned int)bufferB.cpuAddress, (unsigned int)bufferB.dmaAddress, bufferB.size);
 
-	signal(SIGINT, &sigint_handler);
-	signal(SIGTERM, &sigint_handler);
-	signal(SIGSEGV, &sigint_handler);
-
-	VPUSetVideoMode(&vx, EVM_320_Wide, ECM_8bit_Indexed, EVS_Enable);
-	VPUSetDefaultPalette(&vx);
+	VPUSetVideoMode(s_platform->vx, EVM_320_Wide, ECM_8bit_Indexed, EVS_Enable);
+	VPUSetDefaultPalette(s_platform->vx);
 
 	sc.cycle = 0;
 	sc.framebufferA = &bufferA;
 	sc.framebufferB = &bufferB;
-	VPUSwapPages(&vx, &sc);
-	VPUClear(&vx, 0x00000000);
-	VPUSwapPages(&vx, &sc);
-	VPUClear(&vx, 0x00000000);
+	VPUSwapPages(s_platform->vx, s_platform->sc);
+	VPUClear(s_platform->vx, 0x00000000);
+	VPUSwapPages(s_platform->vx, s_platform->sc);
+	VPUClear(s_platform->vx, 0x00000000);
 
 	memset(barsL, 0, 256*sizeof(int16_t));
 	memset(barsR, 0, 256*sizeof(int16_t));
