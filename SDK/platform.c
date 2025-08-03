@@ -11,7 +11,7 @@
 #include "vpu.h"
 #include "apu.h"
 
-static SPPlatform* g_activePlatform = NULL;
+static struct SPPlatform* g_activePlatform = NULL;
 
 // ioctl numbers for sandpiper device
 #define SP_IOCTL_GET_VIDEO_CTL	_IOR('k', 0, void*)
