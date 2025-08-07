@@ -49,8 +49,8 @@ I_Init(void)
 byte *
 I_ZoneBase(int *size)
 {
-	/* Give 8M to DOOM */
-	*size = 8 * 1024 * 1024;
+	/* Give 16M to DOOM */
+	*size = 16 * 1024 * 1024;
 	return (byte *) malloc (*size);
 }
 
@@ -66,7 +66,7 @@ I_GetTime (void)
 		return (uint64_t) secbase;
 	}
 
-	return (cur_time/1000*TICRATE)/1000;
+	return ((cur_time/1000)*TICRATE)/1000;
 	//return (ClockToMs(E32ReadTime())*TICRATE)/1000;
 }
 

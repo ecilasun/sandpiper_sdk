@@ -1,11 +1,109 @@
-.DEFAULT_GOAL := all
+# Check OS type
+ifeq ($(OS),Windows_NT)
+	ifeq ($(MSYSTEM), MINGW32)
+		UNAME := MSYS
+	else
+		UNAME := Windows
+	endif
+else
+	UNAME := $(shell uname)
+endif
 
-TOPTARGETS := all clean
+ifeq ($(UNAME), Windows)
+ARM_GCC ?= arm-none-linux-gnueabihf-gcc
+else
+ARM_GCC ?= gcc
+endif
 
-SUBDIRS := sandpiper/.
+ARM_GCC_OPTS = -std=gnu99 -Ofast -flto -mcpu=cortex-a9 -mfpu=vfpv3 -mfloat-abi=hard
+ARM_GCC_LIBS = -lgcc -lc -lm
 
-$(TOPTARGETS): $(SUBDIRS)
-$(SUBDIRS):
-	$(MAKE) -s -C $@ $(MAKECMDGOALS)
+SOURCES_quake_arch := \
+	../../SDK/platform.c \
+	../../SDK/vpu.c \
+	../../SDK/apu.c \
+	sandpiper/display.c \
+	sandpiper/fio.c \
+	sandpiper/main.c \
+	sandpiper/cd_null.c \
+	sandpiper/in_port.c \
+	sandpiper/snd_null.c \
+	sandpiper/sys_port.c \
+	sandpiper/vid_port.c \
+	winquake/chase.c \
+	winquake/cmd.c \
+	winquake/common.c \
+	winquake/console.c \
+	winquake/crc.c \
+	winquake/cvar.c \
+	winquake/draw.c \
+	winquake/host.c \
+	winquake/host_cmd.c \
+	winquake/keys.c \
+	winquake/mathlib.c \
+	winquake/menu.c \
+	winquake/model.c \
+	winquake/nonintel.c \
+	winquake/screen.c \
+	winquake/sbar.c \
+	winquake/zone.c \
+	winquake/view.c \
+	winquake/wad.c \
+	winquake/world.c \
+	winquake/cl_demo.c \
+	winquake/cl_input.c \
+	winquake/cl_main.c \
+	winquake/cl_parse.c \
+	winquake/cl_tent.c \
+	winquake/d_edge.c \
+	winquake/d_fill.c \
+	winquake/d_init.c \
+	winquake/d_modech.c \
+	winquake/d_part.c \
+	winquake/d_polyse.c \
+	winquake/d_scan.c \
+	winquake/d_sky.c \
+	winquake/d_sprite.c \
+	winquake/d_surf.c \
+	winquake/d_vars.c \
+	winquake/d_zpoint.c \
+	winquake/net_loop.c \
+	winquake/net_main.c \
+	winquake/pr_cmds.c \
+	winquake/pr_edict.c \
+	winquake/pr_exec.c \
+	winquake/r_aclip.c \
+	winquake/r_alias.c \
+	winquake/r_bsp.c \
+	winquake/r_light.c \
+	winquake/r_draw.c \
+	winquake/r_efrag.c \
+	winquake/r_edge.c \
+	winquake/r_misc.c \
+	winquake/r_main.c \
+	winquake/r_sky.c \
+	winquake/r_sprite.c \
+	winquake/r_surf.c \
+	winquake/r_part.c \
+	winquake/r_vars.c \
+	winquake/sv_main.c \
+	winquake/sv_phys.c \
+	winquake/sv_move.c \
+	winquake/sv_user.c \
+	winquake/net_none.c \
+	$(NULL)
 
-.PHONY: $(TOPTARGETS) $(SUBDIRS)
+all: quake
+
+incs = -I../../SDK -Iinclude -Iwinquake -Isandpiper -I.
+
+quake: $(SOURCES_quake_arch)
+	$(ARM_GCC) $(ARM_GCC_OPTS) -o quake $(incs) $(SOURCES_quake_arch) $(ARM_GCC_LIBS)
+
+.PHONY: all clean
+clean:
+ifeq ($(UNAME), Windows)
+	del quake
+else
+	rm quake
+endif

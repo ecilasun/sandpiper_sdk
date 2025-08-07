@@ -8,7 +8,7 @@ of the License, or (at your option) any later version.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 See the GNU General Public License for more details.
 
@@ -90,12 +90,12 @@ void Host_EndGame (char *message, ...)
 {
 	va_list		argptr;
 	char		string[1024];
-	
+
 	va_start (argptr,message);
 	vsprintf (string,message,argptr);
 	va_end (argptr);
 	Con_DPrintf ("Host_EndGame: %s\n",string);
-	
+
 	if (sv.active)
 		Host_ShutdownServer (false);
 
@@ -119,18 +119,18 @@ void Host_Error (char *error, ...)
 	va_list		argptr;
 	char		string[1024];
 	static	qboolean inerror = false;
-	
+
 	if (inerror)
 		Sys_Error ("Host_Error: recursively entered");
 	inerror = true;
-	
+
 	SCR_EndLoadingPlaque ();		// reenable screen updates
 
 	va_start (argptr,error);
 	vsprintf (string,error,argptr);
 	va_end (argptr);
 	Con_Printf ("Host_Error: %s\n",string);
-	
+
 	if (sv.active)
 		Host_ShutdownServer (false);
 
@@ -207,7 +207,7 @@ void Host_InitLocal (void)
 	Cvar_RegisterVariable (&temp1);
 
 	Host_FindMaxClients ();
-	
+
 	host_time = 1.0;		// so a think at time 0 won't get called
 }
 
@@ -233,7 +233,7 @@ void Host_WriteConfiguration (void)
 			Con_Printf ("Couldn't write config.cfg.\n");
 			return;
 		}
-		
+
 		Key_WriteBindings (f);
 		Cvar_WriteVariables (f);
 
@@ -254,11 +254,11 @@ void SV_ClientPrintf (char *fmt, ...)
 {
 	va_list		argptr;
 	char		string[1024];
-	
+
 	va_start (argptr,fmt);
 	vsprintf (string, fmt,argptr);
 	va_end (argptr);
-	
+
 	MSG_WriteByte (&host_client->message, svc_print);
 	MSG_WriteString (&host_client->message, string);
 }
@@ -275,11 +275,11 @@ void SV_BroadcastPrintf (char *fmt, ...)
 	va_list		argptr;
 	char		string[1024];
 	int			i;
-	
+
 	va_start (argptr,fmt);
 	vsprintf (string, fmt,argptr);
 	va_end (argptr);
-	
+
 	for (i=0 ; i<svs.maxclients ; i++)
 		if (svs.clients[i].active && svs.clients[i].spawned)
 		{
@@ -299,11 +299,11 @@ void Host_ClientCommands (char *fmt, ...)
 {
 	va_list		argptr;
 	char		string[1024];
-	
+
 	va_start (argptr,fmt);
 	vsprintf (string, fmt,argptr);
 	va_end (argptr);
-	
+
 	MSG_WriteByte (&host_client->message, svc_stufftext);
 	MSG_WriteString (&host_client->message, string);
 }
@@ -330,7 +330,7 @@ void SV_DropClient (qboolean crash)
 			MSG_WriteByte (&host_client->message, svc_disconnect);
 			NET_SendMessage (host_client->netconnection, &host_client->message);
 		}
-	
+
 		if (host_client->edict && host_client->spawned)
 		{
 		// call the prog function for removing a client
@@ -527,18 +527,18 @@ Host_ServerFrame
 */
 void Host_ServerFrame (void)
 {
-// run the world state	
+// run the world state
 	pr_global_struct->frametime = host_frametime;
 
 // set the time and clear the general datagram
 	SV_ClearDatagram ();
-	
+
 // check for new clients
 	SV_CheckForNewClients ();
 
 // read client messages
 	SV_RunClients ();
-	
+
 // move things around and think
 // always pause in single player if in console or menus
 	if (!sv.paused && (svs.maxclients > 1 || key_dest == key_game) )
@@ -569,12 +569,12 @@ void _Host_Frame (float time)
 
 // keep the random time dependent
 	rand ();
-	
+
 // decide the simulation time
 	if (!Host_FilterTime (time))
 		return;			// don't run too fast, or packets will flood out
 
-		
+
 // get new key events
 	Sys_SendKeyEvents ();
 
@@ -595,7 +595,7 @@ void _Host_Frame (float time)
 	if (sv.active)
 		CL_SendCmd ();
 
-	
+
 //-------------------
 //
 // server operations
@@ -606,7 +606,7 @@ void _Host_Frame (float time)
 	Host_GetConsoleCommands ();
 
 
-	
+
 	if (sv.active)
 		Host_ServerFrame ();
 
@@ -635,13 +635,13 @@ void _Host_Frame (float time)
 	if (host_speeds.value)
 		time1 = Sys_FloatTime ();
 
-		
+
 	SCR_UpdateScreen ();
 
 
 	if (host_speeds.value)
 		time2 = Sys_FloatTime ();
-		
+
 // update audio
 	if (cls.signon == SIGNONS)
 	{
@@ -651,7 +651,7 @@ void _Host_Frame (float time)
 	else
 		S_Update (vec3_origin, vec3_origin, vec3_origin, vec3_origin);
 
-	
+
 	CDAudio_Update();
 
 
@@ -664,7 +664,7 @@ void _Host_Frame (float time)
 		Con_Printf ("%3i tot %3i server %3i gfx %3i snd\n",
 					pass1+pass2+pass3, pass1, pass2, pass3);
 	}
-	
+
 	host_framecount++;
 }
 

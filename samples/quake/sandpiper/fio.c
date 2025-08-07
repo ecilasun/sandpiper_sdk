@@ -147,10 +147,3 @@ void Sys_mkdir(char *path)
 void Sys_FileSync(int handle)
 {
 }
-
-void Sys_File_gets(int handle, char *buf, int len)
-{
-	FILE *fp = fdopen(handle, "r");
-	fgets(buf, len, fp);
-	fclose(fp);
-}

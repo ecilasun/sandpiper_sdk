@@ -104,26 +104,18 @@ static int nokeyboard = 0;
 static struct pollfd fds[1];
 static int inited = 0;
 
-uint64_t qembd_get_us_time()
+double qembd_get_time()
 {
-	uint64_t cur_time = (uint64_t) clock();
-	static int secbase;
-
-	if (!secbase) {
-		secbase = cur_time / 1000000;
-		return (uint64_t) secbase;
-	}
-
-	return cur_time;
+	return (double)clock() / CLOCKS_PER_SEC;
 }
 
-void qembd_udelay(uint32_t us)
+/*void qembd_udelay(uint32_t us)
 {
 	uint64_t start = qembd_get_us_time(), end;
 	end = start;
-	while (end - start < 1)
+	while (end - start < us)
 		end = qembd_get_us_time();
-}
+}*/
 
 /*void qembd_set_relative_mode(bool enabled) {
 	submission_t submission;

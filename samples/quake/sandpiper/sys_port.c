@@ -85,7 +85,17 @@ void Sys_Quit(void)
 
 double Sys_FloatTime(void)
 {
-	return qembd_get_us_time() / 1000000.0;
+	static double start_time = 0;
+
+	if (start_time == 0)
+	{
+		start_time = qembd_get_time();
+		return start_time;
+	}
+
+	double now = qembd_get_time();
+	double time_diff = now - start_time;
+	return time_diff;
 }
 
 char *Sys_ConsoleInput(void)
@@ -119,7 +129,6 @@ void Sys_MakeCodeWriteable(unsigned long startaddr, unsigned long length)
 
 int qembd_main(int c, char **v)
 {
-	float time, oldtime, newtime;
 	quakeparms_t parms = {0};
 	int j;
 
@@ -149,23 +158,24 @@ int qembd_main(int c, char **v)
 
 	qembd_info("QuakEMBD - Based on WinQuake %0.3f", VERSION);
 
-	oldtime = Sys_FloatTime() - 0.1;
+	double oldtime = Sys_FloatTime();
 	while (1) {
 		// find time spent rendering last frame
-		newtime = Sys_FloatTime();
-		time = newtime - oldtime;
+		double newtime = Sys_FloatTime();
+		double dt = newtime - oldtime;
 
-		if (time > sys_ticrate.value*2)
+		/*if (time > sys_ticrate.value*2)
 			oldtime = newtime;
 		else
-			oldtime += time;
+			oldtime += dt;*/
 
-		Host_Frame(time);
+		Host_Frame((float)dt);
 
 #if 0
 		// graphic debugging aids
 		if (sys_linerefresh.value)
 			Sys_LineRefresh ();
 #endif
+		oldtime = newtime;
 	}
 }
