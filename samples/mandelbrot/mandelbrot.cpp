@@ -20,9 +20,9 @@
 static struct SPPlatform* s_platform = NULL;
 struct SPSizeAlloc framebuffer;
 
-inline int evalMandel(const int maxiter, int col, int row, float ox, float oy, float sx)
+float evalMandel(const int maxiter, int col, int row, float ox, float oy, float sx)
 {
-	int iteration = 0;
+	float iteration = 0.f;
 
 	float c_re = (float(col) - 160.f) / 240.f * sx + ox; // Divide by shortest side of display for correct aspect ratio
 	float c_im = (float(row) - 120.f) / 240.f * sx + oy;
@@ -34,7 +34,7 @@ inline int evalMandel(const int maxiter, int col, int row, float ox, float oy, f
 		x = c_re + x2 - y2;
 		x2 = x*x;
 		y2 = y*y;
-		++iteration;
+		iteration += 1.f;
 	}
 
 	return iteration;
@@ -49,7 +49,7 @@ void mandelbrotFloat(float ox, float oy, float sx)
 	uint16_t* framebuffer = (uint16_t*)s_platform->sc->writepage;
 
 	// http://blog.recursiveprocess.com/2014/04/05/mandelbrot-fractal-v2/
-	int R = int(27.71f-5.156f*logf(sx));
+	float R = 27.71f-5.156f*logf(sx);
 
 	for (int y = 0; y < 16; ++y)
 	{
@@ -58,9 +58,9 @@ void mandelbrotFloat(float ox, float oy, float sx)
 		{
 			int col = x + tilex*16;
 
-			int M = evalMandel(R, col, row, ox, oy, sx);
-			float ratio = float(M) / float(R);
-			int c = int(ratio*255.f);
+			float M = evalMandel(R, col, row, ox, oy, sx);
+			float ratio = M / R;
+			int c = int(ratio*31.f);
 			framebuffer[col + (row*stride>>1)] = MAKECOLORRGB16(c, c, c);
 		}
 	}
