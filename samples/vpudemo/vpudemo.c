@@ -1,6 +1,7 @@
 /*
 	@file vpudemo.c
 	@brief Demonstrates how to use the Video Processing Unit (VPU).
+	@note WARNING! Very rapid flickering, observe with caution.
 */
 
 #include <stdint.h>
@@ -43,18 +44,19 @@ int main(int argc, char** argv)
 	s_platform->sc->framebufferB = &frameBufferB;
 
 	// Swap once to make it take effect
-	VPUSwapPages(s_platform->vx, &s_platform->sc);
+	VPUSwapPages(s_platform->vx, s_platform->sc);
 
-	// Fill both buffers with different test patterns
+	// Fill both buffers with different colors so we
+	// can see the frame swap happening
 	for (int y = 0; y < VIDEO_HEIGHT; y++)
 	{
 		for (int x = 0; x < stride; x++)
 		{
 			uint8_t* pixelA = (uint8_t*)frameBufferA.cpuAddress + (y * stride) + x;
-			*pixelA = (x ^ y) % 256;
+			*pixelA = ((x/4) ^ (y/4)) % 256;
 
 			uint8_t* pixelB = (uint8_t*)frameBufferB.cpuAddress + (y * stride) + x;
-			*pixelB = ((x * y) + 128) % 256;
+			*pixelB = ((x * y) / 128) % 256;
 		}
 	}
 
@@ -66,7 +68,7 @@ int main(int argc, char** argv)
 		VPUWaitVSync(s_platform->vx);
 
 		// Swap the framebuffers
-		VPUSwapPages(s_platform->vx, &s_platform->sc);
+		VPUSwapPages(s_platform->vx, s_platform->sc);
 	} while(1);
 
 	return 0;
