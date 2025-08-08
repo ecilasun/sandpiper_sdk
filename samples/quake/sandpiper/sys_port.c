@@ -152,15 +152,13 @@ int qembd_main(int c, char **v)
 	while (1) {
 		// find time spent rendering last frame
 		double newtime = Sys_FloatTime();
-		double dt = newtime - oldtime;
+		double dt = (newtime - oldtime);
 
-		if (dt > sys_ticrate.value*2)
-			oldtime = newtime;
-		else
-			oldtime += dt;
+		// Time to work
+		if (dt > 0.0) //(double)sys_ticrate.value)
+			Host_Frame((float)dt);
 
-		Host_Frame((float)dt);
-
+		oldtime = newtime;
 #if 0
 		// graphic debugging aids
 		if (sys_linerefresh.value)
