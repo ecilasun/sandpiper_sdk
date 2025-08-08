@@ -115,7 +115,7 @@ uint64_t qembd_get_time()
 	if (secbase == 0)
 	{
 		secbase = tp.tv_sec;
-		return (double)tp.tv_usec;
+		return (uint64_t)tp.tv_usec;
 	}
 
 	return ((tp.tv_sec - secbase) / 1000000) + tp.tv_usec;

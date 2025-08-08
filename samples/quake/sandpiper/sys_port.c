@@ -148,16 +148,16 @@ int qembd_main(int c, char **v)
 
 	qembd_info("QuakEMBD - Based on WinQuake %0.3f", VERSION);
 
-	double oldtime = Sys_FloatTime();
+	double oldtime = Sys_FloatTime() - 0.1;
 	while (1) {
 		// find time spent rendering last frame
 		double newtime = Sys_FloatTime();
 		double dt = newtime - oldtime;
 
-		/*if (time > sys_ticrate.value*2)
+		if (dt > sys_ticrate.value*2)
 			oldtime = newtime;
 		else
-			oldtime += dt;*/
+			oldtime += dt;
 
 		Host_Frame((float)dt);
 
@@ -166,6 +166,5 @@ int qembd_main(int c, char **v)
 		if (sys_linerefresh.value)
 			Sys_LineRefresh ();
 #endif
-		oldtime = newtime;
 	}
 }
