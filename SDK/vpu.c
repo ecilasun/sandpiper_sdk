@@ -180,6 +180,17 @@ void VPUSetDefaultPalette(struct EVideoContext *_context)
 	}
 }
 
+void VPUSetScanoutAddress2(struct EVideoContext *_context, uint8_t _page)
+{
+	videowrite32(_context->m_platform, VPUCMD_SETVPAGE2);
+	videowrite32(_context->m_platform, _page);
+}
+
+void VPUSyncSwap(struct EVideoContext *_context, uint8_t _donotwaitforvsync)
+{
+	videowrite32(_context->m_platform, (_donotwaitforvsync<<8) | VPUCMD_SYNCSWAP);
+}
+
 void VPUShiftCache(struct EVideoContext *_context, uint8_t _offset)
 {
 	videowrite32(_context->m_platform, VPUCMD_SHIFTCACHE);
