@@ -71,7 +71,7 @@ int qembd_get_height();
 void qembd_vidinit();
 void qembd_fillrect(uint8_t *src, uint16_t x, uint16_t y, uint16_t xsize, uint16_t ysize);
 void qembd_refresh();
-double qembd_get_time();
+uint64_t qembd_get_time();
 void qembd_udelay(uint32_t us);
 void *qembd_allocmain(size_t size);
 int qembd_main(int c, char **v);

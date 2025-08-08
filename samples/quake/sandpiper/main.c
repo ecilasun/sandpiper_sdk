@@ -104,9 +104,21 @@ static int nokeyboard = 0;
 static struct pollfd fds[1];
 static int inited = 0;
 
-double qembd_get_time()
+uint64_t qembd_get_time()
 {
-	return (double)clock() / CLOCKS_PER_SEC;
+	struct timeval tp;
+	struct timezone tzp;
+	static int secbase = 0;
+
+	gettimeofday(&tp, &tzp);
+
+	if (secbase == 0)
+	{
+		secbase = tp.tv_sec;
+		return (double)tp.tv_usec;
+	}
+
+	return ((tp.tv_sec - secbase) / 1000000) + tp.tv_usec;
 }
 
 /*void qembd_udelay(uint32_t us)
@@ -130,17 +142,6 @@ double qembd_get_time()
 
 int main(int c, char **v)
 {
-	/*void *base = malloc(sizeof(event_t) * queues_capacity + 
-						sizeof(submission_t) * queues_capacity);
-	event_queue.base = base;
-	submission_queue.base = base + sizeof(event_t) * queues_capacity;
-	register int a0 asm("a0") = (uintptr_t) base;
-	register int a1 asm("a1") = queues_capacity;
-	register int a2 asm("a2") = (uintptr_t) (&event_count);
-	register int a7 asm("a7") = 0xc0de;
-	asm volatile("scall" : "+r"(a0) : "r"(a1), "r"(a2), "r"(a7));
-	qembd_set_relative_mode(true);*/
-
 	return qembd_main(c, v);
 }
 

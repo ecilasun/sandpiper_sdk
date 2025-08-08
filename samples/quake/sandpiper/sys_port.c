@@ -85,17 +85,7 @@ void Sys_Quit(void)
 
 double Sys_FloatTime(void)
 {
-	static double start_time = 0;
-
-	if (start_time == 0)
-	{
-		start_time = qembd_get_time();
-		return start_time;
-	}
-
-	double now = qembd_get_time();
-	double time_diff = now - start_time;
-	return time_diff;
+	return qembd_get_time() / 1000000.0;
 }
 
 char *Sys_ConsoleInput(void)
