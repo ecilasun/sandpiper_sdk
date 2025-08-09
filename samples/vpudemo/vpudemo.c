@@ -7,6 +7,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 //#include <unistd.h> // for usleep()
 
 #include "core.h"
@@ -23,6 +24,12 @@ struct SPSizeAlloc frameBufferB;
 
 int main(int argc, char** argv)
 {
+	if (argc <= 1)
+	{
+		printf("vpudemo\nusage: vpudemo [arg]\nargs\ncpu : demo of CPU based vsync\nvpu: demo of VPU based vsync\n");
+		return 0;
+	}
+
 	s_platform = SPInitPlatform();
 	VPUInitVideo(s_platform->vx, s_platform);
 
@@ -53,7 +60,7 @@ int main(int argc, char** argv)
 		}
 	}
 
-	if (argc <= 1)
+	if (!strcmp(argv[1], "cpu"))
 	{
 		// Method 1: CPU waits for vsync
 
@@ -76,7 +83,7 @@ int main(int argc, char** argv)
 			VPUSwapPages(s_platform->vx, s_platform->sc);
 		} while(1);
 	}
-	else
+	else if (!strcmp(argv[1], "vpu"))
 	{
 		// Method 2: CPU submits VPU side vsync/buffer swap request
 
