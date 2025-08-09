@@ -57,12 +57,13 @@ void VPUShiftScanout(struct EVideoContext *_context, uint8_t _offset);
 void VPUShiftPixel(struct EVideoContext *_context, uint8_t _offset);
 void VPUSetScanoutAddress2(struct EVideoContext *_context, uint8_t _page);
 void VPUSyncSwap(struct EVideoContext *_context, uint8_t _donotwaitforvsync);
+uint32_t VPUReadVBlankCounter(struct EVideoContext *_context);
+uint32_t VPUGetScanline(struct EVideoContext *_context);
+uint32_t VPUGetFIFONotEmpty(struct EVideoContext *_context);
 
 void VPUClear(struct EVideoContext *_context, const uint32_t _colorWord);
 void VPUSetDefaultPalette(struct EVideoContext *_context);
 void VPUSetWriteAddress(struct EVideoContext *_context, const uint32_t _cpuWriteAddress64ByteAligned);
-uint32_t VPUReadVBlankCounter(struct EVideoContext *_context);
-uint32_t VPUGetScanline(struct EVideoContext *_context);
 void VPUSwapPages(struct EVideoContext* _context, struct EVideoSwapContext *_sc);
 void VPUWaitVSync(struct EVideoContext *_context);
 void VPUPrintString(struct EVideoContext *_context, const uint8_t _foregroundIndex, const uint8_t _backgroundIndex, const uint16_t _x, const uint16_t _y, const char *_message, int _length);

@@ -279,6 +279,11 @@ uint32_t VPUGetScanline(struct EVideoContext *_context)
 	return (videoread32(_context->m_platform) & 0x7FE) >> 1;
 }
 
+uint32_t VPUGetFIFONotEmpty(struct EVideoContext *_context)
+{
+	return (videoread32(_context->m_platform) & 0x800) >> 1;
+}
+
 void VPUSwapPages(struct EVideoContext* _context, struct EVideoSwapContext *_sc)
 {
 	_sc->readpage = ((_sc->cycle)%2) ? _sc->framebufferA->dmaAddress : _sc->framebufferB->dmaAddress;
