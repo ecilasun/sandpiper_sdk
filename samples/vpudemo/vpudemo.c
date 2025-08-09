@@ -7,6 +7,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
+//#include <unistd.h> // for usleep()
 
 #include "core.h"
 #include "platform.h"
@@ -38,14 +39,6 @@ int main(int argc, char** argv)
 	SPAllocateBuffer(s_platform, &frameBufferA);
 	SPAllocateBuffer(s_platform, &frameBufferB);
 
-	// Set up the swap context, double bufferred in this case
-	s_platform->sc->cycle = 0;
-	s_platform->sc->framebufferA = &frameBufferA;
-	s_platform->sc->framebufferB = &frameBufferB;
-
-	// Swap once to make it take effect
-	VPUSwapPages(s_platform->vx, s_platform->sc);
-
 	// Fill both buffers with different colors so we
 	// can see the frame swap happening
 	for (int y = 0; y < VIDEO_HEIGHT; y++)
@@ -60,16 +53,54 @@ int main(int argc, char** argv)
 		}
 	}
 
-	do
+	if (argc <= 1)
 	{
-		// Main loop goes here
+		// Method 1: CPU waits for vsync
 
-		// Wait for vertical sync
-		VPUWaitVSync(s_platform->vx);
+		// Set up the swap context, double bufferred in this case
+		s_platform->sc->cycle = 0;
+		s_platform->sc->framebufferA = &frameBufferA;
+		s_platform->sc->framebufferB = &frameBufferB;
 
-		// Swap the framebuffers
+		// Swap once to make it take effect
 		VPUSwapPages(s_platform->vx, s_platform->sc);
-	} while(1);
+
+		do
+		{
+			// TODO: Draw game frame here
+
+			// Wait for vertical sync
+			VPUWaitVSync(s_platform->vx);
+
+			// Swap the framebuffers
+			VPUSwapPages(s_platform->vx, s_platform->sc);
+		} while(1);
+	}
+	else
+	{
+		// Method 2: CPU submits VPU side vsync/buffer swap request
+
+		// For hardware assisted vsync, we need to set this up once at start
+		VPUSetScanoutAddress(s_platform->vx, (uint32_t)frameBufferA.dmaAddress);
+		VPUSetScanoutAddress2(s_platform->vx, (uint32_t)frameBufferB.dmaAddress);
+
+		do
+		{
+			// First, make sure the VPU has no pending commands
+			while(VPUGetFIFONotEmpty(s_platform->vx))
+			{
+				//usleep(1000);
+			}
+
+			// TODO: Draw game frame here
+
+			// Next, submit a syncswap command
+			VPUSyncSwap(s_platform->vx, 0);
+
+			// At this point the CPU is free to do more work on next
+			// buffer, since the VPU will handle precise swap timing
+		} while(1);
+	}
 
 	return 0;
 }
