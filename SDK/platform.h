@@ -127,7 +127,9 @@ int SPAllocateBuffer(struct SPPlatform* _platform, struct SPSizeAlloc *_sizeallo
 void SPFreeBuffer(struct SPPlatform* _platform, struct SPSizeAlloc *_sizealloc);
 
 uint32_t audioread32(struct SPPlatform* _platform);
+uint32_t audioread32hi(struct SPPlatform* _platform);
 void audiowrite32(struct SPPlatform* _platform, uint32_t value);
 uint32_t videoread32(struct SPPlatform* _platform);
+uint32_t videoread32hi(struct SPPlatform* _platform);
 void videowrite32(struct SPPlatform* _platform, uint32_t value);
 
