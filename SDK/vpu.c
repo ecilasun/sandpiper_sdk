@@ -281,7 +281,7 @@ uint32_t VPUGetScanline(struct EVideoContext *_context)
 
 uint32_t VPUGetFIFONotEmpty(struct EVideoContext *_context)
 {
-	return (videoread32(_context->m_platform) & 0x800) >> 1;
+	return (videoread32(_context->m_platform) & 0x800) >> 11;
 }
 
 void VPUSwapPages(struct EVideoContext* _context, struct EVideoSwapContext *_sc)
