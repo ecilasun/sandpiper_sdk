@@ -55,7 +55,7 @@ void VPUSetVideoMode(struct EVideoContext *_context, const enum EVideoMode _mode
 void VPUShiftCache(struct EVideoContext *_context, uint8_t _offset);
 void VPUShiftScanout(struct EVideoContext *_context, uint8_t _offset);
 void VPUShiftPixel(struct EVideoContext *_context, uint8_t _offset);
-void VPUSetScanoutAddress2(struct EVideoContext *_context, uint8_t _page);
+void VPUSetScanoutAddress2(struct EVideoContext *_context, const uint32_t _scanOutAddress64ByteAligned);
 void VPUSyncSwap(struct EVideoContext *_context, uint8_t _donotwaitforvsync);
 uint32_t VPUReadVBlankCounter(struct EVideoContext *_context);
 uint32_t VPUGetScanline(struct EVideoContext *_context);

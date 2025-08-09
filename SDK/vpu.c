@@ -180,10 +180,10 @@ void VPUSetDefaultPalette(struct EVideoContext *_context)
 	}
 }
 
-void VPUSetScanoutAddress2(struct EVideoContext *_context, uint8_t _page)
+void VPUSetScanoutAddress2(struct EVideoContext *_context, const uint32_t _scanOutAddress64ByteAligned)
 {
 	videowrite32(_context->m_platform, VPUCMD_SETVPAGE2);
-	videowrite32(_context->m_platform, _page);
+	videowrite32(_context->m_platform, _scanOutAddress64ByteAligned);
 }
 
 void VPUSyncSwap(struct EVideoContext *_context, uint8_t _donotwaitforvsync)
