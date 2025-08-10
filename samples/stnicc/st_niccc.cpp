@@ -2,10 +2,10 @@
 * Reading the ST-NICCC megademo data stored in
 * the SDCard and streaming it to polygons,
 * rendered in the framebuffer.
-* 
-* The polygon stream is a 640K file 
-* (C_EXAMPLES/DATA/scene1.dat), that needs to 
-* be stored on the SD card. 
+*
+* The polygon stream is a 640K file
+* (C_EXAMPLES/DATA/scene1.dat), that needs to
+* be stored on the SD card.
 *
 * More details and links in C_EXAMPLES/DATA/notes.txt
 */
@@ -45,7 +45,7 @@ void gfx_fillpoly(uint8_t* buffer, uint32_t stride, int nb_pts, int* points, uin
     int clockwise = 0;
     int miny =  1024;
     int maxy = -1024;
-    
+
     for(int i1=0; i1<nb_pts; ++i1)
 	{
 		int i2=(i1==nb_pts-1) ? 0 : i1+1;
@@ -84,7 +84,7 @@ void gfx_fillpoly(uint8_t* buffer, uint32_t stride, int nb_pts, int* points, uin
             x1 = x2;
             x2 = tmp;
         }
-        
+
 		int dx = x2 - x1;
 		int sx = 1;
 		int dy = y2 - y1;
@@ -92,13 +92,13 @@ void gfx_fillpoly(uint8_t* buffer, uint32_t stride, int nb_pts, int* points, uin
 		int x = x1;
 		int y = y1;
 		int ex;
-		
+
 		if(dx < 0)
 		{
 			sx = -1;
 			dx = -dx;
 		}
-	
+
 		if(dy < 0)
 		{
 			sy = -1;
@@ -116,7 +116,7 @@ void gfx_fillpoly(uint8_t* buffer, uint32_t stride, int nb_pts, int* points, uin
 
 		for(int u=0; u <= dy; ++u)
 		{
-			x_buffer[y] = x; 
+			x_buffer[y] = x;
 			y += sy;
 			while(ex >= 0) {
 				x += sx;
@@ -128,7 +128,7 @@ void gfx_fillpoly(uint8_t* buffer, uint32_t stride, int nb_pts, int* points, uin
 
 	for(int y = miny; y <= maxy; ++y)
 		for(int x = x_left[y]; x <= x_right[y]; ++x)
-			buffer[y * stride + x] = color;
+			buffer[(16 + y) * stride + x + 32] = color;
 }
 
 int main(int argc, char** argv)
