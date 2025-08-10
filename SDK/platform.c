@@ -48,11 +48,15 @@ void shutdowncleanup()
 
 		// Shutdown platform
 		SPShutdownPlatform(g_activePlatform);
+
+		// Do not repeat
+		g_activePlatform = NULL;
 	}
 }
 
-void sigint_handler(int s)
+static void signal_handler(int s)
 {
+	// We don't currently care about which signal was received and simply shut down the platform
 	shutdowncleanup();
 	exit(0);
 }
@@ -118,9 +122,16 @@ struct SPPlatform* SPInitPlatform()
 
 		// Register exit handlers
 		atexit(shutdowncleanup);
-		signal(SIGINT, &sigint_handler);
-		signal(SIGTERM, &sigint_handler);
-		signal(SIGSEGV, &sigint_handler);
+
+		sigemptyset(&sa.sa_mask);
+		sa.sa_flags = 0;
+		sa.sa_handler = signal_handler;
+		if (sigaction(SIGINT, &sa, NULL) == -1)
+			errExit("sigaction(SIGINT)");
+		if (sigaction(SIGTERM, &sa, NULL) == -1)
+			errExit("sigaction(SIGTERM)");
+		if (sigaction(SIGSEGV, &sa, NULL) == -1)
+			errExit("sigaction(SIGSEGV)");
 
 		platform->ready = 1;
 	}
