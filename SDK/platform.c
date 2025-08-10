@@ -115,6 +115,7 @@ struct SPPlatform* SPInitPlatform()
 
 	if (!err)
 	{
+		platform->ready = 1;
 		platform->vx = (struct EVideoContext*)malloc(sizeof(struct EVideoContext));
 		platform->ac = (struct EAudioContext*)malloc(sizeof(struct EAudioContext));
 		platform->sc = (struct EVideoSwapContext*)malloc(sizeof(struct EVideoSwapContext));
@@ -123,19 +124,28 @@ struct SPPlatform* SPInitPlatform()
 		// Register exit handlers
 		atexit(shutdowncleanup);
 
+		struct sigaction sa;
 		sigemptyset(&sa.sa_mask);
 		sa.sa_flags = 0;
 		sa.sa_handler = signal_handler;
 		if (sigaction(SIGINT, &sa, NULL) == -1)
-			errExit("sigaction(SIGINT)");
+		{
+			perror("sigaction(SIGINT)");
+			err = 1;
+		}
 		if (sigaction(SIGTERM, &sa, NULL) == -1)
-			errExit("sigaction(SIGTERM)");
+		{
+			perror("sigaction(SIGTERM)");
+			err = 1;
+		}
 		if (sigaction(SIGSEGV, &sa, NULL) == -1)
-			errExit("sigaction(SIGSEGV)");
-
-		platform->ready = 1;
+		{
+			perror("sigaction(SIGSEGV)");
+			err = 1;
+		}
 	}
-	else
+
+	if (err)
 	{
 		SPShutdownPlatform(platform);
 		return NULL;
