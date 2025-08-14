@@ -13,7 +13,9 @@
 #include "apu.h"
 #include "vpu.h"
 
+extern "C" {
 #include "xmp.h"
+}
 
 struct SPPlatform* s_platform = NULL;
 

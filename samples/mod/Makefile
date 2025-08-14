@@ -27,12 +27,12 @@ else
 ARM_GCC ?= g++
 endif
 
-ARM_GCC_OPTS += -std=c++20 -Ofast -flto -mcpu=cortex-a9 -mfpu=vfpv3 -mfloat-abi=hard
+ARM_GCC_OPTS += -Ofast -flto -mcpu=cortex-a9 -mfpu=vfpv3 -mfloat-abi=hard
 ARM_GCC_OPTS += -DLIBXMP_NO_DEPACKERS -DLIBXMP_CORE_PLAYER -Wno-narrowing
-ARM_GCC_LIBS += -lgcc -lc -lm -pthread
+ARM_GCC_LIBS += -lgcc -lc -lm -pthread -L../../3rdparty/libxmp/ -lxmp
 
 incs  += -I$(src_dir) -I$(corelib_dir)/ -I$(libxmp)/include/ -I$(libxmp)/src/ -I$(src_dir)/.
-libs += $(wildcard $(corelib_dir)/*.c) $(wildcard $(libxmp)/src/*.c) $(wildcard $(libxmp)/src/loaders/*.c)
+libs += $(wildcard $(corelib_dir)/*.c)
 
 $(foreach folder,$(folders),$(eval $(call compile_template,$(folder))))
 
