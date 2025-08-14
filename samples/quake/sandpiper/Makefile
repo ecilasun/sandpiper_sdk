@@ -15,7 +15,7 @@ else
 ARM_GCC ?= gcc
 endif
 
-ARM_GCC_OPTS = -std=gnu99 -Ofast -flto -mcpu=cortex-a9 -mfpu=vfpv3 -mfloat-abi=hard
+ARM_GCC_OPTS = -std=gnu99 -O0 -g -mcpu=cortex-a9 -mfpu=vfpv3 -mfloat-abi=hard
 ARM_GCC_LIBS = -lgcc -lc -lm
 
 SOURCES_quake_arch := \

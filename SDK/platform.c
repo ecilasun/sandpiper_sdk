@@ -231,7 +231,7 @@ int SPAllocateBuffer(struct SPPlatform* _platform, struct SPSizeAlloc* _sizeallo
 	}
 }
 
-void SPFreeBuffer(struct SPPlatform* /*_platform*/, struct SPSizeAlloc */*_sizealloc*/)
+void SPFreeBuffer(struct SPPlatform* _platform, struct SPSizeAlloc *_sizealloc)
 {
 	// TODO
 }
