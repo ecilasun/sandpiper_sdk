@@ -239,6 +239,11 @@ void VPUSetVideoMode(struct EVideoContext *_context, const enum EVideoMode _mode
 	}
 }
 
+void VPUNoop(struct EVideoContext *_context)
+{
+	videowrite32(_context->m_platform, VPUCMD_NOOP);
+}
+
 void VPUSetScanoutAddress(struct EVideoContext *_context, const uint32_t _scanOutAddress64ByteAligned)
 {
 	_context->m_scanoutAddressCacheAligned = _scanOutAddress64ByteAligned;

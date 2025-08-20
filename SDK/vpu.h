@@ -15,6 +15,8 @@
 #define VPUCMD_WPROGADDRS	0x0000000A
 #define VPUCMD_WPROGDATA	0x0000000B
 
+#define VPUCMD_NOOP			0x000000FF
+
 #define VPU_AUTO 0xFFFF
 
 #define DEFAULT_VIDE_SCANOUT_START      0x18000000
@@ -53,6 +55,7 @@ uint32_t VPUGetStride(const enum EVideoMode _mode, const enum EColorMode _cmode)
 void VPUGetDimensions(const enum EVideoMode _mode, uint32_t *_width, uint32_t *_height);
 
 // Hardware
+void VPUNoop(struct EVideoContext *_context);
 void VPUSetScanoutAddress(struct EVideoContext *_context, const uint32_t _scanOutAddress64ByteAligned);
 void VPUSetPal(struct EVideoContext *_context, const uint8_t _paletteIndex, const uint32_t _red, const uint32_t _green, const uint32_t _blue);
 void VPUSetVideoMode(struct EVideoContext *_context, const enum EVideoMode _mode, const enum EColorMode _cmode, const enum EVideoScanoutEnable _scanEnable);
