@@ -10,6 +10,10 @@
 #define VPUCMD_SHIFTPIXEL	0x00000005
 #define VPUCMD_SETVPAGE2	0x00000006
 #define VPUCMD_SYNCSWAP		0x00000007
+#define VPUCMD_WCONTROLREG	0x00000008
+#define VPUCMD_WPROG		0x00000009
+#define VPUCMD_WPROGADDRS	0x0000000A
+#define VPUCMD_WPROGDATA	0x0000000B
 
 #define VPU_AUTO 0xFFFF
 
@@ -60,6 +64,11 @@ void VPUSyncSwap(struct EVideoContext *_context, uint8_t _donotwaitforvsync);
 uint32_t VPUReadVBlankCounter(struct EVideoContext *_context);
 uint32_t VPUGetScanline(struct EVideoContext *_context);
 uint32_t VPUGetFIFONotEmpty(struct EVideoContext *_context);
+void VPUWriteControlRegister(struct EVideoContext *_context, uint8_t _setFlag, uint8_t _value);
+void VPUProgramWriteMask(struct EVideoContext *_context, uint8_t _mask);
+void VPUSetProgramAddress(struct EVideoContext *_context, uint32_t _programAddress);
+void VPUWriteProgramWord(struct EVideoContext *_context, uint32_t _word);
+uint8_t VPUReadControlRegister(struct EVideoContext *_context);
 
 void VPUClear(struct EVideoContext *_context, const uint32_t _colorWord);
 void VPUSetDefaultPalette(struct EVideoContext *_context);

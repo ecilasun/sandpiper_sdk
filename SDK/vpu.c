@@ -284,6 +284,34 @@ uint32_t VPUGetFIFONotEmpty(struct EVideoContext *_context)
 	return (videoread32(_context->m_platform) & 0x800) >> 11;
 }
 
+void VPUWriteControlRegister(struct EVideoContext *_context, uint8_t _setFlag, uint8_t _value)
+{
+	// _setFlag determines whether to set (1) or clear (0) the control register bits
+	videowrite32(_context->m_platform, VPUCMD_WCONTROLREG | (_setFlag ? (1 << 8) : 0) | (_value << 9));
+}
+
+void VPUProgramWriteMask(struct EVideoContext *_context, uint8_t _mask)
+{
+	videowrite32(_context->m_platform, VPUCMD_WPROG | ((_mask*0xF) << 8));
+}
+
+void VPUSetProgramAddress(struct EVideoContext *_context, uint32_t _programAddress)
+{
+	videowrite32(_context->m_platform, VPUCMD_WPROGADDRS);
+	videowrite32(_context->m_platform, _programAddress);
+}
+
+void VPUWriteProgramWord(struct EVideoContext *_context, uint32_t _word)
+{
+	videowrite32(_context->m_platform, VPUCMD_WPROGDATA);
+	videowrite32(_context->m_platform, _word);
+}
+
+uint8_t VPUReadControlRegister(struct EVideoContext *_context)
+{
+	return (uint8_t)((videoread32(_context->m_platform) & 0xFF000) >> 12);
+}
+
 void VPUSwapPages(struct EVideoContext* _context, struct EVideoSwapContext *_sc)
 {
 	_sc->readpage = ((_sc->cycle)%2) ? _sc->framebufferA->dmaAddress : _sc->framebufferB->dmaAddress;
