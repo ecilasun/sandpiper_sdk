@@ -8,7 +8,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-//#include <unistd.h> // for usleep()
+#include <unistd.h> // for usleep()
 
 #include "core.h"
 #include "platform.h"
@@ -103,6 +103,8 @@ int main(int argc, char** argv)
 
 			// Next, submit a syncswap command
 			VPUSyncSwap(s_platform->vx, 0);
+
+			// usleep(16667);
 
 			// At this point the CPU is free to do more work on next
 			// buffer, since the VPU will handle precise swap timing
