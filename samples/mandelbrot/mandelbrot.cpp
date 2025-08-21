@@ -13,6 +13,7 @@
 #include <cmath>
 #include <signal.h>
 #include <pthread.h>
+#include <atomic>
 
 #include "core.h"
 #include "platform.h"
@@ -30,7 +31,8 @@ struct SThreadData
 	int tilex;
 	int tiley;
 	float R;
-	volatile int running;
+	std::atomic<bool> go;
+	std::atomic<bool> running;
 };
 
 void InitThreadData(SThreadData* data, int tid, float R, int tilex, int tiley)
@@ -39,7 +41,8 @@ void InitThreadData(SThreadData* data, int tid, float R, int tilex, int tiley)
 	data->tilex = tilex;
 	data->tiley = tiley;
 	data->R = R;
-	data->running = 0;
+	data->go.store(false);
+	data->running.store(false);
 }
 
 float evalMandel(const int maxiter, int col, int row, float ox, float oy, float sx)
@@ -94,12 +97,21 @@ void* mandelbrot(void* arg)
 {
 	SThreadData* data = (SThreadData*)arg;
 
-	printf(">%d\n", data->tid);
-	int tilex = data->tilex;
-	int tiley = data->tiley;
-	float R = data->R;
-	mandelbrotFloat(X, Y, R, tilex, tiley);
-	data->running = 0;
+	while(1)
+	{
+		if (data->go.load())
+		{
+			printf(">%d\n", data->tid);
+			int tilex = data->tilex;
+			int tiley = data->tiley;
+			float R = data->R;
+			data->go.store(false);
+			mandelbrotFloat(X, Y, R, tilex, tiley);
+			data->running.store(false);
+		}
+
+		sched_yield();
+	}
 
 	return NULL;
 }
@@ -176,32 +188,32 @@ int main()
 	int success = pthread_create(&thread1, &attr1, mandelbrot, threadData1);
 	//success = pthread_create(&thread2, &attr2, mandelbrot, threadData2);
 
-	//pthread_join(thread1, NULL);
+	pthread_join(thread1, NULL);
 	//pthread_join(thread2, NULL);
 
 	int tilex = 0;
 	int tiley = 0;
 	while(1)
 	{
-		if (threadData1->running == 0)
+		if (threadData1->running.load() == false)
 		{
-			threadData1->running = 1;
 			printf("<%d\n", threadData1->tid);
-			pthread_join(thread1, NULL);
+			threadData1->running.store(true);
 			PickNextTile(&tilex, &tiley, &R);
 			threadData1->tilex = tilex;
 			threadData1->tiley = tiley;
 			threadData1->R = R;
+			threadData1->go.store(true);
 		}
 
-		/*if (threadData2->running == 0)
+		/*if (threadData2->running.load() == false)
 		{
-			threadData2->running = 1;
+			threadData2->running.store(true);
 			PickNextTile(&tilex, &tiley, &R);
 			threadData2->tilex = tilex;
 			threadData2->tiley = tiley;
 			threadData2->R = R;
-			threadData2->go = 1;
+			threadData2->go.store(true);
 		}*/
 
 		sched_yield();
