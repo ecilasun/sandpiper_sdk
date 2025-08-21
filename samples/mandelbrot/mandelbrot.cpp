@@ -113,7 +113,7 @@ void* mandelbrot(void* arg)
 		sched_yield();
 	}
 
-	return NULL;
+	pthread_exit(NULL);
 }
 
 void PickNextTile(int* tilex, int* tiley, float* R)
@@ -158,39 +158,39 @@ int main()
 
 	float R = 4.0E-6f + 0.01f;
 
-	SThreadData *threadData1;
+	//SThreadData *threadData1;
 	//SThreadData *threadData2;
-	pthread_t thread1;
+	//pthread_t thread1;
 	//pthread_t thread2;
-	pthread_attr_t attr1;
+	//pthread_attr_t attr1;
 	//pthread_attr_t attr2;
-	cpu_set_t cpuset1;
+	//cpu_set_t cpuset1;
 	//cpu_set_t cpuset2;
 
-	threadData1 = new SThreadData();
+	//threadData1 = new SThreadData();
 	//threadData2 = new SThreadData();
-	InitThreadData(threadData1, 1, R, 0, 0);
+	//InitThreadData(threadData1, 1, R, 0, 0);
 	//InitThreadData(threadData2, 2, R, 0, 0);
 
-	CPU_ZERO(&cpuset1);
+	//CPU_ZERO(&cpuset1);
 	//CPU_ZERO(&cpuset2);
-	CPU_SET(1, &cpuset1);
+	//CPU_SET(1, &cpuset1);
 	//CPU_SET(2, &cpuset2);
 
-	pthread_attr_init(&attr1);
-	pthread_attr_setaffinity_np(&attr1, sizeof(cpu_set_t), &cpuset1);
-	pthread_attr_setdetachstate(&attr1, PTHREAD_CREATE_JOINABLE);
+	// pthread_attr_init(&attr1);
+	// pthread_attr_setaffinity_np(&attr1, sizeof(cpu_set_t), &cpuset1);
+	// pthread_attr_setdetachstate(&attr1, PTHREAD_CREATE_JOINABLE);
 
 	// pthread_attr_init(&attr2);
 	// pthread_attr_setaffinity_np(&attr2, sizeof(cpu_set_t), &cpuset2);
 	// pthread_attr_setdetachstate(&attr2, PTHREAD_CREATE_JOINABLE);
 
 	// Create threads
-	int success = pthread_create(&thread1, &attr1, mandelbrot, (void*)threadData1);
-	if (success != 0) {
-		printf("Failed to create thread 1\n");
-		return -1;
-	}
+	//int success = pthread_create(&thread1, &attr1, mandelbrot, (void*)threadData1);
+	//if (success != 0) {
+	//	printf("Failed to create thread 1\n");
+	//	return -1;
+	//}
 
 	//success = pthread_create(&thread2, &attr2, mandelbrot, (void*)threadData2);
 	//if (success != 0) {
@@ -198,14 +198,17 @@ int main()
 	//	return -1;
 	//}
 
-	pthread_join(thread1, NULL);
+	//pthread_join(thread1, NULL);
 	//pthread_join(thread2, NULL);
 
 	int tilex = 0;
 	int tiley = 0;
 	while(1)
 	{
-		if (threadData1->running.load() == false)
+		PickNextTile(&tilex, &tiley, &R);
+		mandelbrotFloat(X, Y, R, tilex, tiley);
+
+		/*if (threadData1->running.load() == false)
 		{
 			printf("<%d\n", threadData1->tid);
 			threadData1->running.store(true);
@@ -214,7 +217,7 @@ int main()
 			threadData1->tiley = tiley;
 			threadData1->R = R;
 			threadData1->go.store(true);
-		}
+		}*/
 
 		/*if (threadData2->running.load() == false)
 		{
@@ -229,7 +232,7 @@ int main()
 		sched_yield();
 	}
 
-	pthread_attr_destroy(&attr1);
+	//pthread_attr_destroy(&attr1);
 	//pthread_attr_destroy(&attr2);
 
 	return 0;
