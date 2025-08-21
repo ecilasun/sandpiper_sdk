@@ -30,7 +30,6 @@ struct SThreadData
 	int tilex;
 	int tiley;
 	float R;
-	volatile int go;
 	volatile int running;
 };
 
@@ -40,7 +39,6 @@ void InitThreadData(SThreadData* data, int tid, float R, int tilex, int tiley)
 	data->tilex = tilex;
 	data->tiley = tiley;
 	data->R = R;
-	data->go = 0;
 	data->running = 0;
 }
 
@@ -100,7 +98,6 @@ void* mandelbrot(void* arg)
 	int tilex = data->tilex;
 	int tiley = data->tiley;
 	float R = data->R;
-	data->go = 0;
 	mandelbrotFloat(X, Y, R, tilex, tiley);
 	data->running = 0;
 
@@ -188,14 +185,13 @@ int main()
 	{
 		if (threadData1->running == 0)
 		{
+			threadData1->running = 1;
 			printf("<%d\n", threadData1->tid);
 			pthread_join(thread1, NULL);
-			threadData1->running = 1;
 			PickNextTile(&tilex, &tiley, &R);
 			threadData1->tilex = tilex;
 			threadData1->tiley = tiley;
 			threadData1->R = R;
-			threadData1->go = 1;
 		}
 
 		/*if (threadData2->running == 0)
