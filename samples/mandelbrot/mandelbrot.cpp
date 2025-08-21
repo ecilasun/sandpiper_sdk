@@ -159,10 +159,26 @@ int main()
 
 	SThreadData threadData1, threadData2;
 	pthread_t thread1, thread2;
+	pthread_attr_t attr1, attr2;
+	cpu_set_t cpuset1, cpuset2;
+
+	CPU_ZERO(&cpuset1);
+	CPU_ZERO(&cpuset2);
+	CPU_SET(1, &cpuset1);
+	CPU_SET(2, &cpuset2);
+
+	pthread_attr_init(&attr1);
+	pthread_attr_setaffinity_np(&attr1, sizeof(cpu_set_t), &cpuset1);
+	pthread_attr_setdetachstate(&attr1, PTHREAD_CREATE_JOINABLE);
+
+	pthread_attr_init(&attr2);
+	pthread_attr_setaffinity_np(&attr2, sizeof(cpu_set_t), &cpuset2);
+	pthread_attr_setdetachstate(&attr2, PTHREAD_CREATE_JOINABLE);
+
 	InitThreadData(&threadData1, 0, R, 0, 0);
 	InitThreadData(&threadData2, 1, R, 0, 0);
-	int success = pthread_create(&thread1, NULL, mandelbrot, &threadData1);
-	success = pthread_create(&thread2, NULL, mandelbrot, &threadData2);
+	int success = pthread_create(&thread1, &attr1, mandelbrot, &threadData1);
+	success = pthread_create(&thread2, &attr2, mandelbrot, &threadData2);
 
 	pthread_join(thread1, NULL);
 	pthread_join(thread2, NULL);
@@ -193,6 +209,9 @@ int main()
 
 		sched_yield();
 	}
+
+	pthread_attr_destroy(&attr1);
+	pthread_attr_destroy(&attr2);
 
 	return 0;
 }
