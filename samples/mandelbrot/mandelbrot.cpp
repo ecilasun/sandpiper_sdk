@@ -98,9 +98,9 @@ void* mandelbrot(void* arg)
 
 	while(1)
 	{
-		printf("%d\n", data->tid);
 		if (data->go)
 		{
+			printf(">%d\n", data->tid);
 			int tilex = data->tilex;
 			int tiley = data->tiley;
 			float R = data->R;
@@ -196,6 +196,7 @@ int main()
 	{
 		if (threadData1->running == 0)
 		{
+			printf("<%d\n", data->tid);
 			threadData1->running = 1;
 			PickNextTile(&tilex, &tiley, &R);
 			threadData1->tilex = tilex;
