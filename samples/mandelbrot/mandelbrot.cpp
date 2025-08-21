@@ -218,7 +218,7 @@ int main()
 	}
 
 	pthread_attr_destroy(&attr1);
-	pthread_attr_destroy(&attr2);
+	//pthread_attr_destroy(&attr2);
 
 	return 0;
 }
