@@ -9,7 +9,7 @@ else
 	UNAME := $(shell uname)
 endif
 
-TARGET = vpudemo
+TARGET = vsyncdemo
 
 default: $(TARGET)
 
