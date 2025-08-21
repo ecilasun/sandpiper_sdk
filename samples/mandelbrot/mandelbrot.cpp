@@ -185,8 +185,18 @@ int main()
 	// pthread_attr_setaffinity_np(&attr2, sizeof(cpu_set_t), &cpuset2);
 	// pthread_attr_setdetachstate(&attr2, PTHREAD_CREATE_JOINABLE);
 
-	int success = pthread_create(&thread1, &attr1, mandelbrot, threadData1);
-	//success = pthread_create(&thread2, &attr2, mandelbrot, threadData2);
+	// Create threads
+	int success = pthread_create(&thread1, &attr1, mandelbrot, (void*)threadData1);
+	if (success != 0) {
+		printf("Failed to create thread 1\n");
+		return -1;
+	}
+
+	//success = pthread_create(&thread2, &attr2, mandelbrot, (void*)threadData2);
+	//if (success != 0) {
+	//	printf("Failed to create thread 2\n");
+	//	return -1;
+	//}
 
 	pthread_join(thread1, NULL);
 	//pthread_join(thread2, NULL);
