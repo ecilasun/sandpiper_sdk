@@ -104,10 +104,11 @@ void* mandelbrot(void* arg)
 			int tiley = data->tiley;
 			float R = data->R;
 			data->go = 0;
-			data->running = 1;
 			mandelbrotFloat(X, Y, R, tilex, tiley);
 			data->running = 0;
 		}
+
+		sched_yield();
 	}
 
 	return NULL;
@@ -174,6 +175,7 @@ int main()
 			threadData1.tiley = tiley;
 			threadData1.R = R;
 			threadData1.go = 1;
+			threadData1.running = 1;
 		}
 
 		if (threadData2.running == 0)
@@ -183,6 +185,7 @@ int main()
 			threadData2.tiley = tiley;
 			threadData2.R = R;
 			threadData2.go = 1;
+			threadData2.running = 1;
 		}
 	}
 
