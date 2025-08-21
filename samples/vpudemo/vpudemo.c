@@ -111,6 +111,10 @@ int main(int argc, char** argv)
 			// This will take effect on next vsync
 			VPUSyncSwap(s_platform->vx, 0);
 			VPUNoop(s_platform->vx);
+
+			// Important TODO:
+			// Since the swapped buffers are now unknown to us,
+			// we need to manually swap them here.
 		} while(1);
 	}
 	else
