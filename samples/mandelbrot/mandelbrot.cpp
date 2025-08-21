@@ -30,15 +30,16 @@ struct SThreadData
 	int tilex;
 	int tiley;
 	float R;
-	int go;
-	int running;
+	volatile int go;
+	volatile int running;
 };
 
-void InitThreadData(SThreadData* data, int tid, int tilex, int tiley)
+void InitThreadData(SThreadData* data, int tid, float R, int tilex, int tiley)
 {
 	data->tid = tid;
 	data->tilex = tilex;
 	data->tiley = tiley;
+	data->R = R;
 	data->go = 0;
 	data->running = 0;
 }
@@ -125,7 +126,7 @@ void PickNextTile(int* tilex, int* tiley, float* R)
 	if (*tiley == 15)
 	{
 		*tiley = 0;
-		// Zoom
+		// Zoom at last tile
 		*R += 0.0002f;
 	}
 }
@@ -154,39 +155,43 @@ int main()
 	VPUSwapPages(s_platform->vx, s_platform->sc);
 	VPUClear(s_platform->vx, 0x00000000);
 
+	float R = 4.0E-6f + 0.01f;
+
 	SThreadData threadData1, threadData2;
 	pthread_t thread1, thread2;
-	InitThreadData(&threadData1, 0, 0, 0);
-	InitThreadData(&threadData2, 1, 0, 0);
+	InitThreadData(&threadData1, 0, R, 0, 0);
+	InitThreadData(&threadData2, 1, R, 0, 0);
 	int success = pthread_create(&thread1, NULL, mandelbrot, &threadData1);
 	success = pthread_create(&thread2, NULL, mandelbrot, &threadData2);
+
 	pthread_join(thread1, NULL);
 	pthread_join(thread2, NULL);
 
 	int tilex = 0;
 	int tiley = 0;
-	float R = 4.0E-6f + 0.01f;
 	while(1)
 	{
 		if (threadData1.running == 0)
 		{
+			threadData1.running = 1;
 			PickNextTile(&tilex, &tiley, &R);
 			threadData1.tilex = tilex;
 			threadData1.tiley = tiley;
 			threadData1.R = R;
 			threadData1.go = 1;
-			threadData1.running = 1;
 		}
 
 		if (threadData2.running == 0)
 		{
+			threadData2.running = 1;
 			PickNextTile(&tilex, &tiley, &R);
 			threadData2.tilex = tilex;
 			threadData2.tiley = tiley;
 			threadData2.R = R;
 			threadData2.go = 1;
-			threadData2.running = 1;
 		}
+
+		sched_yield();
 	}
 
 	return 0;
