@@ -95,13 +95,12 @@ void mandelbrotFloat(float ox, float oy, float sx, int tilex, int tiley)
 void* mandelbrot(void* arg)
 {
 	SThreadData* data = (SThreadData*)arg;
-	int tid = data->tid;
 
 	while(1)
 	{
 		if (data->go)
 		{
-			printf("%d\n", tid);
+			printf("%d\n", data->tid);
 			int tilex = data->tilex;
 			int tiley = data->tiley;
 			float R = data->R;
@@ -182,10 +181,10 @@ int main()
 	pthread_attr_setdetachstate(&attr2, PTHREAD_CREATE_JOINABLE);
 
 	int success = pthread_create(&thread1, &attr1, mandelbrot, threadData1);
-	success = pthread_create(&thread2, &attr2, mandelbrot, threadData2);
+	//success = pthread_create(&thread2, &attr2, mandelbrot, threadData2);
 
 	pthread_join(thread1, NULL);
-	pthread_join(thread2, NULL);
+	//pthread_join(thread2, NULL);
 
 	int tilex = 0;
 	int tiley = 0;
