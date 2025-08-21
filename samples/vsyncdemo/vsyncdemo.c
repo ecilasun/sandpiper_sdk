@@ -1,5 +1,5 @@
 /*
-	@file vpudemo.c
+	@file vsyncdemo.c
 	@brief Demonstrates how to use the Video Processing Unit (VPU).
 	@note WARNING! Very rapid flickering, observe with caution.
 */
@@ -24,7 +24,7 @@ struct SPSizeAlloc frameBufferB;
 
 void printusage()
 {
-	printf("vpudemo\nusage: vpudemo [arg]\nargs\ncpu : demo of CPU based vsync\nvpu: demo of VPU based vsync\n");
+	printf("vsyncdemo\nusage: vsyncdemo [arg]\nargs\ncpu : demo of CPU based vsync\nvpu: demo of VPU based vsync\n");
 }
 
 int main(int argc, char** argv)
