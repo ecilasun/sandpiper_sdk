@@ -26,7 +26,7 @@ else
 ARM_GCC ?= g++
 endif
 
-ARM_GCC_OPTS += -std=c++20 -Ofast -flto -mcpu=cortex-a9 -mfpu=vfpv3 -mfloat-abi=hard
+ARM_GCC_OPTS += -std=c++20 -O0 -g -mcpu=cortex-a9 -mfpu=vfpv3 -mfloat-abi=hard
 ARM_GCC_LIBS += -lgcc -lc -lm -pthread
 
 incs  += -I$(src_dir) -I$(corelib_dir) $(addprefix -I$(src_dir)/, $(folders))
