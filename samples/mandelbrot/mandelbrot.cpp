@@ -29,6 +29,7 @@ struct SThreadData
 	int tid;
 	int tilex;
 	int tiley;
+	float R;
 	int go;
 	int running;
 };
@@ -94,13 +95,14 @@ void* mandelbrot(void* arg)
 {
 	SThreadData* data = (SThreadData*)arg;
 	int tid = data->tid;
-	int tilex = data->tilex;
-	int tiley = data->tiley;
 
 	while(1)
 	{
 		if (data->go)
 		{
+			int tilex = data->tilex;
+			int tiley = data->tiley;
+			float R = data->R;
 			data->go = 0;
 			data->running = 1;
 			mandelbrotFloat(X, Y, R, tilex, tiley);
@@ -170,6 +172,7 @@ int main()
 			PickNextTile(&tilex, &tiley, &R);
 			threadData1.tilex = tilex;
 			threadData1.tiley = tiley;
+			threadData1.R = R;
 			threadData1.go = 1;
 		}
 
@@ -178,6 +181,7 @@ int main()
 			PickNextTile(&tilex, &tiley, &R);
 			threadData2.tilex = tilex;
 			threadData2.tiley = tiley;
+			threadData2.R = R;
 			threadData2.go = 1;
 		}
 	}
