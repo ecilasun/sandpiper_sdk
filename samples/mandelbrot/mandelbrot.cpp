@@ -96,21 +96,13 @@ void* mandelbrot(void* arg)
 {
 	SThreadData* data = (SThreadData*)arg;
 
-	while(1)
-	{
-		if (data->go)
-		{
-			printf(">%d\n", data->tid);
-			int tilex = data->tilex;
-			int tiley = data->tiley;
-			float R = data->R;
-			data->go = 0;
-			mandelbrotFloat(X, Y, R, tilex, tiley);
-			data->running = 0;
-		}
-
-		sched_yield();
-	}
+	printf(">%d\n", data->tid);
+	int tilex = data->tilex;
+	int tiley = data->tiley;
+	float R = data->R;
+	data->go = 0;
+	mandelbrotFloat(X, Y, R, tilex, tiley);
+	data->running = 0;
 
 	return NULL;
 }
@@ -187,7 +179,7 @@ int main()
 	int success = pthread_create(&thread1, &attr1, mandelbrot, threadData1);
 	//success = pthread_create(&thread2, &attr2, mandelbrot, threadData2);
 
-	pthread_join(thread1, NULL);
+	//pthread_join(thread1, NULL);
 	//pthread_join(thread2, NULL);
 
 	int tilex = 0;
@@ -196,7 +188,8 @@ int main()
 	{
 		if (threadData1->running == 0)
 		{
-			printf("<%d\n", data->tid);
+			printf("<%d\n", threadData1->tid);
+			pthread_join(thread1, NULL);
 			threadData1->running = 1;
 			PickNextTile(&tilex, &tiley, &R);
 			threadData1->tilex = tilex;
