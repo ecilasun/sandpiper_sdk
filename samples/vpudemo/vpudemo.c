@@ -22,11 +22,16 @@ static struct SPPlatform* s_platform = NULL;
 struct SPSizeAlloc frameBufferA;
 struct SPSizeAlloc frameBufferB;
 
+void printusage()
+{
+	printf("vpudemo\nusage: vpudemo [arg]\nargs\ncpu : demo of CPU based vsync\nvpu: demo of VPU based vsync\n");
+}
+
 int main(int argc, char** argv)
 {
 	if (argc <= 1)
 	{
-		printf("vpudemo\nusage: vpudemo [arg]\nargs\ncpu : demo of CPU based vsync\nvpu: demo of VPU based vsync\n");
+		printusage();
 		return 0;
 	}
 
@@ -39,6 +44,9 @@ int main(int argc, char** argv)
 	// Set a color palette since we're in indexed color mode
 	// Here we're using the built-in default, check the VPUSetDefaultPalette() function to roll your own.
 	VPUSetDefaultPalette(s_platform->vx);
+
+	uint8_t regs = VPUReadControlRegister(s_platform->vx);
+	printf("VPU control registers: %2X\n", regs);
 
 	// Allocate our two frame buffers
 	uint32_t stride = VPUGetStride(VIDEO_MODE, VIDEO_COLOR);
@@ -94,22 +102,19 @@ int main(int argc, char** argv)
 		do
 		{
 			// First, make sure the VPU has no pending commands
-			while(VPUGetFIFONotEmpty(s_platform->vx))
-			{
-				//usleep(1000);
-			}
+			while(VPUGetFIFONotEmpty(s_platform->vx)) { }
 
-			// TODO: Draw game frame here
-
-			// Next, submit a syncswap command
-			VPUSyncSwap(s_platform->vx, 0);
-
+			// Draw the game frame here
 			// usleep(16667);
 
-			// At this point the CPU is free to do more work on next
-			// buffer, since the VPU will handle precise swap timing
+			// Next, submit a syncswap command
+			// This will take effect on next vsync
+			VPUSyncSwap(s_platform->vx, 0);
+			VPUNoop(s_platform->vx);
 		} while(1);
 	}
+	else
+		printusage();
 
 	return 0;
 }
