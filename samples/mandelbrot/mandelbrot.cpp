@@ -101,6 +101,7 @@ void* mandelbrot(void* arg)
 	{
 		if (data->go)
 		{
+			printf("%d\n", tid);
 			int tilex = data->tilex;
 			int tiley = data->tiley;
 			float R = data->R;
@@ -157,10 +158,15 @@ int main()
 
 	float R = 4.0E-6f + 0.01f;
 
-	SThreadData threadData1, threadData2;
+	SThreadData *threadData1, *threadData2;
 	pthread_t thread1, thread2;
 	pthread_attr_t attr1, attr2;
 	cpu_set_t cpuset1, cpuset2;
+
+	threadData1 = new SThreadData();
+	threadData2 = new SThreadData();
+	InitThreadData(threadData1, 1, R, 0, 0);
+	InitThreadData(threadData2, 2, R, 0, 0);
 
 	CPU_ZERO(&cpuset1);
 	CPU_ZERO(&cpuset2);
@@ -175,10 +181,8 @@ int main()
 	pthread_attr_setaffinity_np(&attr2, sizeof(cpu_set_t), &cpuset2);
 	pthread_attr_setdetachstate(&attr2, PTHREAD_CREATE_JOINABLE);
 
-	InitThreadData(&threadData1, 0, R, 0, 0);
-	InitThreadData(&threadData2, 1, R, 0, 0);
-	int success = pthread_create(&thread1, &attr1, mandelbrot, &threadData1);
-	success = pthread_create(&thread2, &attr2, mandelbrot, &threadData2);
+	int success = pthread_create(&thread1, &attr1, mandelbrot, threadData1);
+	success = pthread_create(&thread2, &attr2, mandelbrot, threadData2);
 
 	pthread_join(thread1, NULL);
 	pthread_join(thread2, NULL);
@@ -187,24 +191,24 @@ int main()
 	int tiley = 0;
 	while(1)
 	{
-		if (threadData1.running == 0)
+		if (threadData1->running == 0)
 		{
-			threadData1.running = 1;
+			threadData1->running = 1;
 			PickNextTile(&tilex, &tiley, &R);
-			threadData1.tilex = tilex;
-			threadData1.tiley = tiley;
-			threadData1.R = R;
-			threadData1.go = 1;
+			threadData1->tilex = tilex;
+			threadData1->tiley = tiley;
+			threadData1->R = R;
+			threadData1->go = 1;
 		}
 
-		if (threadData2.running == 0)
+		if (threadData2->running == 0)
 		{
-			threadData2.running = 1;
+			threadData2->running = 1;
 			PickNextTile(&tilex, &tiley, &R);
-			threadData2.tilex = tilex;
-			threadData2.tiley = tiley;
-			threadData2.R = R;
-			threadData2.go = 1;
+			threadData2->tilex = tilex;
+			threadData2->tiley = tiley;
+			threadData2->R = R;
+			threadData2->go = 1;
 		}
 
 		sched_yield();
