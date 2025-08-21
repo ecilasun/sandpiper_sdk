@@ -98,9 +98,9 @@ void* mandelbrot(void* arg)
 
 	while(1)
 	{
+		printf("%d\n", data->tid);
 		if (data->go)
 		{
-			printf("%d\n", data->tid);
 			int tilex = data->tilex;
 			int tiley = data->tiley;
 			float R = data->R;
@@ -157,28 +157,32 @@ int main()
 
 	float R = 4.0E-6f + 0.01f;
 
-	SThreadData *threadData1, *threadData2;
-	pthread_t thread1, thread2;
-	pthread_attr_t attr1, attr2;
-	cpu_set_t cpuset1, cpuset2;
+	SThreadData *threadData1;
+	//SThreadData *threadData2;
+	pthread_t thread1;
+	//pthread_t thread2;
+	pthread_attr_t attr1;
+	//pthread_attr_t attr2;
+	cpu_set_t cpuset1;
+	//cpu_set_t cpuset2;
 
 	threadData1 = new SThreadData();
-	threadData2 = new SThreadData();
+	//threadData2 = new SThreadData();
 	InitThreadData(threadData1, 1, R, 0, 0);
-	InitThreadData(threadData2, 2, R, 0, 0);
+	//InitThreadData(threadData2, 2, R, 0, 0);
 
 	CPU_ZERO(&cpuset1);
-	CPU_ZERO(&cpuset2);
+	//CPU_ZERO(&cpuset2);
 	CPU_SET(1, &cpuset1);
-	CPU_SET(2, &cpuset2);
+	//CPU_SET(2, &cpuset2);
 
 	pthread_attr_init(&attr1);
 	pthread_attr_setaffinity_np(&attr1, sizeof(cpu_set_t), &cpuset1);
 	pthread_attr_setdetachstate(&attr1, PTHREAD_CREATE_JOINABLE);
 
-	pthread_attr_init(&attr2);
-	pthread_attr_setaffinity_np(&attr2, sizeof(cpu_set_t), &cpuset2);
-	pthread_attr_setdetachstate(&attr2, PTHREAD_CREATE_JOINABLE);
+	// pthread_attr_init(&attr2);
+	// pthread_attr_setaffinity_np(&attr2, sizeof(cpu_set_t), &cpuset2);
+	// pthread_attr_setdetachstate(&attr2, PTHREAD_CREATE_JOINABLE);
 
 	int success = pthread_create(&thread1, &attr1, mandelbrot, threadData1);
 	//success = pthread_create(&thread2, &attr2, mandelbrot, threadData2);
@@ -200,7 +204,7 @@ int main()
 			threadData1->go = 1;
 		}
 
-		if (threadData2->running == 0)
+		/*if (threadData2->running == 0)
 		{
 			threadData2->running = 1;
 			PickNextTile(&tilex, &tiley, &R);
@@ -208,7 +212,7 @@ int main()
 			threadData2->tiley = tiley;
 			threadData2->R = R;
 			threadData2->go = 1;
-		}
+		}*/
 
 		sched_yield();
 	}
