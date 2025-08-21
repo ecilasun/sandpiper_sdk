@@ -120,15 +120,22 @@ int main()
 		}
 		if (tiley == 15)
 		{
-			tiley = 0;
+			// Ensure VPU fifo is empty (meaning we've processed the Noop in the following list)
+			while(VPUGetFIFONotEmpty(s_platform->vx)) { }
 
-			VPUWaitVSync(s_platform->vx);
-			VPUSwapPages(s_platform->vx, s_platform->sc);
+			tiley = 0;
 
 			x_c += x_c_i;
 			if (x_c < XCmin || x_c > XCmax) { x_c_i = - x_c_i; }
 			y_c += y_c_i;
 			if (y_c < YCmin || y_c > YCmax) { y_c_i = - y_c_i; }
+
+			// Flip when video beam reaches vblank (this is async)
+			VPUSyncSwap(s_platform->vx, 0);
+			VPUNoop(s_platform->vx);
+
+			// We can now assume the new page is in effect, swap to it
+			VPUSwapPages(s_platform->vx, s_platform->sc);
 		}
 	}
 
