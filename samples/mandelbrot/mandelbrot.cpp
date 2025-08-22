@@ -206,6 +206,9 @@ int main()
 	while(1)
 	{
 		PickNextTile(&tilex, &tiley, &R);
+
+//		if ((tilex+tiley*21)%2==0) -> CPU0 else CPU1
+
 		mandelbrotFloat(X, Y, R, tilex, tiley);
 
 		/*if (threadData1->running.load() == false)
