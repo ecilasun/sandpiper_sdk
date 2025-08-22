@@ -120,7 +120,10 @@ int main()
 		}
 		if (tiley == 15)
 		{
-			// Ensure VPU fifo is empty (meaning we've processed the Noop in the following list)
+			// Ensure VPU fifo is empty
+			// This means there are no pending commands on the VPU
+			// i.e. we have already processed the vsync and the
+			// barrier after it.
 			while(VPUGetFIFONotEmpty(s_platform->vx)) { }
 
 			tiley = 0;
@@ -132,6 +135,8 @@ int main()
 
 			// Flip when video beam reaches vblank (this is async)
 			VPUSyncSwap(s_platform->vx, 0);
+			// Acts as a barrier since the command after
+			// vsync is consumed after vsync wait.
 			VPUNoop(s_platform->vx);
 
 			// We can now assume the new page is in effect, swap to it
