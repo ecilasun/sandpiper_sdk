@@ -22,7 +22,7 @@ SOURCES_quake_arch := \
 	../../SDK/platform.c \
 	../../SDK/vpu.c \
 	../../SDK/apu.c \
-	sandpiper/display.c \
+	sandpiper/platformav.c \
 	sandpiper/fio.c \
 	sandpiper/main.c \
 	sandpiper/cd_null.c \

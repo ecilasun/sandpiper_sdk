@@ -6,6 +6,7 @@
 #include "core.h"
 #include "platform.h"
 #include "vpu.h"
+#include "apu.h"
 
 #define	DISPLAY_WIDTH 320
 #define	DISPLAY_HEIGHT 240
