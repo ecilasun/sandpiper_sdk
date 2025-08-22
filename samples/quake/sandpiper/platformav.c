@@ -24,10 +24,20 @@ int qembd_get_height()
 	return DISPLAY_HEIGHT;
 }
 
-void qembd_vidinit()
+void qembd_platform_init()
 {
 	// Initialize platform and video system
 	s_platform = SPInitPlatform();
+}
+
+void qembd_sndinit()
+{
+	// Initialize sound system
+	APUInitAudio(s_platform->ac, s_platform);
+}
+
+void qembd_vidinit()
+{
 	VPUInitVideo(s_platform->vx, s_platform);
 
 	// Grab video buffer

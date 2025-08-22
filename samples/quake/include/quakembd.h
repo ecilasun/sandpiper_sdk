@@ -68,6 +68,8 @@ typedef struct {
 
 int qembd_get_width();
 int qembd_get_height();
+void qembd_platform_init();
+void qembd_sndinit();
 void qembd_vidinit();
 void qembd_fillrect(uint8_t *src, uint16_t x, uint16_t y, uint16_t xsize, uint16_t ysize);
 void qembd_refresh();

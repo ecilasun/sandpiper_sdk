@@ -28,6 +28,7 @@ cvar_t volume = {"volume", "0.7", true};
  
 void S_Init (void)
 {
+	qembd_sndinit();
 }
 
 void S_AmbientOff (void)

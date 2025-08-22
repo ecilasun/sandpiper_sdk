@@ -732,6 +732,8 @@ void Host_Init (quakeparms_t *parms)
 	com_argc = parms->argc;
 	com_argv = parms->argv;
 
+	qembd_platform_init();
+
 	Memory_Init (parms->membase, parms->memsize);
 	Cbuf_Init ();
 	Cmd_Init ();	
