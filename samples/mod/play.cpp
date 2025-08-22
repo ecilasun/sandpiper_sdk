@@ -76,6 +76,10 @@ void *draw_wave(void *data)
 
 	while(1)
 	{
+		// Make sure we've hit the vsync at least once
+		while(VPUGetFIFONotEmpty(s_platform->vx)) { }
+		VPUSwapPages(s_platform->vx, s_platform->sc);
+
 		//VPUClear(s_platform->vx, 0x00000000);
 
 		short* buf = (short*)apubuffer.cpuAddress;
@@ -138,8 +142,9 @@ void *draw_wave(void *data)
 		for (uint32_t i=0;i<320*240;++i)
 			s_platform->sc->writepage[i] = std::max(0, s_platform->sc->writepage[i]>>1);
 
-		VPUWaitVSync(s_platform->vx);
-		VPUSwapPages(s_platform->vx, s_platform->sc);
+		// Let VPU handle the vsync and scanout swap
+		VPUSyncSwap(s_platform->vx, 0);
+		VPUNoop(s_platform->vx);
 
 		sched_yield();
 	}
@@ -233,10 +238,14 @@ int main(int argc, char *argv[])
 	s_platform->sc->cycle = 0;
 	s_platform->sc->framebufferA = &bufferA;
 	s_platform->sc->framebufferB = &bufferB;
-	VPUSwapPages(s_platform->vx, s_platform->sc);
+
+	VPUSetScanoutAddress(s_platform->vx, (uint32_t)bufferA.dmaAddress);
+	VPUSetScanoutAddress2(s_platform->vx, (uint32_t)bufferB.dmaAddress);
+
+	/*VPUSwapPages(s_platform->vx, s_platform->sc);
 	VPUClear(s_platform->vx, 0x00000000);
 	VPUSwapPages(s_platform->vx, s_platform->sc);
-	VPUClear(s_platform->vx, 0x00000000);
+	VPUClear(s_platform->vx, 0x00000000);*/
 
 	memset(barsL, 0, 256*sizeof(int16_t));
 	memset(barsR, 0, 256*sizeof(int16_t));
