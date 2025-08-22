@@ -78,6 +78,7 @@ void *draw_wave(void *data)
 	{
 		// Make sure we've hit the vsync at least once
 		while(VPUGetFIFONotEmpty(s_platform->vx)) { }
+		// VPU's swapped pages, so should we
 		VPUSwapPages(s_platform->vx, s_platform->sc);
 
 		//VPUClear(s_platform->vx, 0x00000000);
