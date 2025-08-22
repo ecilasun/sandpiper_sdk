@@ -82,12 +82,20 @@ int main(int argc, char** argv)
 
 		do
 		{
-			// TODO: Draw game frame here
+			// 1) Draw game frame here
+			// usleep(16667);
 
-			// Wait for vertical sync
+			// 2) Wait for vertical sync to occur
+			// This ensures that the following swap happens during the vertical blanking interval,
+			// preventing screen tearing.
 			VPUWaitVSync(s_platform->vx);
 
-			// Swap the framebuffers
+			// 3) Swap the framebuffers
+			// This makes the currently drawn buffer visible.
+			// We can now draw the next frame onto the other buffer.
+			// Unlike the VPU rendering, the buffer swap can't be missed, however we might
+			// have slightly longer and slightly off-vsync frames this way
+			// in case the CPU is late drawing a frame.
 			VPUSwapPages(s_platform->vx, s_platform->sc);
 		} while(1);
 	}
@@ -101,20 +109,30 @@ int main(int argc, char** argv)
 
 		do
 		{
-			// First, make sure the VPU has no pending commands
+			// 1) Ensure VPU fifo is empty
+			// This means there are no pending commands on the VPU
+			// i.e. we have already processed the vsync and the
+			// barrier after it.
 			while(VPUGetFIFONotEmpty(s_platform->vx)) { }
 
-			// Draw the game frame here
+			// 2) Draw the game frame here
 			// usleep(16667);
 
-			// Next, submit a syncswap command
-			// This will take effect on next vsync
+			// 3) Add a buffer swap commmand
+			// This will be processed by the VPU asynchronously when the video beam reaches the vertical blanking interval (vblank).
+			// NOTE: This always has to happen after the last write to the video buffer to avoid rendering artifacts.
+			// However, it can happen earlier than other CPU side end-of-frame operations.
 			VPUSyncSwap(s_platform->vx, 0);
+
+			// 4) Insert a no-operation command (barrier)
+			// Any command after the vsync command is not executed until the vsync has occurred.
+			// Therefore waiting for the FIFO to be empty after this ensures the vsync has completed.
+			// The wait is placed at the start of the next frame's rendering cycle (see the while loop above).
 			VPUNoop(s_platform->vx);
 
 			// Important TODO:
-			// Since the swapped buffers are now unknown to us,
-			// we need to manually swap them here.
+			// It is important that we call VPUSwapPages(s_platform->vx, s_platform->sc) here,
+			// after the barrier placed by VPUNoop(s_platform->vx) above to ensure proper synchronization.
 		} while(1);
 	}
 	else
