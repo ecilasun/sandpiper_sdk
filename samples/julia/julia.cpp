@@ -120,27 +120,24 @@ int main()
 		}
 		if (tiley == 15)
 		{
-			// Ensure VPU fifo is empty
-			// This means there are no pending commands on the VPU
-			// i.e. we have already processed the vsync and the
-			// barrier after it.
-			while(VPUGetFIFONotEmpty(s_platform->vx)) { }
-
+			// Do some pre-swap stuff
 			tiley = 0;
-
 			x_c += x_c_i;
 			if (x_c < XCmin || x_c > XCmax) { x_c_i = - x_c_i; }
 			y_c += y_c_i;
 			if (y_c < YCmin || y_c > YCmax) { y_c_i = - y_c_i; }
 
-			// Flip when video beam reaches vblank (this is async)
-			VPUSyncSwap(s_platform->vx, 0);
-			// Acts as a barrier since the command after
-			// vsync is consumed after vsync wait.
-			VPUNoop(s_platform->vx);
+			// Ensure VPU fifo is empty
+			while(VPUGetFIFONotEmpty(s_platform->vx)) { }
 
-			// We can now assume the new page is in effect, swap to it
+			// Swap buffers
 			VPUSwapPages(s_platform->vx, s_platform->sc);
+
+			// Add a buffer swap commmand to the VPU timeline
+			VPUSyncSwap(s_platform->vx, 0);
+
+			// Insert a no-operation command (barrier) that we can wait on
+			VPUNoop(s_platform->vx);
 		}
 	}
 

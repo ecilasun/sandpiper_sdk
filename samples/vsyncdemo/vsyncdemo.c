@@ -68,10 +68,8 @@ int main(int argc, char** argv)
 		}
 	}
 
-	if (!strcmp(argv[1], "cpu"))
+	if (!strcmp(argv[1], "cpu")) // CPU based vsync - polling for vsync
 	{
-		// Method 1: CPU waits for vsync
-
 		// Set up the swap context, double bufferred in this case
 		s_platform->sc->cycle = 0;
 		s_platform->sc->framebufferA = &frameBufferA;
@@ -99,40 +97,42 @@ int main(int argc, char** argv)
 			VPUSwapPages(s_platform->vx, s_platform->sc);
 		} while(1);
 	}
-	else if (!strcmp(argv[1], "vpu"))
+	else if (!strcmp(argv[1], "vpu")) // VPU based vsync - polling for command fifo empty
 	{
-		// Method 2: CPU submits VPU side vsync/buffer swap request
-
 		// For hardware assisted vsync, we need to set this up once at start
 		VPUSetScanoutAddress(s_platform->vx, (uint32_t)frameBufferA.dmaAddress);
 		VPUSetScanoutAddress2(s_platform->vx, (uint32_t)frameBufferB.dmaAddress);
 
 		do
 		{
-			// 1) Ensure VPU fifo is empty
+			// 1) Do some pre-swap stuff
+			// At this point the previous frame may be presented or not
+
+			// 2) Ensure VPU fifo is empty
 			// This means there are no pending commands on the VPU
 			// i.e. we have already processed the vsync and the
-			// barrier after it.
+			// barrier after it, and the previous frame is now being scanned out.
 			while(VPUGetFIFONotEmpty(s_platform->vx)) { }
 
-			// 2) Draw the game frame here
-			// usleep(16667);
+			// 3) Swap frames
+			// The VPU will swap the buffers in the future but we need to
+			// swap it ahead of time here
+			//VPUSwapPages(s_platform->vx, s_platform->sc);
 
-			// 3) Add a buffer swap commmand
+			// 4) Draw the game frame
+			// usleep(16667 - setuptime);
+
+			// 5) Add a buffer swap commmand
 			// This will be processed by the VPU asynchronously when the video beam reaches the vertical blanking interval (vblank).
 			// NOTE: This always has to happen after the last write to the video buffer to avoid rendering artifacts.
 			// However, it can happen earlier than other CPU side end-of-frame operations.
 			VPUSyncSwap(s_platform->vx, 0);
 
-			// 4) Insert a no-operation command (barrier)
+			// 6) Insert a no-operation command (barrier) that we can wait on
 			// Any command after the vsync command is not executed until the vsync has occurred.
 			// Therefore waiting for the FIFO to be empty after this ensures the vsync has completed.
 			// The wait is placed at the start of the next frame's rendering cycle (see the while loop above).
 			VPUNoop(s_platform->vx);
-
-			// Important TODO:
-			// It is important that we call VPUSwapPages(s_platform->vx, s_platform->sc) here,
-			// after the barrier placed by VPUNoop(s_platform->vx) above to ensure proper synchronization.
 		} while(1);
 	}
 	else
