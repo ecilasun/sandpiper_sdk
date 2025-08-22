@@ -847,6 +847,8 @@ void VPUInitVideo(struct EVideoContext* _context, struct  SPPlatform* _platform)
 
 	color_buffer = (uint8_t*)malloc(640*480+128);
 	character_buffer = (uint8_t*)malloc(640*480+128);
+
+	VPUSetDefaultPalette(_context);
 }
 
 void VPUShutdownVideo()

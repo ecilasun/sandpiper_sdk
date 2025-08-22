@@ -451,7 +451,6 @@ int main(int /*argc*/, char** /*argv*/)
 	// Point at shared console memory
 	VPUSetWriteAddress(&s_vctx, (uint32_t)frameBuffer.cpuAddress);
 	VPUSetScanoutAddress(&s_vctx, (uint32_t)frameBuffer.dmaAddress);
-	VPUSetDefaultPalette(&s_vctx);
 	VPUSetVideoMode(&s_vctx, VIDEO_MODE, VIDEO_COLOR, EVS_Enable);
 
 	// Reset and start console

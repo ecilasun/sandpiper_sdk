@@ -234,7 +234,6 @@ int main(int argc, char *argv[])
 	printf("VPU buffer: 0x%08X <-0x%08X - %dbytes \n", (unsigned int)bufferB.cpuAddress, (unsigned int)bufferB.dmaAddress, bufferB.size);
 
 	VPUSetVideoMode(s_platform->vx, EVM_320_Wide, ECM_8bit_Indexed, EVS_Enable);
-	VPUSetDefaultPalette(s_platform->vx);
 
 	s_platform->sc->cycle = 0;
 	s_platform->sc->framebufferA = &bufferA;

@@ -41,10 +41,6 @@ int main(int argc, char** argv)
 	// Set up the video output mode
 	VPUSetVideoMode(s_platform->vx, VIDEO_MODE, VIDEO_COLOR, EVS_Enable);
 
-	// Set a color palette since we're in indexed color mode
-	// Here we're using the built-in default, check the VPUSetDefaultPalette() function to roll your own.
-	VPUSetDefaultPalette(s_platform->vx);
-
 	uint8_t regs = VPUReadControlRegister(s_platform->vx);
 	printf("VPU control registers: %2X\n", regs);
 

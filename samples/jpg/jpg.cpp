@@ -133,7 +133,6 @@ int main(int argc, char** argv )
 
 	VPUSetWriteAddress(s_platform->vx, (uint32_t)frameBuffer.cpuAddress);
 	VPUSetScanoutAddress(s_platform->vx, (uint32_t)frameBuffer.dmaAddress);
-	VPUSetDefaultPalette(s_platform->vx);
 	VPUSetVideoMode(s_platform->vx, VIDEO_MODE, VIDEO_COLOR, EVS_Enable);
 
 	if (argc<=1)
