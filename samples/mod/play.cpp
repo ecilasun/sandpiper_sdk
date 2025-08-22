@@ -81,8 +81,6 @@ void *draw_wave(void *data)
 		// VPU's swapped pages, so should we
 		VPUSwapPages(s_platform->vx, s_platform->sc);
 
-		//VPUClear(s_platform->vx, 0x00000000);
-
 		short* buf = (short*)apubuffer.cpuAddress;
 		for (size_t i = 0; i < BUFFER_SAMPLE_COUNT; ++i)
 		{
@@ -242,10 +240,10 @@ int main(int argc, char *argv[])
 	VPUSetScanoutAddress(s_platform->vx, (uint32_t)bufferA.dmaAddress);
 	VPUSetScanoutAddress2(s_platform->vx, (uint32_t)bufferB.dmaAddress);
 
-	/*VPUSwapPages(s_platform->vx, s_platform->sc);
+	VPUSwapPages(s_platform->vx, s_platform->sc);
 	VPUClear(s_platform->vx, 0x00000000);
 	VPUSwapPages(s_platform->vx, s_platform->sc);
-	VPUClear(s_platform->vx, 0x00000000);*/
+	VPUClear(s_platform->vx, 0x00000000);
 
 	memset(barsL, 0, 256*sizeof(int16_t));
 	memset(barsR, 0, 256*sizeof(int16_t));
