@@ -14,34 +14,34 @@
 #define VPUCMD_WPROG		0x00000009
 #define VPUCMD_WPROGADDRS	0x0000000A
 #define VPUCMD_WPROGDATA	0x0000000B
-#define VPUCMD_NOOP			0x000000FF
+#define VPUCMD_NOOP		0x000000FF
 
 // VPU program instruction set
-#define VPUINST_HALT			0x00000000
-#define VPUINST_NOOP			0x00000001
-#define VPUINST_WAITLINE		0x00000002
-#define VPUINST_WAITCOLUMN		0x00000003
-#define VPUINST_SETPIXOFF		0x00000004
+#define VPUINST_HALT		0x00000000
+#define VPUINST_NOOP		0x00000001
+#define VPUINST_WAITLINE	0x00000002
+#define VPUINST_WAITCOLUMN	0x00000003
+#define VPUINST_SETPIXOFF	0x00000004
 #define VPUINST_SETCACHEROFF	0x00000005
 #define VPUINST_SETCACHEWOFF	0x00000006
-#define VPUINST_SETACC			0x00000007
-#define VPUINST_SETPAL			0x00000008
-#define VPUINST_COPYREG			0x00000009
-#define VPUINST_JUMP			0x0000000A
-#define VPUINST_ADD				0x0000000B
-#define VPUINST_COMPARE			0x0000000C
-#define VPUINST_BRANCH			0x0000000D
-#define VPUINST_MUL				0x0000000E
-#define VPUINST_DIV				0x0000000F
-#define VPUINST_MOD				0x00000010
-#define VPUINST_AND				0x00000011
-#define VPUINST_OR				0x00000012
-#define VPUINST_XOR				0x00000013
-#define VPUINST_NOT				0x00000014
-#define VPUINST_SHL				0x00000015
-#define VPUINST_SHR				0x00000016
-#define VPUINST_LOAD			0x00000017
-#define VPUINST_STORE			0x00000018
+#define VPUINST_SETACC		0x00000007
+#define VPUINST_SETPAL		0x00000008
+#define VPUINST_COPYREG		0x00000009
+#define VPUINST_JUMP		0x0000000A
+#define VPUINST_ADD		0x0000000B
+#define VPUINST_COMPARE		0x0000000C
+#define VPUINST_BRANCH		0x0000000D
+#define VPUINST_MUL		0x0000000E
+#define VPUINST_DIV		0x0000000F
+#define VPUINST_MOD		0x00000010
+#define VPUINST_AND		0x00000011
+#define VPUINST_OR		0x00000012
+#define VPUINST_XOR		0x00000013
+#define VPUINST_NOT		0x00000014
+#define VPUINST_SHL		0x00000015
+#define VPUINST_SHR		0x00000016
+#define VPUINST_LOAD		0x00000017
+#define VPUINST_STORE		0x00000018
 
 // Macros that help define VPU instructions with register indices or constants embedded into a single word
 #define vinstr_halt() (VPUINST_HALT)
@@ -52,7 +52,7 @@
 #define vinstr_setcacheroff(offset) (VPUINST_SETCACHEROFF | ((offset & 0xFF) << 8))
 #define vinstr_setcachewoff(offset) (VPUINST_SETCACHEWOFF | ((offset & 0xFF) << 8))
 #define vinstr_setpal(index, reg) (VPUINST_SETPAL | ((index & 0x00FF) << 8) | ((reg & 0x00FF) << 16))
-#define vinstr_setacc(value) (VPUINST_SETACC | ((value & 0x00FFFFFF) << 8))
+#define vinstr_setacc(value) (VPUINST_SETACC | ((value & 0x00FFFFFFU) << 8))
 #define vinstr_copyreg(dest, src) (VPUINST_COPYREG | ((dest & 0x00FF) << 8) | ((src & 0x00FF) << 16))
 #define vinstr_jump(address) (VPUINST_JUMP | ((address & 0x00FFFFFF) << 8))
 #define vinstr_add(reg1, reg2) (VPUINST_ADD | ((reg1 & 0x00FF) << 8) | ((reg2 & 0x00FF) << 16))
