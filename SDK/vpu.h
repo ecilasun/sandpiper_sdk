@@ -14,8 +14,62 @@
 #define VPUCMD_WPROG		0x00000009
 #define VPUCMD_WPROGADDRS	0x0000000A
 #define VPUCMD_WPROGDATA	0x0000000B
-
 #define VPUCMD_NOOP			0x000000FF
+
+// VPU program instruction set
+#define VPUINST_HALT			0x00000000
+#define VPUINST_NOOP			0x00000001
+#define VPUINST_WAITLINE		0x00000002
+#define VPUINST_WAITCOLUMN		0x00000003
+#define VPUINST_SETPIXOFF		0x00000004
+#define VPUINST_SETCACHEROFF	0x00000005
+#define VPUINST_SETCACHEWOFF	0x00000006
+#define VPUINST_SETPAL			0x00000007
+#define VPUINST_SETREG			0x00000008
+#define VPUINST_COPYREG			0x00000009
+#define VPUINST_JUMP			0x0000000A
+#define VPUINST_ADD				0x0000000B
+#define VPUINST_COMPARE			0x0000000C
+#define VPUINST_BRANCH			0x0000000D
+#define VPUINST_MUL				0x0000000E
+#define VPUINST_DIV				0x0000000F
+#define VPUINST_MOD				0x00000010
+#define VPUINST_AND				0x00000011
+#define VPUINST_OR				0x00000012
+#define VPUINST_XOR				0x00000013
+#define VPUINST_NOT				0x00000014
+#define VPUINST_SHL				0x00000015
+#define VPUINST_SHR				0x00000016
+#define VPUINST_LOAD			0x00000017
+#define VPUINST_STORE			0x00000018
+
+// Macros that help define VPU instructions with register indices or constants embedded into a single word
+#define vinstr_halt() (VPUINST_HALT)
+#define vinstr_noop() (VPUINST_NOOP)
+#define vinstr_waitline(line) (VPUINST_WAITLINE | ((line & 0x00FFFF) << 8))
+#define vinstr_waitcolumn(column) (VPUINST_WAITCOLUMN | ((column & 0x00FFFF) << 8))
+#define vinstr_setpixoff(offset) (VPUINST_SETPIXOFF | ((offset & 0xFF) << 8))
+#define vinstr_setcacheroff(offset) (VPUINST_SETCACHEROFF | ((offset & 0xFF) << 8))
+#define vinstr_setcachewoff(offset) (VPUINST_SETCACHEWOFF | ((offset & 0xFF) << 8))
+#define vinstr_setpal(index, reg) (VPUINST_SETPALCOL | ((index & 0x00FF) << 8) | ((reg & 0x00FF) << 16))
+#define vinstr_setreg(reg, value) (VPUINST_SETREG | ((reg & 0x00FF) << 8) | ((value & 0xFFFFFF) << 16))
+#define vinstr_copyreg(dest, src) (VPUINST_COPYREG | ((dest & 0x00FF) << 8) | ((src & 0x00FF) << 16))
+#define vinstr_jump(address) (VPUINST_JUMP | ((address & 0x00FFFFFF) << 8))
+#define vinstr_add(reg, value) (VPUINST_ADD | ((reg & 0x00FF) << 8) | ((value & 0xFFFF) << 16))
+#define vinstr_compare(reg1, reg2) (VPUINST_COMPARE | ((reg1 & 0x00FF) << 8) | ((reg2 & 0x00FF) << 16))
+#define vinstr_branch(condition, address) (VPUINST_BRANCH | ((condition & 0xFF) << 8) | ((address & 0xFFFF) << 16))
+#define vinstr_mul(reg, value) (VPUINST_MUL | ((reg & 0x00FF) << 8) | ((value & 0xFFFF) << 16))
+#define vinstr_div(reg, value) (VPUINST_DIV | ((reg & 0x00FF) << 8) | ((value & 0xFFFF) << 16))
+#define vinstr_mod(reg, value) (VPUINST_MOD | ((reg & 0x00FF) << 8) | ((value & 0xFFFF) << 16))
+#define vinstr_and(reg, value) (VPUINST_AND | ((reg & 0x00FF) << 8) | ((value & 0xFFFF) << 16))
+#define vinstr_or(reg, value) (VPUINST_OR | ((reg & 0x00FF) << 8) | ((value & 0xFFFF) << 16))
+#define vinstr_xor(reg, value) (VPUINST_XOR | ((reg & 0x00FF) << 8) | ((value & 0xFFFF) << 16))
+#define vinstr_not(reg) (VPUINST_NOT | ((reg & 0x00FF) << 8))
+#define vinstr_shl(reg, value) (VPUINST_SHL | ((reg & 0x00FF) << 8) | ((value & 0xFFFF) << 16))
+#define vinstr_shr(reg, value) (VPUINST_SHR | ((reg & 0x00FF) << 8) | ((value & 0xFFFF) << 16))
+#define vinstr_load(reg, address) (VPUINST_LOAD | ((reg & 0x00FF) << 8) | ((address & 0xFFFF) << 16))
+#define vinstr_store(reg, address) (VPUINST_STORE | ((reg & 0x00FF) << 8) | ((address & 0xFFFF) << 16))
+
 
 #define VPU_AUTO 0xFFFF
 

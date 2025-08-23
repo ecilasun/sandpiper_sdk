@@ -50,7 +50,7 @@ int main(int argc, char** argv)
 	SPAllocateBuffer(s_platform, &frameBufferA);
 	SPAllocateBuffer(s_platform, &frameBufferB);
 
-	// Fill both buffers with different colors so we
+	// Fill both buffers with different patterns so we
 	// can see the frame swap happening
 	for (int y = 0; y < VIDEO_HEIGHT; y++)
 	{
