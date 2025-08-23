@@ -76,7 +76,7 @@ int main(int argc, char** argv)
 	VPUSetProgramAddress(s_platform->vx, 0x00000000);
 
 	// Upload program to all selected units
-	for (uint32_t i = 0; i < sizeof(s_vpuprogram) / sizeof(s_vpuprogram[0]); i++)
+	for (uint32_t i = 0; i < sizeof(s_vpuprogram) / sizeof(uint32_t); i++)
 		VPUWriteProgramWord(s_platform->vx, s_vpuprogram[i]);
 
 	// Start the VPU programs on all 4 units
