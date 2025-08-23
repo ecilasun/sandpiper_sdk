@@ -172,6 +172,10 @@ int main(int argc, char** argv)
 	VPUSwapPages(s_platform->vx, s_platform->sc);
 	VPUClear(s_platform->vx, 0x00000000);
 
+	// Prepare for vsync aligned VPU swap
+	VPUSetScanoutAddress(s_platform->vx, (uint32_t)frameBufferA.dmaAddress);
+	VPUSetScanoutAddress2(s_platform->vx, (uint32_t)frameBufferB.dmaAddress);
+
 	// More than one parameter on command line triggers no-vsync mode
 	int haveVsync = argc <= 2 ? 1 : 0;
 
@@ -180,15 +184,22 @@ int main(int argc, char** argv)
 		st_niccc_rewind(&io);
 		while(st_niccc_read_frame(s_platform->vx, &io, &frame))
 		{
+			// Wait for the VPU to process pending swap
+			while(VPUGetFIFONotEmpty(s_platform->vx)) { }
+			// We can now safely switch to our new write page
+			VPUSwapPages(s_platform->vx, s_platform->sc);
+
 			if(frame.flags & CLEAR_BIT)
 				VPUClear(s_platform->vx, 0x07070707);
 
 			while(st_niccc_read_polygon(&io, &frame, &polygon))
 				gfx_fillpoly(s_platform->sc->writepage, stride, polygon.nb_vertices, polygon.XY, polygon.color);
 
-			if (haveVsync)
-				VPUWaitVSync(s_platform->vx);
-			VPUSwapPages(s_platform->vx, s_platform->sc);
+			// Queue up a vsynced buffer swap on the VPU
+			VPUSyncSwap(s_platform->vx, 0);
+			// Barrier so that we can wait until the above
+			// vsync-swap has been processed
+			VPUNoop(s_platform->vx);
 		}
 	}
 }
