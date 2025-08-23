@@ -24,8 +24,8 @@
 #define VPUINST_SETPIXOFF		0x00000004
 #define VPUINST_SETCACHEROFF	0x00000005
 #define VPUINST_SETCACHEWOFF	0x00000006
-#define VPUINST_SETPAL			0x00000007
-#define VPUINST_SETREG			0x00000008
+#define VPUINST_SETACC			0x00000007
+#define VPUINST_SETPAL			0x00000008
 #define VPUINST_COPYREG			0x00000009
 #define VPUINST_JUMP			0x0000000A
 #define VPUINST_ADD				0x0000000B
@@ -52,10 +52,10 @@
 #define vinstr_setcacheroff(offset) (VPUINST_SETCACHEROFF | ((offset & 0xFF) << 8))
 #define vinstr_setcachewoff(offset) (VPUINST_SETCACHEWOFF | ((offset & 0xFF) << 8))
 #define vinstr_setpal(index, reg) (VPUINST_SETPAL | ((index & 0x00FF) << 8) | ((reg & 0x00FF) << 16))
-#define vinstr_setreg(reg, value) (VPUINST_SETREG | ((reg & 0x00FF) << 8) | ((value & 0xFFFFFF) << 16))
+#define vinstr_setacc(value) (VPUINST_SETACC | ((value & 0x00FFFFFF) << 8))
 #define vinstr_copyreg(dest, src) (VPUINST_COPYREG | ((dest & 0x00FF) << 8) | ((src & 0x00FF) << 16))
 #define vinstr_jump(address) (VPUINST_JUMP | ((address & 0x00FFFFFF) << 8))
-#define vinstr_add(reg, value) (VPUINST_ADD | ((reg & 0x00FF) << 8) | ((value & 0xFFFF) << 16))
+#define vinstr_add(reg1, reg2) (VPUINST_ADD | ((reg1 & 0x00FF) << 8) | ((reg2 & 0x00FF) << 16))
 #define vinstr_compare(reg1, reg2) (VPUINST_COMPARE | ((reg1 & 0x00FF) << 8) | ((reg2 & 0x00FF) << 16))
 #define vinstr_branch(condition, address) (VPUINST_BRANCH | ((condition & 0xFF) << 8) | ((address & 0xFFFF) << 16))
 #define vinstr_mul(reg, value) (VPUINST_MUL | ((reg & 0x00FF) << 8) | ((value & 0xFFFF) << 16))
@@ -69,7 +69,6 @@
 #define vinstr_shr(reg, value) (VPUINST_SHR | ((reg & 0x00FF) << 8) | ((value & 0xFFFF) << 16))
 #define vinstr_load(reg, address) (VPUINST_LOAD | ((reg & 0x00FF) << 8) | ((address & 0xFFFF) << 16))
 #define vinstr_store(reg, address) (VPUINST_STORE | ((reg & 0x00FF) << 8) | ((address & 0xFFFF) << 16))
-
 
 #define VPU_AUTO 0xFFFF
 

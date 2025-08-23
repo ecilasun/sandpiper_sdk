@@ -12,7 +12,16 @@
 		"sbuslib.h": "c",
 		"fb_internal.h": "c",
 		"filesystem": "c",
-		"i_video.h": "c"
+		"i_video.h": "c",
+		"algorithm": "c",
+		"chrono": "c",
+		"complex": "c",
+		"optional": "c",
+		"system_error": "c",
+		"type_traits": "c",
+		"xlocmon": "c",
+		"xtr1common": "c",
+		"xutility": "c"
 	},
 	"idf.pythonInstallPath": "C:\\Users\\ecila\\.espressif\\tools\\idf-python\\3.11.2\\python.exe"
 }

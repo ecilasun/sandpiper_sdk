@@ -23,14 +23,17 @@ struct SPSizeAlloc frameBufferB;
 
 // Small program to change palette color 0
 // at start of every scanline by waiting for pixel 0
+// The program clocks at approximately one instruction per pixel
 static uint32_t s_vpuprogram[] = {
-	vinstr_setreg(0x01, 0xFFFFFF),		// White color in R1
-	vinstr_setreg(0x02, 0x000001),		// Increment value in R2
+	vinstr_setacc(0xFFFFFF),			// White color in ACC (Accumulator Register is R0)
+	vinstr_copyreg(0x01, 0x00),			// Copy ACC to R1
+	vinstr_setacc(0x000001),			// Increment value in ACC
+	vinstr_copyreg(0x02, 0x00),			// Copy ACC to R2
 // loop:
 	vinstr_waitcolumn(0x00),			// Wait for pixel 0 of the current scanline
 	vinstr_setpal(0x00, 0x01),			// Set PAL[0] to R1
 	vinstr_add(0x01,  0x02),			// Increment R1 by R2
-	vinstr_jump(0x08)					// Jump to start (third word in the program)
+	vinstr_jump(0x10)					// Jump to start (byte 16)
 };
 
 int main(int argc, char** argv)
