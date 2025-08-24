@@ -54,7 +54,7 @@
 #define vinstr_setcacheroff(src)				(VPUINST_SETCACHEROFF | ((src & 0xF) << 16))
 #define vinstr_setcachewoff(src)				(VPUINST_SETCACHEWOFF | ((src & 0xF) << 16))
 #define vinstr_setpal(index, src)				(VPUINST_SETPAL | ((index & 0xFF) << 24) | ((src & 0xF) << 16))
-#define vinstr_setacc(value)					(VPUINST_SETACC | ((value & 0xFFFFFF) << 8))
+#define vinstr_setacc(value)					(VPUINST_SETACC | ((value & 0xFFFFFFU) << 8))
 #define vinstr_copyreg(dest, src)				(VPUINST_COPYREG | ((dest & 0xF) << 12) | ((src & 0xF) << 16))
 #define vinstr_jump(src)						(VPUINST_JUMP | ((src & 0xF) << 16))
 #define vinstr_add(dest, src)					(VPUINST_ADD | ((dest & 0xF) << 12) | ((src & 0xF) << 16))
