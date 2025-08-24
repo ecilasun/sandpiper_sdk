@@ -65,20 +65,28 @@ int main(int argc, char** argv)
 		}
 	}
 
+	printf("Setting up VPU assisted swap address\n");
 	// For hardware assisted vsync, we need to set this up once at start
 	VPUSetScanoutAddress(s_platform->vx, (uint32_t)frameBufferA.dmaAddress);
 	VPUSetScanoutAddress2(s_platform->vx, (uint32_t)frameBufferB.dmaAddress);
+	// This one is for the CPU side so it can keep up with the hardware flips
+	s_platform->sc->cycle = 0;
+	s_platform->sc->framebufferA = &frameBufferA;
+	s_platform->sc->framebufferB = &frameBufferB;
 
 	// Stop all running programs by clearing all control registers
 	VPUWriteControlRegister(s_platform->vx, 0x0F, 0x00);
 
+	printf("Uploading VPU program\n");
 	// Upload program to the VPU
 	for (uint32_t i = 0; i < sizeof(s_vpuprogram) / sizeof(uint32_t); i++)
 		VPUProgramWriteWord(s_platform->vx, 0xF, 0x00000000 + i * 4, s_vpuprogram[i]);
 
-		// Start the VPU programs on all 4 units
+	printf("Starting VPU program\n");
+	// Start the VPU programs on all 4 units
 	VPUWriteControlRegister(s_platform->vx, 0x0F, 0x0F);
 
+	printf("Entering demo...\n");
 	do
 	{
 		// Vsync barrier
