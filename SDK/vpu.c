@@ -382,31 +382,15 @@ void VPUWriteControlRegister(struct EVideoContext *_context, uint8_t _setFlag, u
 }
 
 /*
- * Set the write enable mask for program upload to the compute units (CU).
- * _mask is a 4-bit value where each bit represents one of the 16 CUs.
+ * Writes a program word to the VPU's program memory.
+ * _mask is the byte write mask, use 0xF for a full 32-bit word write.
+ * _programAddress is the address in the VPU's program memory where the word will be written.
+ * _word is the 32-bit program word to write.
  */
-void VPUProgramWriteMask(struct EVideoContext *_context, uint8_t _mask)
+void VPUProgramWriteWord(struct EVideoContext *_context, uint8_t _mask, uint32_t _programAddress, uint32_t _word)
 {
-	videowrite32(_context->m_platform, VPUCMD_WPROG | ((_mask*0xF) << 8));
-}
-
-/*
- * Sets the program word write address for all of the selected CUs.
- * _programAddress is the address in CU local memory where the next program word will be written.
- */
-void VPUSetProgramAddress(struct EVideoContext *_context, uint32_t _programAddress)
-{
-	videowrite32(_context->m_platform, VPUCMD_WPROGADDRS);
+	videowrite32(_context->m_platform, VPUCMD_WPROG | ((_mask & 0xF) << 8));
 	videowrite32(_context->m_platform, _programAddress);
-}
-
-/*
- * Writes a program word to all of the selected CUs' program memory.
- * _word is the 32-bit program word to be written.
- */
-void VPUWriteProgramWord(struct EVideoContext *_context, uint32_t _word)
-{
-	videowrite32(_context->m_platform, VPUCMD_WPROGDATA);
 	videowrite32(_context->m_platform, _word);
 }
 

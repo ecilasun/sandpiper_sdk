@@ -72,15 +72,11 @@ int main(int argc, char** argv)
 	// Stop all running programs by clearing all control registers
 	VPUWriteControlRegister(s_platform->vx, 0x0F, 0x00);
 
-	// Enable all compute units for program upload and set their start address
-	VPUProgramWriteMask(s_platform->vx, 0xFF);
-	VPUSetProgramAddress(s_platform->vx, 0x00000000);
-
-	// Upload program to all selected units
+	// Upload program to the VPU
 	for (uint32_t i = 0; i < sizeof(s_vpuprogram) / sizeof(uint32_t); i++)
-		VPUWriteProgramWord(s_platform->vx, s_vpuprogram[i]);
+		VPUProgramWriteWord(s_platform->vx, 0xF, 0x00000000 + i * 4, s_vpuprogram[i]);
 
-	// Start the VPU programs on all 4 units
+		// Start the VPU programs on all 4 units
 	VPUWriteControlRegister(s_platform->vx, 0x0F, 0x0F);
 
 	do
