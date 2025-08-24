@@ -32,7 +32,7 @@ static uint32_t s_vpuprogram[] = {
 // loop:
 	vinstr_waitcolumn(0x00),			// Wait for pixel 0 of the current scanline
 	vinstr_setpal(0x00, 0x01),			// Set PAL[0] to R1
-	vinstr_add(0x01,  0x02),			// Increment R1 by R2
+	vinstr_add(0x01, 0x02),				// Increment R1 by R2
 	vinstr_jump(0x10)					// Jump to start (byte 16)
 };
 
