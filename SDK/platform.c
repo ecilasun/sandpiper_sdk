@@ -13,15 +13,22 @@
 
 static struct SPPlatform* g_activePlatform = NULL;
 
+struct SPIoctl
+{
+	uint32_t offset;
+	uint32_t value;
+};
+
 // ioctl numbers for sandpiper device
-#define SP_IOCTL_GET_VIDEO_CTL	_IOR('k', 0, void*)
-#define SP_IOCTL_GET_AUDIO_CTL	_IOR('k', 1, void*)
-#define SP_IOCTL_AUDIO_READ		_IOR('k', 2, uint32_t*)
-#define SP_IOCTL_AUDIO_WRITE	_IOW('k', 3, uint32_t*)
-#define SP_IOCTL_VIDEO_READ		_IOR('k', 4, uint32_t*)
-#define SP_IOCTL_VIDEO_WRITE	_IOW('k', 5, uint32_t*)
-#define SP_IOCTL_AUDIO_READHI	_IOR('k', 6, uint32_t*)
-#define SP_IOCTL_VIDEO_READHI	_IOR('k', 7, uint32_t*)
+#define SP_IOCTL_GET_VIDEO_CTL		_IOR('k', 0, void*)
+#define SP_IOCTL_GET_AUDIO_CTL		_IOR('k', 1, void*)
+#define SP_IOCTL_GET_PALETTE_CTL	_IOR('k', 2, void*)
+#define SP_IOCTL_AUDIO_READ		_IOR('k', 3, void*)
+#define SP_IOCTL_AUDIO_WRITE		_IOW('k', 4, void*)
+#define SP_IOCTL_VIDEO_READ		_IOR('k', 5, void*)
+#define SP_IOCTL_VIDEO_WRITE		_IOW('k', 6, void*)
+#define SP_IOCTL_PALETTE_READ		_IOR('k', 9, void*)
+#define SP_IOCTL_PALETTE_WRITE		_IOW('k', 10, void*)
 
 // NOTE: A list of all of the onboard devices can be found under /sys/bus/platform/devices/ including the audio and video devices.
 // The file names are annotated with the device addresses, which is useful for MMIO mapping.
