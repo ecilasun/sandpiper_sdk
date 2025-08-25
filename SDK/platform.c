@@ -112,29 +112,43 @@ struct SPPlatform* SPInitPlatform()
 		err = 1;
 	}
 
+	struct SPIoctl ioctlstruct;
+	ioctlstruct.offset = 0;
+	ioctlstruct.value = 0;
+
 	// Grab the contol registers for audio device
-	if (ioctl(platform->sandpiperfd, SP_IOCTL_GET_AUDIO_CTL, &platform->audioio) < 0)
+	if (ioctl(platform->sandpiperfd, SP_IOCTL_GET_AUDIO_CTL, &ioctlstruct) < 0)
 	{
 		perror("Failed to get audio control");
 		close(platform->sandpiperfd);
 		err = 1;
 	}
+	else
+		platform->audioio = ioctlstruct.value;
 
 	// Grab the contol registers for video device
-	if (ioctl(platform->sandpiperfd, SP_IOCTL_GET_VIDEO_CTL, &platform->videoio) < 0)
+	ioctlstruct.offset = 0;
+	ioctlstruct.value = 0;
+	if (ioctl(platform->sandpiperfd, SP_IOCTL_GET_VIDEO_CTL, &ioctlstruct) < 0)
 	{
 		perror("Failed to get video control");
 		close(platform->sandpiperfd);
 		err = 1;
 	}
+	else
+		platform->videoio = ioctlstruct.value;
 
 	// Grab the contol registers for palette device
-	if (ioctl(platform->sandpiperfd, SP_IOCTL_GET_PALETTE_CTL, &platform->paletteio) < 0)
+	ioctlstruct.offset = 0;
+	ioctlstruct.value = 0;
+	if (ioctl(platform->sandpiperfd, SP_IOCTL_GET_PALETTE_CTL, &ioctlstruct) < 0)
 	{
 		perror("Failed to get palette control");
 		close(platform->sandpiperfd);
 		err = 1;
 	}
+	else
+		platform->paletteio = ioctlstruct.value;
 
 	if (!err)
 	{
