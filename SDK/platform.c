@@ -124,7 +124,7 @@ struct SPPlatform* SPInitPlatform()
 		err = 1;
 	}
 	else
-		platform->audioio = ioctlstruct.value;
+		platform->audioio = (volatile uint32_t*)ioctlstruct.value;
 
 	// Grab the contol registers for video device
 	ioctlstruct.offset = 0;
@@ -136,7 +136,7 @@ struct SPPlatform* SPInitPlatform()
 		err = 1;
 	}
 	else
-		platform->videoio = ioctlstruct.value;
+		platform->videoio = (volatile uint32_t*)ioctlstruct.value;
 
 	// Grab the contol registers for palette device
 	ioctlstruct.offset = 0;
@@ -148,7 +148,7 @@ struct SPPlatform* SPInitPlatform()
 		err = 1;
 	}
 	else
-		platform->paletteio = ioctlstruct.value;
+		platform->paletteio = (volatile uint32_t*)ioctlstruct.value;
 
 	if (!err)
 	{
