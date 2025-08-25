@@ -321,8 +321,8 @@ void VPUSetWriteAddress(struct EVideoContext *_context, const uint32_t _cpuWrite
  */
 void VPUSetPal(struct EVideoContext *_context, const uint8_t _paletteIndex, const uint32_t _red, const uint32_t _green, const uint32_t _blue)
 {
-	videowrite32(_context->m_platform, VPUCMD_SETPAL);
-	videowrite32(_context->m_platform, (_paletteIndex<<24) | (MAKECOLORRGB24(_red, _green, _blue)));
+	uint32_t byteoffset = (_paletteIndex & 0xFF) * 4;
+	palettewrite32(_context->m_platform, byteoffset, MAKECOLORRGB24(_red, _green, _blue));
 }
 
  /*

@@ -23,9 +23,9 @@ struct SPIoctl
 #define SP_IOCTL_GET_VIDEO_CTL		_IOR('k', 0, void*)
 #define SP_IOCTL_GET_AUDIO_CTL		_IOR('k', 1, void*)
 #define SP_IOCTL_GET_PALETTE_CTL	_IOR('k', 2, void*)
-#define SP_IOCTL_AUDIO_READ		_IOR('k', 3, void*)
+#define SP_IOCTL_AUDIO_READ			_IOR('k', 3, void*)
 #define SP_IOCTL_AUDIO_WRITE		_IOW('k', 4, void*)
-#define SP_IOCTL_VIDEO_READ		_IOR('k', 5, void*)
+#define SP_IOCTL_VIDEO_READ			_IOR('k', 5, void*)
 #define SP_IOCTL_VIDEO_WRITE		_IOW('k', 6, void*)
 #define SP_IOCTL_PALETTE_READ		_IOR('k', 9, void*)
 #define SP_IOCTL_PALETTE_WRITE		_IOW('k', 10, void*)
@@ -86,6 +86,7 @@ struct SPPlatform* SPInitPlatform()
 
 	platform->audioio = (uint32_t*)MAP_FAILED;
 	platform->videoio = (uint32_t*)MAP_FAILED;
+	platform->paletteio = (uint32_t*)MAP_FAILED;
 	platform->mapped_memory = (uint8_t*)MAP_FAILED;
 	platform->alloc_cursor = 0x96000; // The cursor has to stay outside the framebuffer region, which is 640*480*2 bytes in size.
 	platform->sandpiperfd = -1;
@@ -123,6 +124,14 @@ struct SPPlatform* SPInitPlatform()
 	if (ioctl(platform->sandpiperfd, SP_IOCTL_GET_VIDEO_CTL, &platform->videoio) < 0)
 	{
 		perror("Failed to get video control");
+		close(platform->sandpiperfd);
+		err = 1;
+	}
+
+	// Grab the contol registers for palette device
+	if (ioctl(platform->sandpiperfd, SP_IOCTL_GET_PALETTE_CTL, &platform->paletteio) < 0)
+	{
+		perror("Failed to get palette control");
 		close(platform->sandpiperfd);
 		err = 1;
 	}
@@ -200,6 +209,7 @@ void SPShutdownPlatform(struct SPPlatform* _platform)
 	_platform->alloc_cursor = 0x96000;
 	_platform->audioio = 0;
 	_platform->videoio = 0;
+	_platform->paletteio = 0;
 }
 
 void SPGetConsoleFramebuffer(struct SPPlatform* _platform, struct SPSizeAlloc* _sizealloc)
@@ -252,42 +262,54 @@ void SPFreeBuffer(struct SPPlatform* _platform, struct SPSizeAlloc *_sizealloc)
 
 uint32_t audioread32(struct SPPlatform* _platform)
 {
-	uint32_t value = 0;
-	if (ioctl(_platform->sandpiperfd, SP_IOCTL_AUDIO_READ, &value) < 0)
+	struct SPIoctl ioctlstruct;
+	ioctlstruct.offset = 0;
+	ioctlstruct.value = 0;
+	if (ioctl(_platform->sandpiperfd, SP_IOCTL_AUDIO_READ, &ioctlstruct) < 0)
 		return 0;
-	return value;
-}
-
-uint32_t audioread32hi(struct SPPlatform* _platform)
-{
-	uint32_t value = 0;
-	if (ioctl(_platform->sandpiperfd, SP_IOCTL_AUDIO_READHI, &value) < 0)
-		return 0;
-	return value;
+	return ioctlstruct.value;
 }
 
 void audiowrite32(struct SPPlatform* _platform, uint32_t value)
 {
-	ioctl(_platform->sandpiperfd, SP_IOCTL_AUDIO_WRITE, &value);
+	struct SPIoctl ioctlstruct;
+	ioctlstruct.offset = 0;
+	ioctlstruct.value = value;
+	ioctl(_platform->sandpiperfd, SP_IOCTL_AUDIO_WRITE, &ioctlstruct);
 }
 
 uint32_t videoread32(struct SPPlatform* _platform)
 {
-	uint32_t value = 0;
-	if (ioctl(_platform->sandpiperfd, SP_IOCTL_VIDEO_READ, &value) < 0)
+	struct SPIoctl ioctlstruct;
+	ioctlstruct.offset = 0;
+	ioctlstruct.value = 0;
+	if (ioctl(_platform->sandpiperfd, SP_IOCTL_VIDEO_READ, &ioctlstruct) < 0)
 		return 0;
-	return value;
-}
-
-uint32_t videoread32hi(struct SPPlatform* _platform)
-{
-	uint32_t value = 0;
-	if (ioctl(_platform->sandpiperfd, SP_IOCTL_VIDEO_READHI, &value) < 0)
-		return 0;
-	return value;
+	return ioctlstruct.value;
 }
 
 void videowrite32(struct SPPlatform* _platform, uint32_t value)
 {
-	ioctl(_platform->sandpiperfd, SP_IOCTL_VIDEO_WRITE, &value);
+	struct SPIoctl ioctlstruct;
+	ioctlstruct.offset = 0;
+	ioctlstruct.value = value;
+	ioctl(_platform->sandpiperfd, SP_IOCTL_VIDEO_WRITE, &ioctlstruct);
+}
+
+uint32_t paletteread32(struct SPPlatform* _platform)
+{
+	struct SPIoctl ioctlstruct;
+	ioctlstruct.offset = 0;
+	ioctlstruct.value = 0;
+	if (ioctl(_platform->sandpiperfd, SP_IOCTL_PALETTE_READ, &ioctlstruct) < 0)
+		return 0;
+	return ioctlstruct.value;
+}
+
+void palettewrite32(struct SPPlatform* _platform, uint32_t offset, uint32_t value)
+{
+	struct SPIoctl ioctlstruct;
+	ioctlstruct.offset = offset;
+	ioctlstruct.value = value;
+	ioctl(_platform->sandpiperfd, SP_IOCTL_PALETTE_WRITE, &ioctlstruct);
 }

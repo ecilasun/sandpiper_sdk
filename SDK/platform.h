@@ -28,6 +28,7 @@ struct SPPlatform
 	// Internal state
 	volatile uint32_t *videoio;
 	volatile uint32_t *audioio;
+	volatile uint32_t *paletteio;
 	uint8_t* mapped_memory;
 	uint32_t alloc_cursor;
 	int sandpiperfd;
@@ -127,9 +128,9 @@ int SPAllocateBuffer(struct SPPlatform* _platform, struct SPSizeAlloc *_sizeallo
 void SPFreeBuffer(struct SPPlatform* _platform, struct SPSizeAlloc *_sizealloc);
 
 uint32_t audioread32(struct SPPlatform* _platform);
-uint32_t audioread32hi(struct SPPlatform* _platform);
-void audiowrite32(struct SPPlatform* _platform, uint32_t value);
 uint32_t videoread32(struct SPPlatform* _platform);
-uint32_t videoread32hi(struct SPPlatform* _platform);
-void videowrite32(struct SPPlatform* _platform, uint32_t value);
+uint32_t paletteread32(struct SPPlatform* _platform);
 
+void audiowrite32(struct SPPlatform* _platform, uint32_t value);
+void videowrite32(struct SPPlatform* _platform, uint32_t value);
+void palettewrite32(struct SPPlatform* _platform, uint32_t offset, uint32_t value);
