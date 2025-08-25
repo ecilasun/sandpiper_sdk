@@ -79,10 +79,12 @@ void juliaTile(uint8_t* pixels, const uint32_t stride)
 int main()
 {
 	// Initialize platform and video system
+	printf("starting platform code\n");
 	s_platform = SPInitPlatform();
 	VPUInitVideo(s_platform->vx, s_platform);
 
 	// Grab video buffer
+	printf("Allocating video buffers\n");
 	uint32_t stride = VPUGetStride(EVM_320_Wide, ECM_8bit_Indexed);
 	framebufferA.size = stride*240;
 	framebufferB.size = stride*240;
@@ -90,6 +92,7 @@ int main()
 	SPAllocateBuffer(s_platform, &framebufferB);
 
 	// Set up the video mode and frame pointers
+	printf("setting video mode\n");
 	VPUSetVideoMode(s_platform->vx, EVM_320_Wide, ECM_8bit_Indexed, EVS_Enable);
 
 	struct EVideoSwapContext* sc = s_platform->sc;
@@ -100,6 +103,7 @@ int main()
 	VPUClear(s_platform->vx, 0x00000000);
 
 	// Grayscale palette
+	printf("setting palette\n");
 	for (uint32_t i=0; i<256; ++i)
 	{
 		int j = (255-i);
