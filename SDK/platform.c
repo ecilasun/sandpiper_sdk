@@ -180,6 +180,16 @@ struct SPPlatform* SPInitPlatform()
 			perror("sigaction(SIGSEGV)");
 			err = 1;
 		}
+		if (sigaction(SIGABRT, &sa, NULL) == -1)
+		{
+			perror("sigaction(SIGABRT)");
+			err = 1;
+		}
+		if (sigaction(SIGILL, &sa, NULL) == -1)
+		{
+			perror("sigaction(SIGILL)");
+			err = 1;
+		}
 	}
 
 	if (err)
