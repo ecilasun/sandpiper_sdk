@@ -189,10 +189,7 @@ static const uint32_t vgapalette[] __attribute__((aligned(16))) = {
 void VPUSetDefaultPalette(struct EVideoContext *_context)
 {
 	for (uint32_t i=0; i<256; ++i)
-	{
-		uint32_t byteoffset = (i & 0xFF) * 4;
-		palettewrite32(_context->m_platform, byteoffset, vgapalette[i]);
-	}
+		palettewrite32(_context->m_platform, i & 0xFF, vgapalette[i]);
 }
 
  /*
