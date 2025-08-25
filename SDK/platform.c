@@ -310,10 +310,10 @@ void videowrite32(struct SPPlatform* _platform, uint32_t value)
 	ioctl(_platform->sandpiperfd, SP_IOCTL_VIDEO_WRITE, &ioctlstruct);
 }
 
-uint32_t paletteread32(struct SPPlatform* _platform)
+uint32_t paletteread32(struct SPPlatform* _platform, uint32_t offset)
 {
 	struct SPIoctl ioctlstruct;
-	ioctlstruct.offset = 0;
+	ioctlstruct.offset = offset;
 	ioctlstruct.value = 0;
 	if (ioctl(_platform->sandpiperfd, SP_IOCTL_PALETTE_READ, &ioctlstruct) < 0)
 		return 0;
