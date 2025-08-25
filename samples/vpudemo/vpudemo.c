@@ -1,7 +1,6 @@
 /*
 	@file vsyncdemo.c
 	@brief Demonstrates how to use the Video Processing Unit (VPU).
-	@note WARNING! Very rapid flickering, observe with caution.
 */
 
 #include <stdint.h>
@@ -87,6 +86,7 @@ int main(int argc, char** argv)
 	VPUWriteControlRegister(s_platform->vx, 0x0F, 0x0F);
 
 	printf("Entering demo...\n");
+	uint32_t color = 0;
 	do
 	{
 		// Vsync barrier
@@ -95,6 +95,8 @@ int main(int argc, char** argv)
 		VPUSwapPages(s_platform->vx, s_platform->sc);
 
 		// VPU program demo goes here
+		VPUClear(s_platform->vx, color);
+		color++;
 
 		// Queue vsync
 		// This will be processed by the VPU asynchronously when the video beam reaches the vertical blanking interval (vblank).

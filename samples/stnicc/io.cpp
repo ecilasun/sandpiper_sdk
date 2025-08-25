@@ -127,20 +127,12 @@ int st_niccc_read_frame(EVideoContext* vctx, ST_NICCC_IO* io, ST_NICCC_FRAME* fr
 				int rgb = st_niccc_read_word(io);
 
 				// Get the three 3-bits per component R,G,B
-				int b3 = (rgb & 0x00f);
-				int g3 = (rgb & 0x0f0) >> 4;
-				int r3 = (rgb & 0xf00) >> 8;
-
-				// Set the actual hardware color register
-				VPUSetPal(vctx, 15-b, r3*32, g3*32, b3*32);
-
-				// Get the three 3-bits per component R,G,B
-				/*int b3 = (rgb & 0x007);
+				int b3 = (rgb & 0x007);
 				int g3 = (rgb & 0x070) >> 4;
 				int r3 = (rgb & 0x700) >> 8;
-				frame->cmap_r[15-b] = r3 << 5;
-				frame->cmap_g[15-b] = g3 << 5;
-				frame->cmap_b[15-b] = b3 << 5;*/
+
+				// Set the actual hardware color register
+				VPUSetPal(vctx, 15-b, r3<<5, g3<<5, b3<<5);
 			}
 		}
 	}
