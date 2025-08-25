@@ -190,8 +190,8 @@ void VPUSetDefaultPalette(struct EVideoContext *_context)
 {
 	for (uint32_t i=0; i<256; ++i)
 	{
-		videowrite32(_context->m_platform, VPUCMD_SETPAL);
-		videowrite32(_context->m_platform, (i<<24) | vgapalette[i]);
+		uint32_t byteoffset = (i & 0xFF) * 4;
+		palettewrite32(_context->m_platform, byteoffset, vgapalette[i]);
 	}
 }
 
