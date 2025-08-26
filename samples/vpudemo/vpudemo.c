@@ -76,10 +76,11 @@ int main(int argc, char** argv)
 	// Stop all running programs by clearing all control registers
 	VPUWriteControlRegister(s_platform->vx, 0x0F, 0x00);
 
-	printf("Uploading VPU program\n");
+	printf("Uploading VPU program @0x0000\n");
+	VPUProgramSetAddress(s_platform->vx, 0x0000);
 	// Upload program to the VPU
 	for (uint32_t i = 0; i < sizeof(s_vpuprogram) / sizeof(uint32_t); i++)
-		VPUProgramWriteWord(s_platform->vx, 0xF, 0x00000000 + i * 4, s_vpuprogram[i]);
+		VPUProgramWriteWord(s_platform->vx, s_vpuprogram[i]);
 
 	printf("Starting VPU program\n");
 	// Start the VPU programs on all 4 units
