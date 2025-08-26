@@ -379,7 +379,6 @@ void VPUWriteControlRegister(struct EVideoContext *_context, uint8_t _setFlag, u
 
 /*
  * Writes a program word to the VPU's program memory.
- * _mask is the byte write mask, use 0xF for a full 32-bit word write.
  * _programAddress is the address in the VPU's program memory where the word will be written.
  * _word is the 32-bit program word to write.
  */
@@ -396,7 +395,7 @@ void VPUProgramSetAddress(struct EVideoContext *_context, uint32_t _programAddre
  */
 void VPUProgramWriteWord(struct EVideoContext *_context, uint32_t _word)
 {
-	videowrite32(_context->m_platform, VPUCMD_WPROGWORD | ((_mask & 0xF) << 8));
+	videowrite32(_context->m_platform, VPUCMD_WPROGWORD);
 	videowrite32(_context->m_platform, _word);
 }
 
