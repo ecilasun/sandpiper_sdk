@@ -40,16 +40,20 @@ void shutdowncleanup()
 		// Switch to fbcon buffer and shut down video
 		if (g_activePlatform->vx)
 		{
+			// Set video scanout to point at linux console framebuffer
+			VPUSetScanoutAddress(g_activePlatform->vx, 0x18000000);
+
+			// Back to RGB16 mode
+			VPUSetVideoMode(g_activePlatform->vx, EVM_640_Wide, ECM_16bit_RGB, EVS_Enable);
+
 			// Stop all VPU activity
 			VPUWriteControlRegister(g_activePlatform->vx, 0xFF, 0x00);
+
 			// Reset scroll
 			VPUShiftCache(g_activePlatform->vx, 0);
 			VPUShiftScanout(g_activePlatform->vx, 0);
 			VPUShiftPixel(g_activePlatform->vx, 0);
-			// Set video scanout to point at linux console framebuffer
-			VPUSetScanoutAddress(g_activePlatform->vx, 0x18000000);
-			// Back to RGB16 mode
-			VPUSetVideoMode(g_activePlatform->vx, EVM_640_Wide, ECM_16bit_RGB, EVS_Enable);
+
 			// Tear down video system
 			VPUShutdownVideo();
 		}
