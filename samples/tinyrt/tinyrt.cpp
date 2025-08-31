@@ -468,8 +468,6 @@ int main()
 		return -1;
 	}
 
-	VPUInitVideo(s_platform->vx, s_platform);
-
 	// Grab video buffer
 	uint32_t stride = VPUGetStride(EVM_320_Wide, ECM_16bit_RGB);
 	framebuffer.size = stride*240;

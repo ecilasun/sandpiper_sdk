@@ -143,7 +143,6 @@ int main()
 		printf("Failed to initialize platform\n");
 		return -1;
 	}
-	VPUInitVideo(platform->vx, platform);
 
 	// Grab video buffer
 	uint32_t stride = VPUGetStride(EVM_320_Wide, ECM_16bit_RGB);

@@ -81,7 +81,6 @@ int main()
 	// Initialize platform and video system
 	printf("starting platform code\n");
 	s_platform = SPInitPlatform();
-	VPUInitVideo(s_platform->vx, s_platform);
 
 	// Grab video buffer
 	printf("Allocating video buffers\n");

@@ -168,6 +168,10 @@ struct SPPlatform* SPInitPlatform()
 		platform->sc = (struct EVideoSwapContext*)malloc(sizeof(struct EVideoSwapContext));
 		g_activePlatform = platform;
 
+		// Start up main video and audio systems
+		VPUInitVideo(g_activePlatform->vx, g_activePlatform);
+		APUInitAudio(g_activePlatform->ac, g_activePlatform);
+
 		// Register exit handlers
 		atexit(shutdowncleanup);
 
@@ -294,38 +298,38 @@ void SPFreeBuffer(struct SPPlatform* _platform, struct SPSizeAlloc *_sizealloc)
 	// TODO
 }
 
-uint32_t audioread32(struct SPPlatform* _platform)
+uint32_t audioread32(struct SPPlatform* _platform, uint32_t offset)
 {
 	struct SPIoctl ioctlstruct;
-	ioctlstruct.offset = 0;
+	ioctlstruct.offset = offset;
 	ioctlstruct.value = 0;
 	if (ioctl(_platform->sandpiperfd, SP_IOCTL_AUDIO_READ, &ioctlstruct) < 0)
 		return 0;
 	return ioctlstruct.value;
 }
 
-void audiowrite32(struct SPPlatform* _platform, uint32_t value)
+void audiowrite32(struct SPPlatform* _platform, uint32_t offset, uint32_t value)
 {
 	struct SPIoctl ioctlstruct;
-	ioctlstruct.offset = 0;
+	ioctlstruct.offset = offset;
 	ioctlstruct.value = value;
 	ioctl(_platform->sandpiperfd, SP_IOCTL_AUDIO_WRITE, &ioctlstruct);
 }
 
-uint32_t videoread32(struct SPPlatform* _platform)
+uint32_t videoread32(struct SPPlatform* _platform, uint32_t offset)
 {
 	struct SPIoctl ioctlstruct;
-	ioctlstruct.offset = 0;
+	ioctlstruct.offset = offset;
 	ioctlstruct.value = 0;
 	if (ioctl(_platform->sandpiperfd, SP_IOCTL_VIDEO_READ, &ioctlstruct) < 0)
 		return 0;
 	return ioctlstruct.value;
 }
 
-void videowrite32(struct SPPlatform* _platform, uint32_t value)
+void videowrite32(struct SPPlatform* _platform, uint32_t offset, uint32_t value)
 {
 	struct SPIoctl ioctlstruct;
-	ioctlstruct.offset = 0;
+	ioctlstruct.offset = offset;
 	ioctlstruct.value = value;
 	ioctl(_platform->sandpiperfd, SP_IOCTL_VIDEO_WRITE, &ioctlstruct);
 }

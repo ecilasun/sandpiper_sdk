@@ -33,14 +33,11 @@ void qembd_platform_init()
 
 void qembd_sndinit()
 {
-	// Initialize sound system
-	APUInitAudio(s_platform->ac, s_platform);
+	// This is already inited as part of platform
 }
 
 void qembd_vidinit()
 {
-	VPUInitVideo(s_platform->vx, s_platform);
-
 	// Grab video buffer
 	uint32_t stride = VPUGetStride(EVM_320_Wide, ECM_8bit_Indexed);
 	framebuffer.size = stride*240;

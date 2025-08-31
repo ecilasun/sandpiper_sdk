@@ -36,7 +36,6 @@ int main(int argc, char** argv)
 	}
 
 	s_platform = SPInitPlatform();
-	VPUInitVideo(s_platform->vx, s_platform);
 
 	// Set up the video output mode
 	VPUSetVideoMode(s_platform->vx, VIDEO_MODE, VIDEO_COLOR, EVS_Enable);

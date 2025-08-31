@@ -338,7 +338,7 @@ void VPUClear(struct EVideoContext *_context, const uint32_t _colorWord)
 uint32_t VPUReadVBlankCounter(struct EVideoContext *_context)
 {
 	// vblank counter lives at this address
-	return videoread32(_context->m_platform) & 0x1;
+	return videoread32(_context->m_platform, 0) & 0x1;
 }
 
 /*
@@ -350,7 +350,7 @@ uint32_t VPUReadVBlankCounter(struct EVideoContext *_context)
  */
 uint32_t VPUGetScanline(struct EVideoContext *_context)
 {
-	return (videoread32(_context->m_platform) & 0x7FE) >> 1;
+	return (videoread32(_context->m_platform, 0) & 0x7FE) >> 1;
 }
 
 /*
@@ -361,7 +361,7 @@ uint32_t VPUGetScanline(struct EVideoContext *_context)
  */
 uint32_t VPUGetFIFONotEmpty(struct EVideoContext *_context)
 {
-	return (videoread32(_context->m_platform) & 0x800) >> 11;
+	return (videoread32(_context->m_platform, 0) & 0x800) >> 11;
 }
 
  /*
@@ -371,7 +371,7 @@ uint32_t VPUGetFIFONotEmpty(struct EVideoContext *_context)
   */
 void VPUWriteControlRegister(struct EVideoContext *_context, uint8_t _setFlag, uint8_t _value)
 {
-	videowrite32(_context->m_platform, VPUCMD_WCONTROLREG | (_setFlag ? (1 << 8) : 0) | (_value << 9));
+	videowrite32(_context->m_platform, 0, VPUCMD_WCONTROLREG | (_setFlag ? (1 << 8) : 0) | (_value << 9));
 }
 
 /*
@@ -381,8 +381,8 @@ void VPUWriteControlRegister(struct EVideoContext *_context, uint8_t _setFlag, u
  */
 void VPUProgramSetAddress(struct EVideoContext *_context, uint32_t _programAddress)
 {
-	videowrite32(_context->m_platform, VPUCMD_WPROGADDR);
-	videowrite32(_context->m_platform, _programAddress);
+	videowrite32(_context->m_platform, 0, VPUCMD_WPROGADDR);
+	videowrite32(_context->m_platform, 0, _programAddress);
 }
 
 /*
@@ -392,8 +392,8 @@ void VPUProgramSetAddress(struct EVideoContext *_context, uint32_t _programAddre
  */
 void VPUProgramWriteWord(struct EVideoContext *_context, uint32_t _word)
 {
-	videowrite32(_context->m_platform, VPUCMD_WPROGWORD);
-	videowrite32(_context->m_platform, _word);
+	videowrite32(_context->m_platform, 0, VPUCMD_WPROGWORD);
+	videowrite32(_context->m_platform, 0, _word);
 }
 
 /*
@@ -401,7 +401,7 @@ void VPUProgramWriteWord(struct EVideoContext *_context, uint32_t _word)
  */
 uint8_t VPUReadControlRegister(struct EVideoContext *_context)
 {
-	return (uint8_t)((videoread32(_context->m_platform) & 0xFF000) >> 12);
+	return (uint8_t)((videoread32(_context->m_platform, 0) & 0xFF000) >> 12);
 }
 
 /*

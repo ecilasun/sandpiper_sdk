@@ -43,14 +43,13 @@ int main(int argc, char *argv[])
 
 	// Initialize platform and subsystems
 	s_platform = SPInitPlatform();
-	APUInitAudio(s_platform->ac, s_platform);
+
 	mixbufferB.size = mixbufferA.size = 512*2*2;
 	SPAllocateBuffer(s_platform, &mixbufferA);
 	SPAllocateBuffer(s_platform, &mixbufferB);
 	APUSetBufferSize(s_platform->ac, ABS_2048Bytes); // Number of 16 bit stereo samples
 	APUSetSampleRate(s_platform->ac, ASR_11_025_Hz);
 
-	VPUInitVideo(s_platform->vx, s_platform);
 	uint32_t stride = VPUGetStride(EVM_320_Wide, ECM_8bit_Indexed);
 	frameBuffer.size = stride*SCREENHEIGHT;
 	SPAllocateBuffer(s_platform, &frameBuffer);

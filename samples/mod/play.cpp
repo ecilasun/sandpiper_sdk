@@ -215,9 +215,6 @@ int main(int argc, char *argv[])
 
 	s_platform = SPInitPlatform();
 
-	VPUInitVideo(s_platform->vx, s_platform);
-	APUInitAudio(s_platform->ac, s_platform);
-
 	// 4Kbytes of space for the APU
 	// Total APU memory is 8Kbytes and it alternates between two halves each time we call APUStartDMA
 	apubuffer.size = BUFFER_BYTE_COUNT;

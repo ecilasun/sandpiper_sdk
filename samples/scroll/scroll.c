@@ -25,7 +25,7 @@ struct SPSizeAlloc frameBuffer;
 int main(int argc, char** argv)
 {
 	s_platform = SPInitPlatform();
-	VPUInitVideo(s_platform->vx, s_platform);
+
 	uint32_t stride = VPUGetStride(VIDEO_MODE, VIDEO_COLOR);
 	frameBuffer.size = stride*VIDEO_HEIGHT;
 	SPAllocateBuffer(s_platform, &frameBuffer);
