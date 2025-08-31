@@ -196,8 +196,8 @@ void VPUSetDefaultPalette(struct EVideoContext *_context)
   */
 void VPUSetScanoutAddress2(struct EVideoContext *_context, const uint32_t _scanOutAddress64ByteAligned)
 {
-	videowrite32(_context->m_platform, VPUCMD_SETVPAGE2);
-	videowrite32(_context->m_platform, _scanOutAddress64ByteAligned);
+	videowrite32(_context->m_platform, 0, VPUCMD_SETVPAGE2);
+	videowrite32(_context->m_platform, 0, _scanOutAddress64ByteAligned);
 }
 
  /*
@@ -207,7 +207,7 @@ void VPUSetScanoutAddress2(struct EVideoContext *_context, const uint32_t _scanO
   */
 void VPUSyncSwap(struct EVideoContext *_context, uint8_t _donotwaitforvsync)
 {
-	videowrite32(_context->m_platform, (_donotwaitforvsync<<8) | VPUCMD_SYNCSWAP);
+	videowrite32(_context->m_platform, 0, (_donotwaitforvsync<<8) | VPUCMD_SYNCSWAP);
 }
 
 /*
@@ -216,8 +216,8 @@ void VPUSyncSwap(struct EVideoContext *_context, uint8_t _donotwaitforvsync)
  */
 void VPUShiftCache(struct EVideoContext *_context, uint8_t _offset)
 {
-	videowrite32(_context->m_platform, VPUCMD_SHIFTCACHE);
-	videowrite32(_context->m_platform, _offset);
+	videowrite32(_context->m_platform, 0, VPUCMD_SHIFTCACHE);
+	videowrite32(_context->m_platform, 0, _offset);
 }
 
  /*
@@ -226,8 +226,8 @@ void VPUShiftCache(struct EVideoContext *_context, uint8_t _offset)
   */
 void VPUShiftScanout(struct EVideoContext *_context, uint8_t _offset)
 {
-	videowrite32(_context->m_platform, VPUCMD_SHIFTSCANOUT);
-	videowrite32(_context->m_platform, _offset);
+	videowrite32(_context->m_platform, 0, VPUCMD_SHIFTSCANOUT);
+	videowrite32(_context->m_platform, 0, _offset);
 }
 
 /*
@@ -237,8 +237,8 @@ void VPUShiftScanout(struct EVideoContext *_context, uint8_t _offset)
  */
 void VPUShiftPixel(struct EVideoContext *_context, uint8_t _offset)
 {
-	videowrite32(_context->m_platform, VPUCMD_SHIFTPIXEL);
-	videowrite32(_context->m_platform, _offset);
+	videowrite32(_context->m_platform, 0, VPUCMD_SHIFTPIXEL);
+	videowrite32(_context->m_platform, 0, _offset);
 }
 
 /*
@@ -265,14 +265,14 @@ void VPUSetVideoMode(struct EVideoContext *_context, const enum EVideoMode _mode
 		_context->m_consoleHeight = (uint16_t)(_context->m_graphicsHeight/8);
 		_context->m_consoleUpdated = 0;
 
-		videowrite32(_context->m_platform, VPUCMD_SETVMODE);
-		videowrite32(_context->m_platform, MAKEVMODEINFO((uint32_t)_context->m_cmode, (uint32_t)_context->m_vmode, (uint32_t)_scanEnable));
+		videowrite32(_context->m_platform, 0, VPUCMD_SETVMODE);
+		videowrite32(_context->m_platform, 0, MAKEVMODEINFO((uint32_t)_context->m_cmode, (uint32_t)_context->m_vmode, (uint32_t)_scanEnable));
 	}
 	else
 	{
 		// Does not preserve state, mostly preferred during shutdown
-		videowrite32(_context->m_platform, VPUCMD_SETVMODE);
-		videowrite32(_context->m_platform, MAKEVMODEINFO((uint32_t)_cmode, (uint32_t)_mode, (uint32_t)_scanEnable));
+		videowrite32(_context->m_platform, 0, VPUCMD_SETVMODE);
+		videowrite32(_context->m_platform, 0, MAKEVMODEINFO((uint32_t)_cmode, (uint32_t)_mode, (uint32_t)_scanEnable));
 	}
 }
 
@@ -282,7 +282,7 @@ void VPUSetVideoMode(struct EVideoContext *_context, const enum EVideoMode _mode
  */
 void VPUNoop(struct EVideoContext *_context)
 {
-	videowrite32(_context->m_platform, VPUCMD_NOOP);
+	videowrite32(_context->m_platform, 0, VPUCMD_NOOP);
 }
 
 /*
@@ -294,8 +294,8 @@ void VPUSetScanoutAddress(struct EVideoContext *_context, const uint32_t _scanOu
 	_context->m_scanoutAddressCacheAligned = _scanOutAddress64ByteAligned;
 	//EAssert((_scanOutAddress64ByteAligned&0x3F) == 0, "Video scanout address has to be aligned to 64 bytes\n");
 
-	videowrite32(_context->m_platform, VPUCMD_SETVPAGE);
-	videowrite32(_context->m_platform, (uint32_t)_scanOutAddress64ByteAligned);
+	videowrite32(_context->m_platform, 0, VPUCMD_SETVPAGE);
+	videowrite32(_context->m_platform, 0, (uint32_t)_scanOutAddress64ByteAligned);
 }
 
  /*
