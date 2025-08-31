@@ -91,6 +91,8 @@ struct EAudioContext
 struct EVideoContext
 {
 	struct SPPlatform *m_platform;
+	uint8_t* m_characterBuffer;
+	uint8_t* m_colorBuffer;
 	enum EVideoMode m_vmode;
 	enum EColorMode m_cmode;
 	enum EVideoScanoutEnable m_scanEnable;

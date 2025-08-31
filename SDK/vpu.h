@@ -117,7 +117,7 @@
 #define MAKECOLORRGB16(_r, _g, _b) ((((_r&0x1F)<<11) | (_g&0x3F)<<5) | (_b&0x1F))
 
 void VPUInitVideo(struct EVideoContext* _context, struct SPPlatform* _platform);
-void VPUShutdownVideo();
+void VPUShutdownVideo(struct EVideoContext* _context);
 
 uint32_t VPUGetStride(const enum EVideoMode _mode, const enum EColorMode _cmode);
 void VPUGetDimensions(const enum EVideoMode _mode, uint32_t *_width, uint32_t *_height);

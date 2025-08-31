@@ -9,9 +9,6 @@
 #include <stdio.h>
 #include <fcntl.h>
 
-static uint8_t* color_buffer = 0;
-static uint8_t* character_buffer = 0;
-
 // Video mode control word
 #define MAKEVMODEINFO(_cmode, _vmode, _scanEnable) ((_cmode&0x1)<<2) | ((_vmode&0x1)<<1) | (_scanEnable&0x1)
 
@@ -498,8 +495,8 @@ void VPUPrintString(struct EVideoContext *_context, const uint8_t _foregroundInd
 void VPUConsoleResolve(struct EVideoContext *_context)
 {
 	uint32_t *vramBase = (uint32_t*)_context->m_cpuWriteAddressCacheAligned;
-	uint8_t *characterBase = character_buffer;
-	uint8_t *colorBase = color_buffer;
+	uint8_t *characterBase = _context->m_characterBuffer;
+	uint8_t *colorBase = _context->m_colorBuffer;
 	uint32_t stride = _context->m_strideInWords;
 	const uint16_t H = _context->m_consoleHeight;
 	const uint16_t W = _context->m_consoleWidth;
@@ -601,12 +598,12 @@ void VPUConsoleScrollUp(struct EVideoContext *_context)
 
 	// We're trying to write past end of console; scroll up the contents of the console
 	// NOTE: This does not save the contents of the text buffer that has scrolled off
-	uint8_t* targettext = character_buffer;
-	uint8_t* targetcolor = color_buffer;
-	uint8_t* sourcetext = character_buffer + W;
-	uint8_t* sourcecolor = color_buffer + W;
-	uint8_t* lasttextrow = character_buffer + W*H_1;
-	uint8_t* lastcolorrow = color_buffer + W*H_1;
+	uint8_t* targettext = _context->m_characterBuffer;
+	uint8_t* targetcolor = _context->m_colorBuffer;
+	uint8_t* sourcetext = _context->m_characterBuffer + W;
+	uint8_t* sourcecolor = _context->m_colorBuffer + W;
+	uint8_t* lasttextrow = _context->m_characterBuffer + W*H_1;
+	uint8_t* lastcolorrow = _context->m_colorBuffer + W*H_1;
 	__builtin_memcpy((void*)targettext, (void*)sourcetext, W*H_1);
 	__builtin_memcpy((void*)targetcolor, (void*)sourcecolor, W*H_1);
 	// Fill last row with spaces
@@ -626,12 +623,12 @@ void VPUConsoleScrollDown(struct EVideoContext *_context)
 	const uint16_t H_1 = _context->m_consoleHeight - 1;
 	// We're trying to write before start of console; scroll down the contents of the console
 	// NOTE: This does not save the contents of the text buffer that has scrolled off
-	uint8_t* targettext = character_buffer + W;
-	uint8_t* targetcolor = color_buffer + W;
-	uint8_t* sourcetext = character_buffer;
-	uint8_t* sourcecolor = color_buffer;
-	uint8_t* firsttextrow = character_buffer;
-	uint8_t* firstcolorrow = color_buffer;
+	uint8_t* targettext = _context->m_characterBuffer + W;
+	uint8_t* targetcolor = _context->m_colorBuffer + W;
+	uint8_t* sourcetext = _context->m_characterBuffer;
+	uint8_t* sourcecolor = _context->m_colorBuffer;
+	uint8_t* firsttextrow = _context->m_characterBuffer;
+	uint8_t* firstcolorrow = _context->m_colorBuffer;
 	__builtin_memcpy((void*)targettext, (void*)sourcetext, W*H_1);
 	__builtin_memcpy((void*)targetcolor, (void*)sourcecolor, W*H_1);
 	// Fill first row with spaces
@@ -673,8 +670,8 @@ void VPUConsoleSetBackground(struct EVideoContext *_context, const uint8_t _back
  */
 void VPUConsoleClear(struct EVideoContext *_context)
 {
-	uint8_t *characterBase = character_buffer;
-	uint8_t *colorBase = color_buffer;
+	uint8_t *characterBase = _context->m_characterBuffer;
+	uint8_t *colorBase = _context->m_colorBuffer;
 	// Fill console with spaces
 	__builtin_memset(characterBase, 0x20, _context->m_consoleWidth*_context->m_consoleHeight);
 	__builtin_memset(colorBase, _context->m_consoleColor, _context->m_consoleWidth*_context->m_consoleHeight);
@@ -693,8 +690,8 @@ void VPUConsoleClear(struct EVideoContext *_context)
  */
 void VPUConsolePrintInPlace(struct EVideoContext *_context, const char *_message, int _length)
 {
-	uint8_t *characterBase = character_buffer;
-	uint8_t *colorBase = color_buffer;
+	uint8_t *characterBase = _context->m_characterBuffer;
+	uint8_t *colorBase = _context->m_colorBuffer;
 	uint32_t stride = _context->m_consoleWidth;
 	int cx = _context->m_cursorX;
 	int cy = _context->m_cursorY;
@@ -754,8 +751,8 @@ void VPUConsolePrintInPlace(struct EVideoContext *_context, const char *_message
  */
 void VPUConsolePrint(struct EVideoContext *_context, const char *_message, int _length)
 {
-	uint8_t *characterBase = character_buffer;
-	uint8_t *colorBase = color_buffer;
+	uint8_t *characterBase = _context->m_characterBuffer;
+	uint8_t *colorBase = _context->m_colorBuffer;
 	uint32_t stride = _context->m_consoleWidth;
 	int cx = _context->m_cursorX;
 	int cy = _context->m_cursorY;
@@ -901,7 +898,7 @@ void VPUConsoleHomeCursor(struct EVideoContext *_context)
  */
 void VPUConsoleEndCursor(struct EVideoContext *_context)
 {
-    uint8_t *characterBase = character_buffer;
+    uint8_t *characterBase = _context->m_characterBuffer;
     uint32_t stride = _context->m_consoleWidth;
     const uint16_t W_1 = _context->m_consoleWidth - 1;
 
@@ -926,7 +923,7 @@ void VPUConsoleEndCursor(struct EVideoContext *_context)
  */
 void VPUConsoleCopyLine(struct EVideoContext *_context, uint16_t _line, uint16_t _xStart, uint16_t _xEnd, char *_buffer)
 {
-	uint8_t *characterBase = character_buffer;
+	uint8_t *characterBase = _context->m_characterBuffer;
 	uint32_t stride = _context->m_consoleWidth;
 	uint16_t cy = _line == VPU_AUTO ? _context->m_cursorY : _line;
 
@@ -944,8 +941,8 @@ void VPUConsoleCopyLine(struct EVideoContext *_context, uint16_t _line, uint16_t
  */
 int VPUConsoleFillLine(struct EVideoContext *_context, const char _character)
 {
-	uint8_t *characterBase = character_buffer;
-	uint8_t *colorBase = color_buffer;
+	uint8_t *characterBase = _context->m_characterBuffer;
+	uint8_t *colorBase = _context->m_colorBuffer;
 	uint32_t stride = _context->m_consoleWidth;
 	const uint16_t H_1 = _context->m_consoleHeight-1;
 	const uint16_t W = _context->m_consoleWidth;
@@ -982,19 +979,19 @@ int VPUConsoleFillLine(struct EVideoContext *_context, const char _character)
  */
 void VPUInsertCharacter(struct EVideoContext *_context, uint16_t _x, uint16_t _y, uint8_t _character)
 {
-	uint8_t *characterBase = character_buffer;
-	uint8_t *colorBase = color_buffer;
-    uint32_t stride = _context->m_consoleWidth;
-    const uint16_t W_1 = _context->m_consoleWidth - 1;
+	uint8_t *characterBase = _context->m_characterBuffer;
+	uint8_t *colorBase = _context->m_colorBuffer;
+	uint32_t stride = _context->m_consoleWidth;
+	const uint16_t W_1 = _context->m_consoleWidth - 1;
 
-    for (uint16_t x=W_1; x!=_x; x--)
-    {
-        characterBase[_y*stride+x] = characterBase[_y*stride+x-1];
-        colorBase[_y*stride+x] = colorBase[_y*stride+x-1];
-    }
+	for (uint16_t x=W_1; x!=_x; x--)
+	{
+	characterBase[_y*stride+x] = characterBase[_y*stride+x-1];
+	colorBase[_y*stride+x] = colorBase[_y*stride+x-1];
+	}
 
-    characterBase[_y*stride+_x] = _character;
-    colorBase[_y*stride+_x] = _context->m_consoleColor;
+	characterBase[_y*stride+_x] = _character;
+	colorBase[_y*stride+_x] = _context->m_consoleColor;
 }
 
 /*
@@ -1005,8 +1002,8 @@ void VPUInsertCharacter(struct EVideoContext *_context, uint16_t _x, uint16_t _y
  */
 void VPURemoveCharacter(struct EVideoContext *_context, uint16_t _x, uint16_t _y)
 {
-	uint8_t *characterBase = character_buffer;
-	uint8_t *colorBase = color_buffer;
+	uint8_t *characterBase = _context->m_characterBuffer;
+	uint8_t *colorBase = _context->m_colorBuffer;
 	uint32_t stride = _context->m_consoleWidth;
 	const uint16_t W = _context->m_consoleWidth;
 
@@ -1057,8 +1054,8 @@ void VPUInitVideo(struct EVideoContext* _context, struct  SPPlatform* _platform)
 {
 	_context->m_platform = _platform;
 
-	color_buffer = (uint8_t*)malloc(640*480+128);
-	character_buffer = (uint8_t*)malloc(640*480+128);
+	_context->m_colorBuffer = (uint8_t*)malloc(640*480+128);
+	_context->m_characterBuffer = (uint8_t*)malloc(640*480+128);
 
 	VPUSetDefaultPalette(_context);
 }
@@ -1066,12 +1063,16 @@ void VPUInitVideo(struct EVideoContext* _context, struct  SPPlatform* _platform)
 /*
  * Shuts down the video context by freeing allocated resources.
  */
-void VPUShutdownVideo()
+void VPUShutdownVideo(struct EVideoContext* _context)
 {
-	if (character_buffer)
-		free(character_buffer);
-	if (color_buffer)
-		free(color_buffer);
-	character_buffer = 0;
-	color_buffer = 0;
+	if (_context && _context->m_characterBuffer)
+	{
+		free(_context->m_characterBuffer);
+		_context->m_characterBuffer = 0;
+	}
+	if (_context && _context->m_colorBuffer)
+	{
+		free(_context->m_colorBuffer);
+		_context->m_colorBuffer = 0;
+	}
 }

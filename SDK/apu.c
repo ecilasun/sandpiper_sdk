@@ -56,7 +56,7 @@ uint32_t APUGetWordCount(struct EAudioContext* _context)
 int APUInitAudio(struct EAudioContext* _context, struct SPPlatform* _platform)
 {
 	_context->m_platform = _platform;
-	_context->m_sampleRate = ASR_44_100_Hz;
+	_context->m_sampleRate = ASR_Halt;
 	_context->m_bufferSize = 0;
 
 	return 0;

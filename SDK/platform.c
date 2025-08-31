@@ -55,13 +55,19 @@ void shutdowncleanup()
 			VPUShiftPixel(g_activePlatform->vx, 0);
 
 			// Tear down video system
-			VPUShutdownVideo();
+			VPUShutdownVideo(g_activePlatform->vx);
+
+			free(g_activePlatform->vx);
+			g_activePlatform->vx = 0;
 		}
 
 		if (g_activePlatform->ac)
 		{
 			// Tear down audio system, also stops all audio output
 			APUShutdownAudio(g_activePlatform->ac);
+
+			free(g_activePlatform->ac);
+			g_activePlatform->ac = 0;
 		}
 
 		// Shutdown platform

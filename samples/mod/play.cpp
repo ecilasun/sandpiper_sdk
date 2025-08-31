@@ -89,7 +89,7 @@ void *draw_wave(void *data)
 		}
 
 		fft(outputL);
-		fft(outputR);		
+		fft(outputR);
 
 		for (uint32_t i=0; i<BUFFER_SAMPLE_COUNT/2; i+=4)
 		{
@@ -205,9 +205,13 @@ int main(int argc, char *argv[])
 {
 	if (argc < 2)
 	{
-		printf("Usage: %s <modulefilename>\n", argv[0]);
+		printf("Usage: %s <modulefilename> <novis>\n", argv[0]);
 		return -1;
 	}
+
+	int novis = 0;
+	if (argc >= 3 && strcmp(argv[2], "novis")==0)
+		novis = 1;
 
 	s_platform = SPInitPlatform();
 
@@ -222,36 +226,39 @@ int main(int argc, char *argv[])
 		short* buf = (short*)apubuffer.cpuAddress;
 		memset(buf, 0, BUFFER_BYTE_COUNT);
 	}
-	printf("APU mix buffer: 0x%08X <-0x%08X - %dbytes \n", (unsigned int)apubuffer.cpuAddress, (unsigned int)apubuffer.dmaAddress, apubuffer.size);
 
-	uint32_t stride = VPUGetStride(EVM_320_Wide, ECM_8bit_Indexed);
-	bufferB.size = bufferA.size = stride*240;
-	SPAllocateBuffer(s_platform, &bufferA);
-	printf("VPU buffer: 0x%08X <-0x%08X - %dbytes \n", (unsigned int)bufferA.cpuAddress, (unsigned int)bufferA.dmaAddress, bufferB.size);
-	SPAllocateBuffer(s_platform, &bufferB);
-	printf("VPU buffer: 0x%08X <-0x%08X - %dbytes \n", (unsigned int)bufferB.cpuAddress, (unsigned int)bufferB.dmaAddress, bufferB.size);
+	if (!novis)
+	{
+		uint32_t stride = VPUGetStride(EVM_320_Wide, ECM_8bit_Indexed);
+		bufferB.size = bufferA.size = stride*240;
+		SPAllocateBuffer(s_platform, &bufferA);
+		SPAllocateBuffer(s_platform, &bufferB);
 
-	VPUSetVideoMode(s_platform->vx, EVM_320_Wide, ECM_8bit_Indexed, EVS_Enable);
+		VPUSetVideoMode(s_platform->vx, EVM_320_Wide, ECM_8bit_Indexed, EVS_Enable);
 
-	s_platform->sc->cycle = 0;
-	s_platform->sc->framebufferA = &bufferA;
-	s_platform->sc->framebufferB = &bufferB;
+		s_platform->sc->cycle = 0;
+		s_platform->sc->framebufferA = &bufferA;
+		s_platform->sc->framebufferB = &bufferB;
 
-	VPUSetScanoutAddress(s_platform->vx, (uint32_t)bufferA.dmaAddress);
-	VPUSetScanoutAddress2(s_platform->vx, (uint32_t)bufferB.dmaAddress);
+		VPUSetScanoutAddress(s_platform->vx, (uint32_t)bufferA.dmaAddress);
+		VPUSetScanoutAddress2(s_platform->vx, (uint32_t)bufferB.dmaAddress);
 
-	VPUSwapPages(s_platform->vx, s_platform->sc);
-	VPUClear(s_platform->vx, 0x00000000);
-	VPUSwapPages(s_platform->vx, s_platform->sc);
-	VPUClear(s_platform->vx, 0x00000000);
+		VPUSwapPages(s_platform->vx, s_platform->sc);
+		VPUClear(s_platform->vx, 0x00000000);
+		VPUSwapPages(s_platform->vx, s_platform->sc);
+		VPUClear(s_platform->vx, 0x00000000);
 
-	memset(barsL, 0, 256*sizeof(int16_t));
-	memset(barsR, 0, 256*sizeof(int16_t));
+		memset(barsL, 0, 256*sizeof(int16_t));
+		memset(barsR, 0, 256*sizeof(int16_t));
+	}
 
 	pthread_t thread1, thread2;
-	int success = pthread_create(&thread1, NULL, draw_wave, NULL);
+	int success = 0;
+	if (!novis)
+		success = pthread_create(&thread1, NULL, draw_wave, NULL);
 	success = pthread_create(&thread2, NULL, PlayXMP, argv[1]);
-	pthread_join(thread1, NULL);
+	if (!novis)
+		pthread_join(thread1, NULL);
 	pthread_join(thread2, NULL);
 
 	printf("Playback complete\n");
