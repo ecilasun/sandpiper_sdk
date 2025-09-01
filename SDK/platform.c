@@ -27,8 +27,11 @@ struct SPIoctl
 #define SP_IOCTL_AUDIO_WRITE		_IOW('k', 4, void*)
 #define SP_IOCTL_VIDEO_READ			_IOR('k', 5, void*)
 #define SP_IOCTL_VIDEO_WRITE		_IOW('k', 6, void*)
+#define SP_IOCTL_VCP_READ			_IOR('k', 7, void*)
+#define SP_IOCTL_VCP_WRITE			_IOW('k', 8, void*)
 #define SP_IOCTL_PALETTE_READ		_IOR('k', 9, void*)
 #define SP_IOCTL_PALETTE_WRITE		_IOW('k', 10, void*)
+#define SP_IOCTL_GET_VCP_CTL		_IOR('k', 11, void*)
 
 // NOTE: A list of all of the onboard devices can be found under /sys/bus/platform/devices/ including the audio and video devices.
 // The file names are annotated with the device addresses, which is useful for MMIO mapping.

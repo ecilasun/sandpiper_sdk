@@ -132,7 +132,9 @@ void SPFreeBuffer(struct SPPlatform* _platform, struct SPSizeAlloc *_sizealloc);
 uint32_t audioread32(struct SPPlatform* _platform, uint32_t offset);
 uint32_t videoread32(struct SPPlatform* _platform, uint32_t offset);
 uint32_t paletteread32(struct SPPlatform* _platform, uint32_t offset);
+uint32_t vcpread32(struct SPPlatform* _platform, uint32_t offset);
 
 void audiowrite32(struct SPPlatform* _platform, uint32_t offset, uint32_t value);
 void videowrite32(struct SPPlatform* _platform, uint32_t offset, uint32_t value);
 void palettewrite32(struct SPPlatform* _platform, uint32_t offset, uint32_t value);
+void vcpwrite32(struct SPPlatform* _platform, uint32_t offset, uint32_t value);
