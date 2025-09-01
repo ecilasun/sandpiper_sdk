@@ -74,18 +74,18 @@ int main(int argc, char** argv)
 	s_platform->sc->framebufferB = &frameBufferB;
 
 	// Stop all running programs by clearing all control registers
+	printf("Stopping VCP programs\n");
 	VPUWriteControlRegister(s_platform->vx, 0x0F, 0x00);
 
-	/*
-	TODO: use vcpwrite32()
-	printf("Uploading VPU program @0x0000\n");
-	VPUProgramSetAddress(s_platform->vx, 0x0000);
-	// Upload program to the VPU
+	printf("Uploading VCP program\n");
 	for (uint32_t i = 0; i < sizeof(s_vpuprogram) / sizeof(uint32_t); i++)
-		VPUProgramWriteWord(s_platform->vx, s_vpuprogram[i]);*/
+		vcpwrite32(s_platform->cx, i * 4, s_vpuprogram[i]);
 
-	printf("Starting VPU program\n");
-	// Start the VPU programs on all 4 units
+	// TODO: Implement this instead, with a VCP context
+	//VCPUploadProgram(s_platform->cx, s_vpuprogram, sizeof(s_vpuprogram));
+
+	// Start the VCP program
+	printf("Starting VCP program\n");
 	VPUWriteControlRegister(s_platform->vx, 0x0F, 0x0F);
 
 	printf("Entering demo...\n");
