@@ -375,28 +375,6 @@ void VPUWriteControlRegister(struct EVideoContext *_context, uint8_t _setFlag, u
 }
 
 /*
- * Writes a program word to the VPU's program memory.
- * _programAddress is the address in the VPU's program memory where the word will be written.
- * _word is the 32-bit program word to write.
- */
-void VPUProgramSetAddress(struct EVideoContext *_context, uint32_t _programAddress)
-{
-	videowrite32(_context->m_platform, 0, VPUCMD_WPROGADDR);
-	videowrite32(_context->m_platform, 0, _programAddress);
-}
-
-/*
- * Writes a program word to the VPU's program memory.
- * _word is the 32-bit program word to write.
- * The address set by VPUProgramSetAddress will be used and incremented by 4 after the write.
- */
-void VPUProgramWriteWord(struct EVideoContext *_context, uint32_t _word)
-{
-	videowrite32(_context->m_platform, 0, VPUCMD_WPROGWORD);
-	videowrite32(_context->m_platform, 0, _word);
-}
-
-/*
  * Reads the current value of the VPU's control register.
  */
 uint8_t VPUReadControlRegister(struct EVideoContext *_context)
