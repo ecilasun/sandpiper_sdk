@@ -354,3 +354,21 @@ void palettewrite32(struct SPPlatform* _platform, uint32_t offset, uint32_t valu
 	ioctlstruct.value = value;
 	ioctl(_platform->sandpiperfd, SP_IOCTL_PALETTE_WRITE, &ioctlstruct);
 }
+
+uint32_t vcpread32(struct SPPlatform* _platform, uint32_t offset)
+{
+	struct SPIoctl ioctlstruct;
+	ioctlstruct.offset = offset;
+	ioctlstruct.value = 0;
+	if (ioctl(_platform->sandpiperfd, SP_IOCTL_VCP_READ, &ioctlstruct) < 0)
+		return 0;
+	return ioctlstruct.value;
+}
+
+void vcpwrite32(struct SPPlatform* _platform, uint32_t offset, uint32_t value)
+{
+	struct SPIoctl ioctlstruct;
+	ioctlstruct.offset = offset;
+	ioctlstruct.value = value;
+	ioctl(_platform->sandpiperfd, SP_IOCTL_VCP_WRITE, &ioctlstruct);
+}
