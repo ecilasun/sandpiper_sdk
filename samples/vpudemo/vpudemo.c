@@ -81,6 +81,11 @@ int main(int argc, char** argv)
 	for (uint32_t i = 0; i < sizeof(s_vpuprogram) / sizeof(uint32_t); i++)
 		vcpwrite32(s_platform, i * 4, s_vpuprogram[i]);
 
+	// Read back and dump the program
+	//printf("Reading back VCP program\n");
+	//for (uint32_t i = 0; i < sizeof(s_vpuprogram) / sizeof(uint32_t); i++)
+	//	printf("%8x:%8x\n", i, vcpread32(s_platform, i * 4));
+
 	// TODO: Implement this instead, with a VCP context
 	//VCPUploadProgram(s_platform->cx, s_vpuprogram, sizeof(s_vpuprogram));
 
@@ -108,5 +113,6 @@ int main(int argc, char** argv)
 		VPUNoop(s_platform->vx);
 	} while(1);
 
+	printf("Done\n");
 	return 0;
 }
