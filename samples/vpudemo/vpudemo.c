@@ -24,16 +24,16 @@ struct SPSizeAlloc frameBufferB;
 // at start of every scanline by waiting for pixel 0
 // The program clocks at approximately one instruction per pixel
 static uint32_t s_vpuprogram[] = {
-	vinstr_setacc(0xFFFFFF),		// White color in ACC (Accumulator Register is R0)
-	vinstr_copyreg(0x01, 0x00),		// Copy ACC to R1
-	vinstr_setacc(0x000001),		// Increment value in ACC
-	vinstr_copyreg(0x02, 0x00),		// Copy ACC to R2
+	vcp_setacc(0xFFFFFF),				// White color in ACC (Accumulator Register is R0)
+	vcp_copyreg(0x01, 0x00),			// Copy ACC to R1
+	vcp_setacc(0x000001),				// Increment value in ACC
+	vcp_copyreg(0x02, 0x00),			// Copy ACC to R2
 // loop:
-	vinstr_waitcolumn(0x00),		// Wait for pixel 0 of the current scanline
-	vinstr_setpal(0x00, 0x01),		// Set PAL[0] to R1
-	vinstr_add(0x01, 0x02),			// Increment R1 by R2
-	vinstr_compare(0x00, 0x00, COND_EQ),	// Set branch condition to 'R0==R0' in ACC (i.e. COND_ALWAYS)
-	vinstr_branch(0x10),			// Unconditional branch to byte 16 (start of loop) based on ACC
+	vcp_waitcolumn(0x00),				// Wait for pixel 0 of the current scanline
+	vcp_setpal(0x00, 0x01),				// Set PAL[0] to R1
+	vcp_add(0x01, 0x02),				// Increment R1 by R2
+	vcp_compare(0x00, 0x00, COND_EQ),	// Set branch condition to 'R0==R0' in ACC (i.e. COND_ALWAYS)
+	vcp_branch(0x10),					// Unconditional branch to byte 16 (start of loop) based on ACC
 };
 
 int main(int argc, char** argv)
@@ -75,11 +75,13 @@ int main(int argc, char** argv)
 	// Stop all running programs by clearing all control registers
 	VPUWriteControlRegister(s_platform->vx, 0x0F, 0x00);
 
+	/*
+	TODO: use vcpwrite32()
 	printf("Uploading VPU program @0x0000\n");
 	VPUProgramSetAddress(s_platform->vx, 0x0000);
 	// Upload program to the VPU
 	for (uint32_t i = 0; i < sizeof(s_vpuprogram) / sizeof(uint32_t); i++)
-		VPUProgramWriteWord(s_platform->vx, s_vpuprogram[i]);
+		VPUProgramWriteWord(s_platform->vx, s_vpuprogram[i]);*/
 
 	printf("Starting VPU program\n");
 	// Start the VPU programs on all 4 units
