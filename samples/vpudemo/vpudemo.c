@@ -79,7 +79,7 @@ int main(int argc, char** argv)
 
 	printf("Uploading VCP program\n");
 	for (uint32_t i = 0; i < sizeof(s_vpuprogram) / sizeof(uint32_t); i++)
-		vcpwrite32(s_platform->cx, i * 4, s_vpuprogram[i]);
+		vcpwrite32(s_platform, i * 4, s_vpuprogram[i]);
 
 	// TODO: Implement this instead, with a VCP context
 	//VCPUploadProgram(s_platform->cx, s_vpuprogram, sizeof(s_vpuprogram));
