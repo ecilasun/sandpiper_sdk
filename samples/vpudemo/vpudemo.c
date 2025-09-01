@@ -11,6 +11,7 @@
 #include "core.h"
 #include "platform.h"
 #include "vpu.h"
+#include "vcp.h"
 
 #define VIDEO_MODE      EVM_320_Wide
 #define VIDEO_COLOR     ECM_8bit_Indexed
