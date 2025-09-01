@@ -24,7 +24,7 @@ struct SPSizeAlloc frameBufferB;
 // Small program to change palette color 0
 // at start of every scanline by waiting for pixel 0
 // The program clocks at approximately one instruction per pixel
-static uint32_t s_vpuprogram[] = {
+static uint32_t s_vcpprogram[] = {
 	vcp_setacc(0xFFFFFF),				// White color in ACC (Accumulator Register is R0)
 	vcp_copyreg(0x01, 0x00),			// Copy ACC to R1
 	vcp_setacc(0x000001),				// Increment value in ACC
@@ -35,6 +35,7 @@ static uint32_t s_vpuprogram[] = {
 	vcp_add(0x01, 0x02),				// Increment R1 by R2
 	vcp_compare(0x00, 0x00, COND_EQ),	// Set branch condition to 'R0==R0' in ACC (i.e. COND_ALWAYS)
 	vcp_branch(0x10),					// Unconditional branch to byte 16 (start of loop) based on ACC
+	vcp_halt(),							// Good practice to pad with a halt instruction
 };
 
 int main(int argc, char** argv)
@@ -78,16 +79,16 @@ int main(int argc, char** argv)
 	VPUWriteControlRegister(s_platform->vx, 0x0F, 0x00);
 
 	printf("Uploading VCP program\n");
-	for (uint32_t i = 0; i < sizeof(s_vpuprogram) / sizeof(uint32_t); i++)
-		vcpwrite32(s_platform, i * 4, s_vpuprogram[i]);
+	for (uint32_t i = 0; i < sizeof(s_vcpprogram) / sizeof(uint32_t); i++)
+		vcpwrite32(s_platform, i * 4, s_vcpprogram[i]);
 
 	// Read back and dump the program
 	//printf("Reading back VCP program\n");
-	//for (uint32_t i = 0; i < sizeof(s_vpuprogram) / sizeof(uint32_t); i++)
+	//for (uint32_t i = 0; i < sizeof(s_vcpprogram) / sizeof(uint32_t); i++)
 	//	printf("%8x:%8x\n", i, vcpread32(s_platform, i * 4));
 
 	// TODO: Implement this instead, with a VCP context
-	//VCPUploadProgram(s_platform->cx, s_vpuprogram, sizeof(s_vpuprogram));
+	//VCPUploadProgram(s_platform->cx, s_vcpprogram, sizeof(s_vcpprogram));
 
 	// Start the VCP program
 	printf("Starting VCP program\n");

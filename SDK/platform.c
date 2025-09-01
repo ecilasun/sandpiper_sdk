@@ -49,7 +49,7 @@ void shutdowncleanup()
 			// Back to RGB16 mode
 			VPUSetVideoMode(g_activePlatform->vx, EVM_640_Wide, ECM_16bit_RGB, EVS_Enable);
 
-			// Stop all VPU activity
+			// Stop all VCP program activity
 			VPUWriteControlRegister(g_activePlatform->vx, 0xFF, 0x00);
 
 			// Reset scroll
