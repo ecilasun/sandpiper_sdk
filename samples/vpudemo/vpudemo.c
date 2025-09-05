@@ -79,16 +79,12 @@ int main(int argc, char** argv)
 	VPUWriteControlRegister(s_platform->vx, 0x0F, 0x00);
 
 	printf("Uploading VCP program\n");
-	for (uint32_t i = 0; i < sizeof(s_vcpprogram) / sizeof(uint32_t); i++)
-		vcpwrite32(s_platform, i * 4, s_vcpprogram[i]);
+	VCPUploadProgram(s_platform->cx, s_vcpprogram, sizeof(s_vcpprogram));
 
 	// Read back and dump the program
 	//printf("Reading back VCP program\n");
 	//for (uint32_t i = 0; i < sizeof(s_vcpprogram) / sizeof(uint32_t); i++)
 	//	printf("%8x:%8x\n", i, vcpread32(s_platform, i * 4));
-
-	// TODO: Implement this instead, with a VCP context
-	//VCPUploadProgram(s_platform->cx, s_vcpprogram, sizeof(s_vcpprogram));
 
 	// Start the VCP program
 	printf("Starting VCP program\n");

@@ -21,7 +21,8 @@
 		"type_traits": "c",
 		"xlocmon": "c",
 		"xtr1common": "c",
-		"xutility": "c"
+		"xutility": "c",
+		"vcp.h": "c"
 	},
 	"idf.pythonInstallPath": "C:\\Users\\ecila\\.espressif\\tools\\idf-python\\3.11.2\\python.exe"
 }
