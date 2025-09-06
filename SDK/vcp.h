@@ -74,4 +74,4 @@
 #define vcp_load(addr, dest)				(	0					| 0				| SRCREG2(addr)		| DESTREG(dest)		| VCP_LOAD			)
 #define vcp_store(addr, src, wmask)			(	IMMED8(wmask)		| 0				| SRCREG2(src)		| SRCREG1(addr)		| VCP_STORE			)
 
-void VCPUploadProgram(VCPContext *ctx, const uint32_t *program, size_t size);
+void VCPUploadProgram(struct SPPlatform *ctx, const uint32_t *program, size_t size);

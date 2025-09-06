@@ -79,7 +79,7 @@ int main(int argc, char** argv)
 	VPUWriteControlRegister(s_platform->vx, 0x0F, 0x00);
 
 	printf("Uploading VCP program\n");
-	VCPUploadProgram(s_platform->cx, s_vcpprogram, sizeof(s_vcpprogram));
+	VCPUploadProgram(s_platform, s_vcpprogram, sizeof(s_vcpprogram));
 
 	// Read back and dump the program
 	//printf("Reading back VCP program\n");
