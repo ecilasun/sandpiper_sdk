@@ -3,30 +3,30 @@
 #include "platform.h"
 
 // VPU program instruction set
-#define VCP_HALT			0x00000000
-#define VCP_NOOP			0x00000001
-#define VCP_WAITLINE		0x00000002
-#define VCP_WAITCOLUMN		0x00000003
-#define VCP_SETPIXOFF		0x00000004
-#define VCP_SETCACHEROFF	0x00000005
-#define VCP_SETCACHEWOFF	0x00000006
-#define VCP_SETACC			0x00000007
-#define VCP_SETPAL			0x00000008
-#define VCP_COPYREG			0x00000009
-#define VCP_ADD				0x0000000A
-#define VCP_COMPARE			0x0000000B
-#define VCP_BRANCH			0x0000000C
-#define VCP_JUMP			0x0000000D
-#define VCP_RESERVED1		0x0000000E
-#define VCP_RESERVED2		0x0000000F
-#define VCP_AND				0x00000010
-#define VCP_OR				0x00000011
-#define VCP_XOR				0x00000012
-#define VCP_NOT				0x00000013
-#define VCP_SHL				0x00000014
-#define VCP_SHR				0x00000015
-#define VCP_LOAD			0x00000016
-#define VCP_STORE			0x00000017
+#define VCP_HALT			0x00
+#define VCP_NOOP			0x01
+#define VCP_WAITLINE		0x02
+#define VCP_WAITCOLUMN		0x03
+#define VCP_SETPIXOFF		0x04
+#define VCP_SETCACHEROFF	0x05
+#define VCP_SETCACHEWOFF	0x06
+#define VCP_SETACC			0x07
+#define VCP_SETPAL			0x08
+#define VCP_COPYREG			0x09
+#define VCP_ADD				0x0A
+#define VCP_COMPARE			0x0B
+#define VCP_BRANCH			0x0C
+#define VCP_JUMP			0x0D
+#define VCP_RESERVED1		0x0E
+#define VCP_RESERVED2		0x0F
+#define VCP_AND				0x10
+#define VCP_OR				0x11
+#define VCP_XOR				0x12
+#define VCP_NOT				0x13
+#define VCP_SHL				0x14
+#define VCP_SHR				0x15
+#define VCP_LOAD			0x16
+#define VCP_STORE			0x17
 
 #define DESTREG(reg)			((reg & 0xF) << 8)
 #define SRCREG1(reg)			((reg & 0xF) << 8)
