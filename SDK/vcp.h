@@ -16,9 +16,9 @@
 #define VCP_ADD				0x0000000A
 #define VCP_COMPARE			0x0000000B
 #define VCP_BRANCH			0x0000000C
-#define VCP_MUL				0x0000000D
-#define VCP_DIV				0x0000000E
-#define VCP_MOD				0x0000000F
+#define VCP_JUMP			0x0000000D
+#define VCP_RESERVED1		0x0000000E
+#define VCP_RESERVED2		0x0000000F
 #define VCP_AND				0x00000010
 #define VCP_OR				0x00000011
 #define VCP_XOR				0x00000012
@@ -31,9 +31,8 @@
 #define DESTREG(reg)			((reg & 0xF) << 8)
 #define SRCREG1(reg)			((reg & 0xF) << 8)
 #define SRCREG2(reg)			((reg & 0xF) << 12)
-#define IMMED3(value)			((value & 0x7) << 24)
-#define IMMED8(value)			((value & 0xFF) << 24)
 #define FLAGS8(value)			((value & 0xFF) << 16)
+#define IMMED8(value)			((value & 0xFF) << 24)
 #define IMMED24(value)			((value & 0xFFFFFFU) << 8)
 
 #define COND_EQ					0x01	// or NE if inverted
@@ -57,12 +56,13 @@
 #define vcp_setpixoff(src)					(	0					| 0				| SRCREG2(src)		| 0					| VCP_SETPIXOFF		)
 #define vcp_setcacheroff(src)				(	0					| 0				| SRCREG2(src)		| 0					| VCP_SETCACHEROFF	)
 #define vcp_setcachewoff(src)				(	0					| 0				| SRCREG2(src)		| 0					| VCP_SETCACHEWOFF	)
-#define vcp_setpal(index, src)				(	0					| FLAGS8(index)	| SRCREG2(src)		| 0					| VCP_SETPAL		)
-#define vcp_setacc(value)					(								IMMED24(value)									| VCP_SETACC		)
+#define vcp_setpal(index, src)				(	IMMED8(wmask)		| FLAGS8(index)	| SRCREG2(src)		| 0					| VCP_SETPAL		)
+#define vcp_setacc(value)					(	IMMED24(value)																| VCP_SETACC		)
 #define vcp_copyreg(dest, src)				(	0					| 0				| SRCREG2(src)		| DESTREG(dest)		| VCP_COPYREG		)
 #define vcp_add(dest, src)					(	0					| 0				| SRCREG2(src)		| DESTREG(dest)		| VCP_ADD			)
-#define vcp_compare(dest, src, condition)	(	IMMED3(condition)	| 0				| SRCREG2(src)		| DESTREG(dest)		| VCP_COMPARE		)
+#define vcp_compare(dest, src, cond)		(	0					| FLAGS8(cond)	| SRCREG2(src)		| DESTREG(dest)		| VCP_COMPARE		)
 #define vcp_branch(dest)					(	0					| 0				| SRCREG2(dest)		| SRCREG1(0)		| VCP_BRANCH		)
+#define vcp_jump(dest)						(	0					| 0				| SRCREG2(dest)		| 0					| VCP_JUMP			)
 #define vcp_mul(dest, src)					(	0					| 0				| SRCREG2(src)		| DESTREG(dest)		| VCP_MUL			)
 #define vcp_div(dest, src)					(	0					| 0				| SRCREG2(src)		| DESTREG(dest)		| VCP_DIV			)
 #define vcp_mod(dest, src)					(	0					| 0				| SRCREG2(src)		| DESTREG(dest)		| VCP_MOD			)
