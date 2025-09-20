@@ -6,10 +6,10 @@
  * Upload a program to the VCP
  * ctx: VCP context
  * program: Pointer to the program data
- * size: Size of the program data in bytes
+ * count: Number of instructions in the program
  */
-void VCPUploadProgram(SPPlatform *ctx, const uint32_t *program, size_t size)
+void VCPUploadProgram(SPPlatform *ctx, const uint32_t *program, size_t count)
 {
-	for (uint32_t i = 0; i < size / sizeof(uint32_t); i++)
+	for (uint32_t i = 0; i < count; i++)
 		vcpwrite32(ctx, i * 4, program[i]);
 }

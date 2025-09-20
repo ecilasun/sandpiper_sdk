@@ -56,7 +56,7 @@
 #define vcp_setpixoff(src)					(	0					| 0				| SRCREG2(src)		| 0					| VCP_SETPIXOFF		)
 #define vcp_setcacheroff(src)				(	0					| 0				| SRCREG2(src)		| 0					| VCP_SETCACHEROFF	)
 #define vcp_setcachewoff(src)				(	0					| 0				| SRCREG2(src)		| 0					| VCP_SETCACHEWOFF	)
-#define vcp_setpal(index, src)				(	IMMED8(wmask)		| FLAGS8(index)	| SRCREG2(src)		| 0					| VCP_SETPAL		)
+#define vcp_setpal(wmask, index, src)			(	IMMED8(wmask)		| FLAGS8(index)	| SRCREG2(src)		| 0					| VCP_SETPAL		)
 #define vcp_setacc(value)					(	IMMED24(value)																| VCP_SETACC		)
 #define vcp_copyreg(dest, src)				(	0					| 0				| SRCREG2(src)		| DESTREG(dest)		| VCP_COPYREG		)
 #define vcp_add(dest, src)					(	0					| 0				| SRCREG2(src)		| DESTREG(dest)		| VCP_ADD			)
