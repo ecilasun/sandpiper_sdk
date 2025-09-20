@@ -27,14 +27,15 @@ struct SPSizeAlloc frameBufferB;
 static uint32_t s_vcpprogram[] = {
 	vcp_setacc(0xFFFFFF),			// White color in ACC (Accumulator Register is R0)
 	vcp_copyreg(0x01, 0x00),		// Copy ACC to R1
-	vcp_setacc(0x000001),			// Increment value in ACC
+	vcp_setacc(0x000005),			// Increment value in ACC (+5)
 	vcp_copyreg(0x02, 0x00),		// Copy ACC to R2
+	vcp_setacc(0x000001),			// Set branch condition to true
 // loop:
 	vcp_waitcolumn(0x00),			// Wait for pixel 1 of the current scanline (ACC==1)
-	vcp_setpal(0x04, 0x01),			// Set PAL[4] to R1
+	vcp_setpal(0x00, 0x01),			// Set PAL[0] to R1
 	vcp_add(0x01, 0x02),			// Increment R1 by R2
-	vcp_compare(0x00, 0x00, COND_EQ),	// Set branch condition to 'R0==R0' in ACC (i.e. COND_ALWAYS)
-	vcp_branch(0x10),			// Unconditional branch to byte 16 (start of loop) based on ACC
+	//vcp_compare(0x00, 0x00, COND_EQ),	// Set branch condition to 'R0==R0' in ACC (i.e. COND_ALWAYS)
+	vcp_branch(0x10),			// Unconditional branch to byte 20 (start of loop) based on ACC
 	vcp_halt(),				// Good practice to pad with a halt instruction
 };
 
@@ -101,7 +102,7 @@ int main(int argc, char** argv)
 
 		// VPU program demo goes here
 		VPUClear(s_platform->vx, color);
-		//color++;
+		color = (color<<8) | ((color&0xFF000000)>>24); // roll
 
 		// Queue vsync
 		// This will be processed by the VPU asynchronously when the video beam reaches the vertical blanking interval (vblank).
