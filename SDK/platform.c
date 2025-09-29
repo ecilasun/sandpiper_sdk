@@ -100,6 +100,7 @@ struct SPPlatform* SPInitPlatform()
 	platform->audioio = (uint32_t*)MAP_FAILED;
 	platform->videoio = (uint32_t*)MAP_FAILED;
 	platform->paletteio = (uint32_t*)MAP_FAILED;
+	platform->vcpio = (uint32_t*)MAP_FAILED;
 	platform->mapped_memory = (uint8_t*)MAP_FAILED;
 	platform->alloc_cursor = 0x96000; // The cursor has to stay outside the framebuffer region, which is 640*480*2 bytes in size.
 	platform->sandpiperfd = -1;
@@ -162,6 +163,18 @@ struct SPPlatform* SPInitPlatform()
 	}
 	else
 		platform->paletteio = (volatile uint32_t*)ioctlstruct.value;
+
+	// Grab the contol registers for VCP (this is inside VPU for now)
+	ioctlstruct.offset = 0;
+	ioctlstruct.value = 0;
+	if (ioctl(platform->sandpiperfd, SP_IOCTL_GET_VCP_CTL, &ioctlstruct) < 0)
+	{
+		perror("Failed to get coprocessor control");
+		close(platform->sandpiperfd);
+		err = 1;
+	}
+	else
+		platform->vcpio = (volatile uint32_t*)ioctlstruct.value;
 
 	if (!err)
 	{
@@ -251,6 +264,7 @@ void SPShutdownPlatform(struct SPPlatform* _platform)
 	_platform->audioio = 0;
 	_platform->videoio = 0;
 	_platform->paletteio = 0;
+	_platform->vcpio = 0;
 }
 
 void SPGetConsoleFramebuffer(struct SPPlatform* _platform, struct SPSizeAlloc* _sizealloc)
@@ -343,7 +357,10 @@ uint32_t paletteread32(struct SPPlatform* _platform, uint32_t offset)
 	ioctlstruct.offset = offset;
 	ioctlstruct.value = 0;
 	if (ioctl(_platform->sandpiperfd, SP_IOCTL_PALETTE_READ, &ioctlstruct) < 0)
-		return 0;
+	{
+		perror("can't read from PAL");
+		return 0xCDCDCDCD;
+	}
 	return ioctlstruct.value;
 }
 
@@ -361,7 +378,10 @@ uint32_t vcpread32(struct SPPlatform* _platform, uint32_t offset)
 	ioctlstruct.offset = offset;
 	ioctlstruct.value = 0;
 	if (ioctl(_platform->sandpiperfd, SP_IOCTL_VCP_READ, &ioctlstruct) < 0)
-		return 0;
+	{
+		perror("can't read from VCP");
+		return 0xCDCDCDCD;
+	}
 	return ioctlstruct.value;
 }
 
@@ -370,5 +390,6 @@ void vcpwrite32(struct SPPlatform* _platform, uint32_t offset, uint32_t value)
 	struct SPIoctl ioctlstruct;
 	ioctlstruct.offset = offset;
 	ioctlstruct.value = value;
-	ioctl(_platform->sandpiperfd, SP_IOCTL_VCP_WRITE, &ioctlstruct);
+	if (ioctl(_platform->sandpiperfd, SP_IOCTL_VCP_WRITE, &ioctlstruct) < 0)
+		perror("can't write to VCP");
 }

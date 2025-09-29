@@ -29,6 +29,7 @@ struct SPPlatform
 	volatile uint32_t *videoio;
 	volatile uint32_t *audioio;
 	volatile uint32_t *paletteio;
+	volatile uint32_t *vcpio;
 	uint8_t* mapped_memory;
 	uint32_t alloc_cursor;
 	int sandpiperfd;

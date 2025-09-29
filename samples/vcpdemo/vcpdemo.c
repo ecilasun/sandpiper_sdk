@@ -32,6 +32,7 @@ static uint32_t s_vcpprogram[] = {
 // loop:
 	vcp_waitcolumn(0x00),			// Wait for pixel 1 of the current scanline (ACC==1)
 	vcp_setpal(0xF, 0x00, 0x01),		// Set PAL[0] to R1
+	vcp_setpal(0xF, 0x01, 0x01),		// Set PAL[1] to R1
 	vcp_add(0x01, 0x02),			// Increment R1 by R2
 	vcp_jump(0x10),				// Unconditional branch to byte 16 (loop:)
 	vcp_halt(),				// Good practice to pad with a halt instruction
@@ -78,16 +79,14 @@ int main(int argc, char** argv)
 	VPUWriteControlRegister(s_platform->vx, 0x0F, 0x00);
 
 	printf("Uploading VCP program\n");
-	VCPUploadProgram(s_platform, s_vcpprogram, 9); // 9 instructions
-
-	// Read back and dump the program
-	//printf("Reading back VCP program\n");
-	//for (uint32_t i = 0; i < sizeof(s_vcpprogram) / sizeof(uint32_t); i++)
-	//	printf("%8x:%8x\n", i, vcpread32(s_platform, i * 4));
+	VCPUploadProgram(s_platform, s_vcpprogram, 10); // 10 instructions
 
 	// Start the VCP program
 	printf("Starting VCP program\n");
 	VPUWriteControlRegister(s_platform->vx, 0x0F, 0x0F);
+
+	printf("Ensuring VCP program started\n");
+	printf("status: %d\n", VPUReadControlRegister(s_platform->vx));
 
 	printf("Entering demo...\n");
 	uint32_t color = 0x00040201; // RED(x04) entryshould change by the program
