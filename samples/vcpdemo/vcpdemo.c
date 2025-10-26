@@ -110,7 +110,7 @@ int main(int argc, char** argv)
 	VPUWriteControlRegister(s_platform->vx, 0x0F, 0x00);
 
 	printf("Uploading VCP program\n");
-	VCPUploadProgram(s_platform, &s_vcpprogram, PRG_128Bytes);
+	VCPUploadProgram(s_platform, s_vcpprogram, PRG_128Bytes);
 
 	// Start the VCP program
 	printf("Starting VCP program\n");
