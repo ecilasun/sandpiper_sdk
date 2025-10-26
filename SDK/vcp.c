@@ -6,10 +6,22 @@
  * Upload a program to the VCP
  * ctx: VCP context
  * program: Pointer to the program data
- * count: Number of instructions in the program
+ * size: One of the EVCPBufferSize enum values indicating the size of the program
  */
-void VCPUploadProgram(SPPlatform *ctx, const uint32_t *program, size_t count)
+void VCPUploadProgram(SPPlatform *ctx, const uint32_t _programAddress16byteAligned, enum EVCPBufferSize size)
 {
-	for (uint32_t i = 0; i < count; i++)
-		vcpwrite32(ctx, i * 4, program[i]);
+	// Set upload size
+	uint32_t bufferSize = 128 << (uint32_t)size;
+	vcpwrite32(_context->m_platform, 0, VCPSETBUFFERSIZE);
+	vcpwrite32(_context->m_platform, 0, bufferSize);
+
+	// Kick the DMA
+	vcpwrite32(_context->m_platform, 0, VCPSTARTDMA);
+	vcpwrite32(_context->m_platform, 0, _programAddress16byteAligned);
+}
+
+void VCPExecProgram(SPPlatform *ctx, const uint8_t _enableExecution)
+{
+	// Start or stop execution
+	vcpwrite32(_context->m_platform, 0, VCPEXEC | ((_enableExecution&1) << 4));
 }

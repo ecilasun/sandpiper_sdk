@@ -2,7 +2,12 @@
 
 #include "platform.h"
 
-// VPU program instruction set
+// VCP command fifo commands
+#define VCPSETBUFFERSIZE	0x0
+#define VCPSTARTDMA			0x1
+#define VCPEXEC				0x2
+
+// VCP program instruction set
 #define VCP_HALT			0x00
 #define VCP_NOOP			0x01
 #define VCP_WAITLINE		0x02
@@ -75,4 +80,5 @@
 #define vcp_load(addr, dest)				(	0					| 0				| SRCREG2(addr)		| DESTREG(dest)		| VCP_LOAD			)
 #define vcp_store(addr, src, wmask)			(	IMMED8(wmask)		| 0				| SRCREG2(src)		| SRCREG1(addr)		| VCP_STORE			)
 
-void VCPUploadProgram(struct SPPlatform *ctx, const uint32_t *program, size_t size);
+void VCPUploadProgram(SPPlatform *ctx, const uint32_t _programAddress16byteAligned, enum EVCPBufferSize size);
+void VCPExecProgram(SPPlatform *ctx, const uint8_t _enableExecution);
