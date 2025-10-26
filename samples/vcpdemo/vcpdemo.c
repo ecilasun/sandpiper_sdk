@@ -37,35 +37,36 @@ struct SPSizeAlloc frameBufferB;
 static uint32_t s_vcpprogram[] = {
 	vcp_ldim(0x01, 0xFFFFFFFF),		// Load white color into R1
 	vcp_ldim(0x02, 0x000005),		// Load 5 into R2 (increment)
+	vcp_ldim(0x03, 0x00000C),		// Load 12 into R3 (offset of loop:)
 // loop:
 	vcp_wscn(0x00),					// Wait for first pixel of scanline
 	vcp_pwrt(0x00, 0x01),			// Set PAL[0] to R1
 	vcp_pwrt(0x01, 0x01),			// Set PAL[1] to R1
-	vcp_add(0x01, 0x01, 0x02),		// Increment R1 by 5 (R2 == 5)
-	vcp_jump(0x10),					// Unconditional branch to byte 8 (loop:)
-	0,								// Fill the rest with NOOPs
-	0,
-	0,
-	0,
-	0,
-	0,
-	0,
-	0,
-	0,
-	0,
-	0,
-	0,
-	0,
-	0,
-	0,
-	0,
-	0,
-	0,
-	0,
-	0,
-	0,
-	0,
-	0,
+	vcp_radd(0x01, 0x01, 0x02),		// R1 = R1 + R2(5)
+	vcp_jump(0x3),					// Unconditional branch to R3 (12, i.e. loop:)
+	vcp_noop(),						// Fill the rest with NOOPs
+	vcp_noop(),						// (Noops can also be used for timing adjustments, before branches etc)
+	vcp_noop(),
+	vcp_noop(),
+	vcp_noop(),
+	vcp_noop(),
+	vcp_noop(),
+	vcp_noop(),
+	vcp_noop(),
+	vcp_noop(),
+	vcp_noop(),
+	vcp_noop(),
+	vcp_noop(),
+	vcp_noop(),
+	vcp_noop(),
+	vcp_noop(),
+	vcp_noop(),
+	vcp_noop(),
+	vcp_noop(),
+	vcp_noop(),
+	vcp_noop(),
+	vcp_noop(),
+	vcp_noop(),
 };
 
 int main(int argc, char** argv)
@@ -109,7 +110,7 @@ int main(int argc, char** argv)
 	VPUWriteControlRegister(s_platform->vx, 0x0F, 0x00);
 
 	printf("Uploading VCP program\n");
-	VCPUploadProgram(s_platform, s_vcpprogram, PRG_128Bytes);
+	VCPUploadProgram(s_platform, &s_vcpprogram, PRG_128Bytes);
 
 	// Start the VCP program
 	printf("Starting VCP program\n");
