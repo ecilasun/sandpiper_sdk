@@ -53,22 +53,22 @@ enum EAPUSampleRate
 
 enum EAPUBufferSize
 {
-	ABS_256Bytes  = 0,	//   64 16bit stereo samples
-	ABS_512Bytes  = 1,	//  128 16bit stereo samples
-	ABS_1024Bytes = 2,	//  256 16bit stereo samples
-	ABS_2048Bytes = 3,	//  512 16bit stereo samples
-	ABS_4096Bytes = 4,	// 1024 16bit stereo samples
-	ABS_128Bytes = 5,	//   32 16bit stereo samples
+	ABS_128Bytes  = 0,	//   32 16bit stereo samples
+	ABS_256Bytes  = 1,	//   64 16bit stereo samples
+	ABS_512Bytes  = 2,	//  128 16bit stereo samples
+	ABS_1024Bytes = 3,	//  256 16bit stereo samples
+	ABS_2048Bytes = 4,	//  512 16bit stereo samples
+	ABS_4096Bytes = 5,	// 1024 16bit stereo samples
 };
 
 enum EVCPBufferSize
 {
-	PRG_256Bytes  = 0,	//   64 words
-	PRG_512Bytes  = 1,	//  128 words
-	PRG_1024Bytes = 2,	//  256 words
-	PRG_2048Bytes = 3,	//  512 words
-	PRG_4096Bytes = 4,	// 1024 words
-	PRG_128Bytes = 5,	//   32 words
+	PRG_128Bytes  = 0,	//   32 words
+	PRG_256Bytes  = 1,	//   64 words
+	PRG_512Bytes  = 2,	//  128 words
+	PRG_1024Bytes = 3,	//  256 words
+	PRG_2048Bytes = 4,	//  512 words
+	PRG_4096Bytes = 5,	// 1024 words
 };
 
 enum EVideoMode
