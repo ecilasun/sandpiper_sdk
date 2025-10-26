@@ -15,7 +15,7 @@ void VCPUploadProgram(SPPlatform *ctx, const uint32_t* _program, enum EVCPBuffer
 	// Set aside some space for program uploads
 	struct SPSizeAlloc programUploadBuffer;
 	programUploadBuffer.size = bufferSize;
-	SPAllocateBuffer(s_platform, &programUploadBuffer);
+	SPAllocateBuffer(_context->m_platform, &programUploadBuffer);
 
 	// Copy the program into the upload buffer
 	for (uint32_t i = 0; i < (bufferSize / 4); i++)
@@ -27,7 +27,7 @@ void VCPUploadProgram(SPPlatform *ctx, const uint32_t* _program, enum EVCPBuffer
 
 	// Kick the DMA from the upload buffer to the VCP
 	vcpwrite32(_context->m_platform, 0, VCPSTARTDMA);
-	vcpwrite32(_context->m_platform, 0, frameBufferA.dmaAddress);
+	vcpwrite32(_context->m_platform, 0, programUploadBuffer.dmaAddress);
 
 	// TODO: We shuould wait for DMA completion here
 	// TODO: We should hand back the upload buffer to the platform

@@ -39,7 +39,7 @@ static uint32_t s_vcpprogram[] = {
 	vcp_ldim(0x02, 0x000005),		// Load 5 into R2 (increment)
 	vcp_ldim(0x03, 0x00000C),		// Load 12 into R3 (offset of loop:)
 // loop:
-	vcp_wscn(0x00),					// Wait for first pixel of scanline
+	vcp_wscn(0x00, 0x00),			// Wait for first pixel of first scanline
 	vcp_pwrt(0x00, 0x01),			// Set PAL[0] to R1
 	vcp_pwrt(0x01, 0x01),			// Set PAL[1] to R1
 	vcp_radd(0x01, 0x01, 0x02),		// R1 = R1 + R2(5)
