@@ -27,7 +27,7 @@ void VCPUploadProgram(SPPlatform *ctx, const uint32_t* _program, enum EVCPBuffer
 
 	// Kick the DMA from the upload buffer to the VCP
 	vcpwrite32(ctx, 0, VCPSTARTDMA);
-	vcpwrite32(ctx, 0, programUploadBuffer.dmaAddress);
+	vcpwrite32(ctx, 0, (uint32_t)programUploadBuffer.dmaAddress);
 
 	// TODO: We shuould wait for DMA completion here
 	// TODO: We should hand back the upload buffer to the platform
