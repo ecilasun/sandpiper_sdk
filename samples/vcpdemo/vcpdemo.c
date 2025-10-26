@@ -21,21 +21,51 @@ static struct SPPlatform* s_platform = NULL;
 struct SPSizeAlloc frameBufferA;
 struct SPSizeAlloc frameBufferB;
 
-// Small program to change palette color 0
+// Some VCP info:
+// The VCP clocks at 166MHz, with an instruction retirement rate of 1 instruction every 3 clocks on average.
+// Minimum VCP program size is 128 bytes, maximum size is 4KBytes
+// Programs must be aligned to 64 byte boundaries in memory.
+// There are 16 general purpose registers (R0-R15), R0 is always zero and cannot be modified.
+// There is a 256 byte palette RAM, each entry is 32 bits in ARGB format, VCP has direct access to this RAM.
+
+// The video hardware always scans out at 60Hz and has a scan window of 800x525 pixels, out of which 640x480 are visible.
+// Given we run at approximately 55.5MIPS, we can afford to run a program that executes around 925925 instructions per frame.
+// This is plenty for simple effects like changing palette entries on scanline boundaries, simple raster effects, etc.
+
+// Tiny program to change palette color 0
 // at start of every scanline by waiting for pixel 0
-// The program clocks at approximately one instruction per pixel
 static uint32_t s_vcpprogram[] = {
-	vcp_setacc(0xFFFFFF),			// White color in ACC (Accumulator Register is R0)
-	vcp_copyreg(0x01, 0x00),		// Copy ACC to R1
-	vcp_setacc(0x000005),			// Increment value in ACC (+5)
-	vcp_copyreg(0x02, 0x00),		// Copy ACC to R2
+	vcp_ldim(0x01, 0xFFFFFFFF),		// Load white color into R1
+	vcp_ldim(0x02, 0x000005),		// Load 5 into R2 (increment)
 // loop:
-	vcp_waitcolumn(0x00),			// Wait for pixel 1 of the current scanline (ACC==1)
-	vcp_setpal(0xF, 0x00, 0x01),		// Set PAL[0] to R1
-	vcp_setpal(0xF, 0x01, 0x01),		// Set PAL[1] to R1
-	vcp_add(0x01, 0x02),			// Increment R1 by R2
-	vcp_jump(0x10),				// Unconditional branch to byte 16 (loop:)
-	vcp_halt(),				// Good practice to pad with a halt instruction
+	vcp_wscn(0x00),					// Wait for first pixel of scanline
+	vcp_pwrt(0x00, 0x01),			// Set PAL[0] to R1
+	vcp_pwrt(0x01, 0x01),			// Set PAL[1] to R1
+	vcp_add(0x01, 0x01, 0x02),		// Increment R1 by 5 (R2 == 5)
+	vcp_jump(0x10),					// Unconditional branch to byte 8 (loop:)
+	0,								// Fill the rest with NOOPs
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
 };
 
 int main(int argc, char** argv)
@@ -79,7 +109,7 @@ int main(int argc, char** argv)
 	VPUWriteControlRegister(s_platform->vx, 0x0F, 0x00);
 
 	printf("Uploading VCP program\n");
-	VCPUploadProgram(s_platform, s_vcpprogram, 10); // 10 instructions
+	VCPUploadProgram(s_platform, s_vcpprogram, PRG_128Bytes);
 
 	// Start the VCP program
 	printf("Starting VCP program\n");
