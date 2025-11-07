@@ -38,3 +38,8 @@ void VCPExecProgram(SPPlatform *ctx, const uint8_t _enableExecution)
 	// Start or stop execution
 	vcpwrite32(ctx, 0, VCPEXEC | ((_enableExecution&1) << 4));
 }
+
+uint32_t VCPStatus(SPPlatform *ctx)
+{
+	return vcpread32(ctx, 0);
+}

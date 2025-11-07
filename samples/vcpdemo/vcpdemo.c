@@ -109,16 +109,21 @@ int main(int argc, char** argv)
 	printf("Stopping VCP programs\n");
 	VPUWriteControlRegister(s_platform->vx, 0x0F, 0x00);
 
+	printf("Checking VCP status registers\n");
+	printf("status: 0x%x\n", VCPStatus(s_platform));
+
 	printf("Uploading VCP program\n");
 	VCPUploadProgram(s_platform, s_vcpprogram, PRG_128Bytes);
 
+	printf("Checking VCP status registers\n");
+	printf("status: 0x%x\n", VCPStatus(s_platform));
+
 	// Start the VCP program
 	printf("Starting VCP program\n");
-	//VPUWriteControlRegister(s_platform->vx, 0x0F, 0x0F);
 	VCPExecProgram(s_platform, 0xF);
 
-	printf("Ensuring VCP program started\n");
-	printf("status: %d\n", VPUReadControlRegister(s_platform->vx));
+	printf("Checking VCP status registers\n");
+	printf("status: 0x%x\n", VCPStatus(s_platform));
 
 	printf("Entering demo...\n");
 	uint32_t color = 0x00040201; // RED(x04) entryshould change by the program

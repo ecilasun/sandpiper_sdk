@@ -49,3 +49,4 @@
 
 void VCPUploadProgram(SPPlatform *ctx, const uint32_t* _program, enum EVCPBufferSize size);
 void VCPExecProgram(SPPlatform *ctx, const uint8_t _enableExecution);
+uint32_t VCPStatus(SPPlatform *ctx);

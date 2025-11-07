@@ -9,6 +9,7 @@
 #include <signal.h>
 
 #include "vpu.h"
+#include "vcp.h"
 #include "apu.h"
 
 static struct SPPlatform* g_activePlatform = NULL;
@@ -50,6 +51,9 @@ void shutdowncleanup()
 			VPUSetVideoMode(g_activePlatform->vx, EVM_640_Wide, ECM_16bit_RGB, EVS_Enable);
 
 			// Stop all VCP program activity
+			VCPExecProgram(g_activePlatform, 0x0);
+
+			// Reset VPU control registers
 			VPUWriteControlRegister(g_activePlatform->vx, 0xFF, 0x00);
 
 			// Reset scroll
