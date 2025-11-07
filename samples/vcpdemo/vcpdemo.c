@@ -114,7 +114,8 @@ int main(int argc, char** argv)
 
 	// Start the VCP program
 	printf("Starting VCP program\n");
-	VPUWriteControlRegister(s_platform->vx, 0x0F, 0x0F);
+	//VPUWriteControlRegister(s_platform->vx, 0x0F, 0x0F);
+	VCPExecProgram(s_platform, 0xF);
 
 	printf("Ensuring VCP program started\n");
 	printf("status: %d\n", VPUReadControlRegister(s_platform->vx));
