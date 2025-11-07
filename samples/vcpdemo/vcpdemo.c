@@ -43,9 +43,9 @@ static uint32_t s_vcpprogram[] = {
 	vcp_pwrt(0x00, 0x01),			// Set PAL[0] to R1
 	vcp_pwrt(0x01, 0x01),			// Set PAL[1] to R1
 	vcp_radd(0x01, 0x01, 0x02),		// R1 = R1 + R2(5)
-	vcp_jump(0x3),					// Unconditional branch to R3 (12, i.e. loop:)
-	vcp_noop(),						// Fill the rest with NOOPs
-	vcp_noop(),						// (Noops can also be used for timing adjustments, before branches etc)
+	vcp_jump(0x3),				// Unconditional branch to R3 (12, i.e. loop:)
+	vcp_noop(),				// Fill the rest with NOOPs
+	vcp_noop(),				// (Noops can also be used for timing adjustments, before branches etc)
 	vcp_noop(),
 	vcp_noop(),
 	vcp_noop(),
@@ -106,23 +106,17 @@ int main(int argc, char** argv)
 	s_platform->sc->framebufferB = &frameBufferB;
 
 	// Stop all running programs by clearing all control registers
-	printf("Stopping VCP programs\n");
+	printf("Stopping VCP programs...");
 	VPUWriteControlRegister(s_platform->vx, 0x0F, 0x00);
-
-	printf("Checking VCP status registers\n");
 	printf("status: 0x%x\n", VCPStatus(s_platform));
 
-	printf("Uploading VCP program\n");
+	printf("Uploading VCP program...");
 	VCPUploadProgram(s_platform, s_vcpprogram, PRG_128Bytes);
-
-	printf("Checking VCP status registers\n");
 	printf("status: 0x%x\n", VCPStatus(s_platform));
 
 	// Start the VCP program
-	printf("Starting VCP program\n");
-	VCPExecProgram(s_platform, 0xF);
-
-	printf("Checking VCP status registers\n");
+	printf("Starting VCP program...");
+	VCPExecProgram(s_platform, 0x1); // b0001
 	printf("status: 0x%x\n", VCPStatus(s_platform));
 
 	printf("Entering demo...\n");
