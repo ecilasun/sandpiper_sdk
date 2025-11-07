@@ -31,6 +31,7 @@ SOURCES_doom := $(filter-out d_main.c,$(SOURCES_doom))
 SOURCES_doom_arch := \
 	../../../../SDK/platform.c \
 	../../../../SDK/apu.c \
+	../../../../SDK/vcp.c \
 	../../../../SDK/vpu.c \
 	mini-printf.c \
 	d_main.c \

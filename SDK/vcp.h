@@ -47,6 +47,6 @@
 //#define vcp_rcmp(dest, src1, src2) <- sets all condition bits for LT,LE,EQ etc
 //#define vcp_branch(cond, src1, address) <- masks given cond with value in src1 register and jumps to src2 if true
 
-void VCPUploadProgram(SPPlatform *ctx, const uint32_t* _program, enum EVCPBufferSize size);
-void VCPExecProgram(SPPlatform *ctx, const uint8_t _enableExecution);
-uint32_t VCPStatus(SPPlatform *ctx);
+void VCPUploadProgram(struct SPPlatform *ctx, const uint32_t* _program, enum EVCPBufferSize size);
+void VCPExecProgram(struct SPPlatform *ctx, const uint8_t _execFlags);
+uint32_t VCPStatus(struct SPPlatform *ctx);

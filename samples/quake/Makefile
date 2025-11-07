@@ -21,6 +21,7 @@ ARM_GCC_LIBS = -lgcc -lc -lm
 SOURCES_quake_arch := \
 	../../SDK/platform.c \
 	../../SDK/vpu.c \
+	../../SDK/vcp.c \
 	../../SDK/apu.c \
 	sandpiper/platformav.c \
 	sandpiper/fio.c \

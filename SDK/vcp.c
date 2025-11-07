@@ -8,7 +8,7 @@
  * program: Pointer to the program data
  * size: One of the EVCPBufferSize enum values indicating the size of the program
  */
-void VCPUploadProgram(SPPlatform *ctx, const uint32_t* _program, enum EVCPBufferSize size)
+void VCPUploadProgram(struct SPPlatform *ctx, const uint32_t* _program, enum EVCPBufferSize size)
 {
 	uint32_t bufferSize = 128 << (uint32_t)size;
 
@@ -33,13 +33,13 @@ void VCPUploadProgram(SPPlatform *ctx, const uint32_t* _program, enum EVCPBuffer
 	// TODO: We should hand back the upload buffer to the platform
 }
 
-void VCPExecProgram(SPPlatform *ctx, const uint8_t _enableExecution)
+void VCPExecProgram(struct SPPlatform *ctx, const uint8_t _execFlags)
 {
 	// Start or stop execution
-	vcpwrite32(ctx, 0, VCPEXEC | ((_enableExecution&1) << 4));
+	vcpwrite32(ctx, 0, VCPEXEC | (_execFlags << 4));
 }
 
-uint32_t VCPStatus(SPPlatform *ctx)
+uint32_t VCPStatus(struct SPPlatform *ctx)
 {
 	return vcpread32(ctx, 0);
 }
