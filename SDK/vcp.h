@@ -43,7 +43,7 @@
 #define vcp_noop()							(	0					| 0					| 0					| 0					| VCP_NOOP			)
 #define vcp_ldim(dest, immed)				(	IMMED24(immed)												| DESTREG(dest)		| VCP_LOADIMM		)
 #define vcp_pwrt(addrs, src)				(	0					| SRCREG2(src)		| SRCREG1(addrs)	| 0					| VCP_PALWRITE		)
-#define vcp_wscn(line, pixel)				(	0					| SRCREG2(pixel)	| SRCREG1(line)		| 0					| VCP_WAITSCANLINE	)
+#define vcp_wscn(line)						(	0					| 0					| SRCREG1(line)		| 0					| VCP_WAITSCANLINE	)
 #define vcp_wpix(pixel)						(	0					| 0					| SRCREG1(pixel)	| 0					| VCP_WAITPIXEL		)
 #define vcp_radd(dest, src1, src2)			(	0					| SRCREG2(src2)		| SRCREG1(src1)		| DESTREG(dest)		| VCP_ADD			)
 #define vcp_jump(addrs)						(	0					| 0					| SRCREG1(addrs)	| 0					| VCP_JUMP			)
