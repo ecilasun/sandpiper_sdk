@@ -29,8 +29,7 @@ void VCPUploadProgram(struct SPPlatform *ctx, const uint32_t* _program, enum EVC
 	vcpwrite32(ctx, 0, VCPSTARTDMA);
 	vcpwrite32(ctx, 0, (uint32_t)programUploadBuffer.dmaAddress);
 
-	// TODO: We shuould wait for DMA completion here
-	// TODO: We should hand back the upload buffer to the platform
+	// TODO: We can wait for DMA completion by polling VCP status if needed
 }
 
 void VCPExecProgram(struct SPPlatform *ctx, const uint8_t _execFlags)
