@@ -1,6 +1,7 @@
 
 #include "platform.h"
 #include "vcp.h"
+//#include "stdio.h"
 
 /*
  * Upload a program to the VCP
@@ -22,8 +23,9 @@ void VCPUploadProgram(struct SPPlatform *ctx, const uint32_t* _program, enum EVC
 	for (uint32_t i = 0; i < (bufferSize / 4); i++)
 		uploadPtr[i] = _program[i];
 
+	/*printf("\n");
 	for (uint32_t i = 0; i < (bufferSize / 4); i++)
-		printf("VCPDEBUG: [%02X]: %08X\n", i, uploadPtr[i]);
+		printf("VCPPROG: [%02X]: %08X\n", i, uploadPtr[i]);*/
 
 	// Set upload size
 	vcpwrite32(ctx, 0, VCPSETBUFFERSIZE);

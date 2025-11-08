@@ -116,9 +116,9 @@ int main(int argc, char** argv)
 	s_platform->sc->framebufferB = &frameBufferB;
 
 	// Dump program
-	printf("VCP program:\n");
+	/*printf("VCP program:\n");
 	for (int i=0;i<16;++i)
-		printf("0x%.4X: 0x%.8X\n", i, s_vcpprogram[i]);
+		printf("0x%.4X: 0x%.8X\n", i, s_vcpprogram[i]);*/
 
 	uint32_t stat;
 
@@ -141,20 +141,22 @@ int main(int argc, char** argv)
 
 	printf("Entering demo...\n");
 	uint32_t color = 0x00040201; // RED(x04) entryshould change by the program
+	uint32_t frame = 0;
 	do
 	{
 		// Vsync barrier
 		// Wait for previous frame to finish and swap buffers
-		while(VPUGetFIFONotEmpty(s_platform->vx)) {
-		}
+		while(VPUGetFIFONotEmpty(s_platform->vx)) { }
 		VPUSwapPages(s_platform->vx, s_platform->sc);
+		frame++;
 
 		// VPU program demo goes here
 		VPUClear(s_platform->vx, color);
-		color = (color<<8) | ((color&0xFF000000)>>24); // roll
+		if (frame%10 == 0)
+			color = (color<<8) | ((color&0xFF000000)>>24); // roll
 
 		uint32_t* wordA = (uint32_t*)s_platform->sc->writepage;
-		for (int i=0;i<4096;++i)
+		for (int i=0;i<512;++i)
 		{
 			stat = VCPStatus(s_platform);
 			*wordA = stat;
