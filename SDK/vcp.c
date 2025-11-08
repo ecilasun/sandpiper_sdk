@@ -4,7 +4,7 @@
 
 /*
  * Upload a program to the VCP
- * ctx: VCP context
+ * ctx: Platform context
  * program: Pointer to the program data
  * size: One of the EVCPBufferSize enum values indicating the size of the program
  */
@@ -18,8 +18,12 @@ void VCPUploadProgram(struct SPPlatform *ctx, const uint32_t* _program, enum EVC
 	SPAllocateBuffer(ctx, &programUploadBuffer);
 
 	// Copy the program into the upload buffer
+	uint32_t* uploadPtr = (uint32_t*)programUploadBuffer.cpuAddress;
 	for (uint32_t i = 0; i < (bufferSize / 4); i++)
-		((uint32_t*)programUploadBuffer.cpuAddress)[i] = _program[i];
+		uploadPtr[i] = _program[i];
+
+	for (uint32_t i = 0; i < (bufferSize / 4); i++)
+		printf("VCPDEBUG: [%02X]: %08X\n", i, uploadPtr[i]);
 
 	// Set upload size
 	vcpwrite32(ctx, 0, VCPSETBUFFERSIZE);
