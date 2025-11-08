@@ -21,6 +21,15 @@ static struct SPPlatform* s_platform = NULL;
 struct SPSizeAlloc frameBufferA;
 struct SPSizeAlloc frameBufferB;
 
+static const char* states[] = {
+"INIT",
+"FETCH",
+"DECODE",
+"EXEC",
+"FREAD",
+"HALT",
+"UNKNOWN"};
+
 // Some VCP info:
 // The VCP clocks at 166MHz, with an instruction retirement rate of 1 instruction every 3 clocks on average.
 // Minimum VCP program size is 128 bytes, maximum size is 4KBytes
@@ -35,17 +44,18 @@ struct SPSizeAlloc frameBufferB;
 // Tiny program to change palette color 0
 // at start of every scanline by waiting for pixel 0
 static uint32_t s_vcpprogram[] = {
-	vcp_ldim(0x01, 0xFFFFFFFF),		// Load white color into R1
-	vcp_ldim(0x02, 0x000005),		// Load 5 into R2 (increment)
-	vcp_ldim(0x03, 0x00000C),		// Load 12 into R3 (offset of loop:)
+	vcp_ldim(0x01, 0x276631),	// Load a color into R1
+	vcp_ldim(0x02, 0x000005),	// Load 5 into R2 (increment)
+	vcp_ldim(0x03, 0x000002),	// Load 2 into R3 (for PAL[2])
+	vcp_ldim(0x04, 0x000010),	// Load 16 into R4 (offset of loop:)
 // loop:
-	vcp_wscn(0x00, 0x00),			// Wait for first pixel of first scanline
-	vcp_pwrt(0x00, 0x01),			// Set PAL[0] to R1
-	vcp_pwrt(0x01, 0x01),			// Set PAL[1] to R1
-	vcp_radd(0x01, 0x01, 0x02),		// R1 = R1 + R2(5)
-	vcp_jump(0x3),				// Unconditional branch to R3 (12, i.e. loop:)
-	vcp_noop(),				// Fill the rest with NOOPs
-	vcp_noop(),				// (Noops can also be used for timing adjustments, before branches etc)
+	vcp_wscn(0x00),			// Wait for scanline zero (R0==0)
+	vcp_pwrt(0x00, 0x01),		// Set PAL[0] to R1 (R0==0)
+	vcp_pwrt(0x03, 0x01),		// Set PAL[2] to R1 (R3==2)
+	vcp_radd(0x01, 0x01, 0x02),	// R1 = R1 + R2(5)
+	vcp_jump(0x04),			// Unconditional branch to R4 (16, i.e. loop:)
+	vcp_noop(),			// Fill the rest with NOOPs
+	vcp_noop(),			// (Noops can also be used for timing adjustments, before branches etc)
 	vcp_noop(),
 	vcp_noop(),
 	vcp_noop(),
@@ -105,19 +115,29 @@ int main(int argc, char** argv)
 	s_platform->sc->framebufferA = &frameBufferA;
 	s_platform->sc->framebufferB = &frameBufferB;
 
+	// Dump program
+	printf("VCP program:\n");
+	for (int i=0;i<16;++i)
+		printf("0x%.4X: 0x%.8X\n", i, s_vcpprogram[i]);
+
+	uint32_t stat;
+
 	// Stop all running programs by clearing all control registers
-	printf("Stopping VCP programs...");
+	printf("Stopping programs...");
 	VPUWriteControlRegister(s_platform->vx, 0x0F, 0x00);
-	printf("status: 0x%x\n", VCPStatus(s_platform));
+	stat = VCPStatus(s_platform);
+	printf("PC:%X R:%s C:%d E:%X F:%d\n", (stat>>9), states[(stat>>6)&7], (stat>>5)&1, (stat>>1)&0xF, stat&1);
 
 	printf("Uploading VCP program...");
 	VCPUploadProgram(s_platform, s_vcpprogram, PRG_128Bytes);
-	printf("status: 0x%x\n", VCPStatus(s_platform));
+	stat = VCPStatus(s_platform);
+	printf("PC:%X R:%s C:%d E:%X F:%d\n", (stat>>9), states[(stat>>6)&7], (stat>>5)&1, (stat>>1)&0xF, stat&1);
 
 	// Start the VCP program
 	printf("Starting VCP program...");
 	VCPExecProgram(s_platform, 0x1); // b0001
-	printf("status: 0x%x\n", VCPStatus(s_platform));
+	stat = VCPStatus(s_platform);
+	printf("PC:%X R:%s C:%d E:%X F:%d\n", (stat>>9), states[(stat>>6)&7], (stat>>5)&1, (stat>>1)&0xF, stat&1);
 
 	printf("Entering demo...\n");
 	uint32_t color = 0x00040201; // RED(x04) entryshould change by the program
@@ -125,12 +145,21 @@ int main(int argc, char** argv)
 	{
 		// Vsync barrier
 		// Wait for previous frame to finish and swap buffers
-		while(VPUGetFIFONotEmpty(s_platform->vx)) { }
+		while(VPUGetFIFONotEmpty(s_platform->vx)) {
+		}
 		VPUSwapPages(s_platform->vx, s_platform->sc);
 
 		// VPU program demo goes here
 		VPUClear(s_platform->vx, color);
 		color = (color<<8) | ((color&0xFF000000)>>24); // roll
+
+		uint32_t* wordA = (uint32_t*)s_platform->sc->writepage;
+		for (int i=0;i<4096;++i)
+		{
+			stat = VCPStatus(s_platform);
+			*wordA = stat;
+			wordA++;
+		}
 
 		// Queue vsync
 		// This will be processed by the VPU asynchronously when the video beam reaches the vertical blanking interval (vblank).
