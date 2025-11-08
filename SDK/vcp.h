@@ -15,13 +15,16 @@
 #define VCP_WAITPIXEL		0x04
 #define VCP_ADD				0x05
 #define VCP_JUMP			0x06
-//#define VCP_CMP				0x07
-//#define VCP_BRANCH			0x08
+#define VCP_CMP				0x07
+#define VCP_BRANCH			0x08
+#define VCP_STORE			0x09
+#define VCP_LOAD			0x0A
 
 #define DESTREG(reg)			((reg & 0xF) << 4)
 #define SRCREG1(reg)			((reg & 0xF) << 8)
 #define SRCREG2(reg)			((reg & 0xF) << 12)
 #define IMMED24(value)			((value & 0xFFFFFFU) << 8)
+#define IMMED8(value)			((value & 0xFFU) << 24)
 
 #define COND_EQ					0x01	// or NE if inverted
 #define COND_LT					0x02 	// or GE if inverted
@@ -37,15 +40,17 @@
 // Destination and source registers, as well as immediate values, are always at the same bit positions across different instructions to ensure consistency and simplify decoding.
 // The source and destination register indices are 4 bits each, allowing for 16 registers.
 //												[31:24]				[15:12]				[11:8]				[7:4]				[3:0]
-#define vcp_noop()					(	0					| 0					| 0					| 0					| VCP_NOOP			)
-#define vcp_ldim(dest, immed)		(	IMMED24(immed)												| DESTREG(dest)		| VCP_LOADIMM		)
-#define vcp_pwrt(addrs, src)		(	0					| SRCREG2(src)		| SRCREG1(addrs)	| 0					| VCP_PALWRITE		)
-#define vcp_wscn(line, pixel)		(	0					| SRCREG2(pixel)	| SRCREG1(line)		| 0					| VCP_WAITSCANLINE	)
-#define vcp_wpix(pixel)				(	0					| 0					| SRCREG1(pixel)	| 0					| VCP_WAITPIXEL		)
-#define vcp_radd(dest, src1, src2)	(	0					| SRCREG2(src2)		| SRCREG1(src1)		| DESTREG(dest)		| VCP_ADD			)
-#define vcp_jump(addrs)				(	0					| 0					| SRCREG1(addrs)	| 0					| VCP_JUMP			)
-//#define vcp_rcmp(dest, src1, src2) <- sets all condition bits for LT,LE,EQ etc
-//#define vcp_branch(cond, src1, address) <- masks given cond with value in src1 register and jumps to src2 if true
+#define vcp_noop()							(	0					| 0					| 0					| 0					| VCP_NOOP			)
+#define vcp_ldim(dest, immed)				(	IMMED24(immed)												| DESTREG(dest)		| VCP_LOADIMM		)
+#define vcp_pwrt(addrs, src)				(	0					| SRCREG2(src)		| SRCREG1(addrs)	| 0					| VCP_PALWRITE		)
+#define vcp_wscn(line, pixel)				(	0					| SRCREG2(pixel)	| SRCREG1(line)		| 0					| VCP_WAITSCANLINE	)
+#define vcp_wpix(pixel)						(	0					| 0					| SRCREG1(pixel)	| 0					| VCP_WAITPIXEL		)
+#define vcp_radd(dest, src1, src2)			(	0					| SRCREG2(src2)		| SRCREG1(src1)		| DESTREG(dest)		| VCP_ADD			)
+#define vcp_jump(addrs)						(	0					| 0					| SRCREG1(addrs)	| 0					| VCP_JUMP			)
+#define vcp_cmp(cmpflags, dest, src1, src2)	(	IMMED8(cmpflags)	| SRCREG2(src2)		| SRCREG1(src1)		| DESTREG(dest)		| VCP_CMP			)
+#define vcp_branch(address, src)			(	0					| SRCREG2(src)		| SRCREG1(addrs)	| 0					| VCP_BRANCH		)
+#define vcp_store(addrs, src)				(	0					| SRCREG2(src)		| SRCREG1(addrs)	| 0					| VCP_STORE			)
+#define vcp_load(addrs, dest)				(	0					| 0					| SRCREG1(addrs)	| DESTREG(dest)		| VCP_LOAD			)
 
 void VCPUploadProgram(struct SPPlatform *ctx, const uint32_t* _program, enum EVCPBufferSize size);
 void VCPExecProgram(struct SPPlatform *ctx, const uint8_t _execFlags);
