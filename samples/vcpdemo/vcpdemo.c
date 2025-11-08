@@ -154,11 +154,12 @@ int main(int argc, char** argv)
 
 		// Show program debug info
 		uint32_t* wordA = (uint32_t*)s_platform->sc->writepage;
+		wordA += 8;
 		for (int i=0;i<128;++i)
 		{
 			stat = VCPStatus(s_platform);
 			*wordA = stat;
-			wordA+=2;
+			wordA+=stride/4;
 		}
 
 		// Queue vsync
