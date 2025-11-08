@@ -17,11 +17,10 @@ void VCPUploadProgram(struct SPPlatform *ctx, const uint32_t* _program, enum EVC
 	programUploadBuffer.size = bufferSize;
 	SPAllocateBuffer(ctx, &programUploadBuffer);
 
-	// Copy the program into the upload buffer in swapped word order so that the VCP reads it correctly
-	for (uint32_t i = 0; i < (bufferSize / 8); i++) {
-		((uint32_t*)programUploadBuffer.cpuAddress)[2*i]   = _program[2*i+1];
-		((uint32_t*)programUploadBuffer.cpuAddress)[2*i+1] = _program[2*i];
-	}
+	// Copy the program into the upload buffer
+	for (uint32_t i = 0; i < (bufferSize / 4); i++)
+		((uint32_t*)programUploadBuffer.cpuAddress)[i] = _program[i];
+
 	// Set upload size
 	vcpwrite32(ctx, 0, VCPSETBUFFERSIZE);
 	vcpwrite32(ctx, 0, bufferSize);
