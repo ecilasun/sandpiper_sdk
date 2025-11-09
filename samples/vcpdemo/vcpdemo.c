@@ -22,13 +22,31 @@ struct SPSizeAlloc frameBufferA;
 struct SPSizeAlloc frameBufferB;
 
 static const char* states[] = {
-"INIT",
-"FETCH",
-"DECODE",
-"EXEC",
-"FREAD",
-"HALT",
-"UNKNOWN"};
+	"INIT",
+	"FETCH",
+	"WFETCH",
+	"DECODE",
+	"EXEC",
+	"FREAD",
+	"FCOMPARE",
+	"HALT",
+	"UNKNOWN" };
+
+void decodeStatus(uint32_t stat)
+{
+// FEDC BA98 7654 3210 FEDC BA98 7654 3210
+// ---- OOOO -CFP PPPP PPPP PPPP RRRR EEEE
+//assign vcpstate = {4'd0, debugopcode, 1'b0, copystate, ~vcpfifoempty, debug_pc, runstate, execstate};
+
+	uint32_t execstate = stat & 0xF;
+	uint32_t runstate = (stat >> 4) & 0xF;
+	uint32_t pc = (stat >> 8) & 0x1FFF;
+	uint32_t fifoempty = (stat >> 21) & 0x1;
+	uint32_t copystate = (stat >> 22) & 0x1;
+	uint32_t debugopcode = (stat >> 24) & 0xF;
+
+	printf("VCP: PC:0x%X FIFOEmpty:%d Copystate:%d Runstate:%s Execstate:%s Opcode:0x%X\n", pc, fifoempty, copystate, states[runstate], states[execstate], debugopcode);
+}
 
 // Some VCP info:
 // The VCP clocks at 166MHz, with an instruction retirement rate of 1 instruction every 3 clocks on average.
@@ -126,18 +144,18 @@ int main(int argc, char** argv)
 	printf("Stopping programs...");
 	VPUWriteControlRegister(s_platform->vx, 0x0F, 0x00);
 	stat = VCPStatus(s_platform);
-	printf("PC:%X R:%s C:%d E:%X F:%d\n", (stat>>9), states[(stat>>6)&7], (stat>>5)&1, (stat>>1)&0xF, stat&1);
+	decodeStatus(stat);
 
 	printf("Uploading VCP program...");
 	VCPUploadProgram(s_platform, s_vcpprogram, PRG_128Bytes);
 	stat = VCPStatus(s_platform);
-	printf("PC:%X R:%s C:%d E:%X F:%d\n", (stat>>9), states[(stat>>6)&7], (stat>>5)&1, (stat>>1)&0xF, stat&1);
+	decodeStatus(stat);
 
 	// Start the VCP program
 	printf("Starting VCP program...");
 	VCPExecProgram(s_platform, 0x1); // b0001
 	stat = VCPStatus(s_platform);
-	printf("PC:%X R:%s C:%d E:%X F:%d\n", (stat>>9), states[(stat>>6)&7], (stat>>5)&1, (stat>>1)&0xF, stat&1);
+	decodeStatus(stat);
 
 	printf("Entering demo...\n");
 	uint32_t color = 0x04030201; // VCP program updates some of these colors
