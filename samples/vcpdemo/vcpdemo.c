@@ -51,7 +51,7 @@ static uint32_t s_vcpprogram[] = {
 	vcp_radd(0x01, 0x01, 0x02),	// R1 = R1 + R2(1)
 	vcp_jump(0x04),			// Unconditional branch to R4 (16, i.e. loop:)
 	vcp_noop(),			// Fill the rest with NOOPs
-	vcp_noop(),			// (Noops can also be used for timing adjustments, before branches etc)
+	vcp_noop(),
 	vcp_noop(),
 	vcp_noop(),
 	vcp_noop(),
