@@ -39,17 +39,6 @@ void decodeStatus(uint32_t stat)
 	printf("PC:0x%X ~FIFO:%d copy:%d run:%s exec:%s opcode:0x%X\n", pc, fifoempty, copystate, states[runstate], states[execstate], debugopcode);
 }
 
-// Some VCP info:
-// The VCP clocks at 166MHz, with an instruction retirement rate of 1 instruction every 3 clocks on average.
-// Minimum VCP program size is 128 bytes, maximum size is 4KBytes
-// Programs must be aligned to 64 byte boundaries in memory.
-// There are 16 general purpose registers (R0-R15), R0 is always zero and cannot be modified.
-// There is a 256 byte palette RAM, each entry is 32 bits in ARGB format, VCP has direct access to this RAM.
-
-// The video hardware always scans out at 60Hz and has a scan window of 800x525 pixels, out of which 640x480 are visible.
-// Given we run at approximately 55.5MIPS, we can afford to run a program that executes around 925925 instructions per frame.
-// This is plenty for simple effects like changing palette entries on scanline boundaries, simple raster effects, etc.
-
 // Tiny program to change some palette colors at pixel zero of each scanline
 static uint32_t s_vcpprogram[] = {
 	vcp_ldim(0x01, 0x55AADD),	// Load a color into R1
