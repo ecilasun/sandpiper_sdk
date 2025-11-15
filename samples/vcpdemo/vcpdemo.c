@@ -50,7 +50,7 @@ void decodeStatus(uint32_t stat)
 // Given we run at approximately 55.5MIPS, we can afford to run a program that executes around 925925 instructions per frame.
 // This is plenty for simple effects like changing palette entries on scanline boundaries, simple raster effects, etc.
 
-// Tiny program to change some palette colors at scanline zero
+// Tiny program to change some palette colors at pixel zero of each scanline
 static uint32_t s_vcpprogram[] = {
 	vcp_ldim(0x01, 0x550000),	// Load a color into R1
 	vcp_ldim(0x02, 0x000001),	// Load 5 into R2 (increment)
