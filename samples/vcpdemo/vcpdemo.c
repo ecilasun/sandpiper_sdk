@@ -53,16 +53,13 @@ void decodeStatus(uint32_t stat)
 // Tiny program to change some palette colors at scanline zero
 static uint32_t s_vcpprogram[] = {
 	vcp_ldim(0x01, 0x550000),	// Load a color into R1
-	vcp_ldim(0x02, 0x000005),	// Load 5 into R2 (increment)
-	vcp_ldim(0x03, 0x000002),	// Load 2 into R3 (for PAL[2])
-	vcp_ldim(0x04, 0x000010),	// Load 16 into R4 (offset of loop:)
+	vcp_ldim(0x02, 0x000001),	// Load 5 into R2 (increment)
+	vcp_ldim(0x04, 0x00000c),	// Load 12 into R4 (offset of loop:)
 // loop:
-	vcp_wscn(0x00),			// Wait for scanline zero (R0==0)
-	vcp_wpix(0x00),			// Wait for pixel zero (R0==0)
+	vcp_wpix(0x00),			// Wait for pixel zero (R0==0) i.e. top of scanline
 	vcp_pwrt(0x00, 0x01),		// Set PAL[0] to R1 (R0==0)
-	vcp_pwrt(0x03, 0x01),		// Set PAL[2] to R1 (R3==2)
 	vcp_radd(0x01, 0x01, 0x02),	// R1 = R1 + R2(5)
-	vcp_jump(0x04),			// Unconditional branch to R4 (16, i.e. loop:)
+	vcp_jump(0x04),			// Unconditional branch to R4 (12, i.e. loop:)
 	vcp_noop(),			// Fill the rest with NOOPs
 	vcp_noop(),			// (Noops can also be used for timing adjustments, before branches etc)
 	vcp_noop(),
@@ -108,10 +105,10 @@ int main(int argc, char** argv)
 		for (int x = 0; x < stride; x++)
 		{
 			uint8_t* pixelA = (uint8_t*)frameBufferA.cpuAddress + (y * stride) + x;
-			*pixelA = ((x/4) ^ (y/4)) % 256;
+			*pixelA = 0x00;
 
 			uint8_t* pixelB = (uint8_t*)frameBufferB.cpuAddress + (y * stride) + x;
-			*pixelB = ((x * y) / 128) % 256;
+			*pixelB = 0x00;
 		}
 	}
 
@@ -124,7 +121,7 @@ int main(int argc, char** argv)
 	s_platform->sc->framebufferA = &frameBufferA;
 	s_platform->sc->framebufferB = &frameBufferB;
 
-	// Dump program
+	// Dump program bytecode
 	printf("VCP program:\n");
 	for (int i=0;i<16;++i)
 		printf("0x%.4X: 0x%.8X\n", i, s_vcpprogram[i]);
@@ -158,18 +155,18 @@ int main(int argc, char** argv)
 		VPUSwapPages(s_platform->vx, s_platform->sc);
 
 		// VPU program demo goes here
-		VPUClear(s_platform->vx, color);
-		color = (color<<8) | ((color&0xFF000000)>>24); // roll
+		//VPUClear(s_platform->vx, color);
+		//color = (color<<8) | ((color&0xFF000000)>>24); // roll
 
-		// Show program debug info
-		uint32_t* wordA = (uint32_t*)s_platform->sc->writepage;
-		wordA += 8;
-		for (int i=0;i<240;++i)
-		{
-			stat = VCPStatus(s_platform);
-			*wordA = stat;
-			wordA+=stride/4;
-		}
+		// DEBUG: Show program debug info as a bar
+		//uint32_t* wordA = (uint32_t*)s_platform->sc->writepage;
+		//wordA += 8;
+		//for (int i=0;i<240;++i)
+		//{
+		//	stat = VCPStatus(s_platform);
+		//	*wordA = stat;
+		//	wordA+=stride/4;
+		//}
 		//stat = VCPStatus(s_platform);
 		//decodeStatus(stat);
 
