@@ -21,16 +21,7 @@ static struct SPPlatform* s_platform = NULL;
 struct SPSizeAlloc frameBufferA;
 struct SPSizeAlloc frameBufferB;
 
-static const char* states[] = {
-	"INIT",
-	"FETCH",
-	"WFETCH",
-	"DECODE",
-	"EXEC",
-	"FREAD",
-	"FCOMPARE",
-	"HALT",
-	"UNKNOWN" };
+static const char* states[] = { "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "A", "B", "C", "D", "E", "F"};
 
 void decodeStatus(uint32_t stat)
 {
@@ -45,7 +36,7 @@ void decodeStatus(uint32_t stat)
 	uint32_t copystate = (stat >> 22) & 0x1;
 	uint32_t debugopcode = (stat >> 24) & 0xF;
 
-	printf("VCP: PC:0x%X FIFOEmpty:%d Copystate:%d Runstate:%s Execstate:%s Opcode:0x%X\n", pc, fifoempty, copystate, states[runstate], states[execstate], debugopcode);
+	printf("PC:0x%X ~FIFO:%d copy:%d run:%s exec:%s opcode:0x%X\n", pc, fifoempty, copystate, states[runstate], states[execstate], debugopcode);
 }
 
 // Some VCP info:
@@ -134,9 +125,9 @@ int main(int argc, char** argv)
 	s_platform->sc->framebufferB = &frameBufferB;
 
 	// Dump program
-	/*printf("VCP program:\n");
+	printf("VCP program:\n");
 	for (int i=0;i<16;++i)
-		printf("0x%.4X: 0x%.8X\n", i, s_vcpprogram[i]);*/
+		printf("0x%.4X: 0x%.8X\n", i, s_vcpprogram[i]);
 
 	uint32_t stat;
 
@@ -173,12 +164,14 @@ int main(int argc, char** argv)
 		// Show program debug info
 		uint32_t* wordA = (uint32_t*)s_platform->sc->writepage;
 		wordA += 8;
-		for (int i=0;i<128;++i)
+		for (int i=0;i<240;++i)
 		{
 			stat = VCPStatus(s_platform);
 			*wordA = stat;
 			wordA+=stride/4;
 		}
+		//stat = VCPStatus(s_platform);
+		//decodeStatus(stat);
 
 		// Queue vsync
 		// This will be processed by the VPU asynchronously when the video beam reaches the vertical blanking interval (vblank).
