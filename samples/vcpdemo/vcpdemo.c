@@ -52,14 +52,15 @@ void decodeStatus(uint32_t stat)
 
 // Tiny program to change some palette colors at pixel zero of each scanline
 static uint32_t s_vcpprogram[] = {
-	vcp_ldim(0x01, 0x550000),	// Load a color into R1
-	vcp_ldim(0x02, 0x000001),	// Load 5 into R2 (increment)
-	vcp_ldim(0x04, 0x00000c),	// Load 12 into R4 (offset of loop:)
+	vcp_ldim(0x01, 0x55AADD),	// Load a color into R1
+	vcp_ldim(0x02, 0x000001),	// Load 1 into R2 (increment)
+	vcp_ldim(0x03, 640),		// Load 640 into R3 (end of line)
+	vcp_ldim(0x04, 0x000010),	// Load 16 into R4 (offset of loop:)
 // loop:
-	vcp_wpix(0x00),			// Wait for pixel zero (R0==0) i.e. top of scanline
-	vcp_pwrt(0x00, 0x01),		// Set PAL[0] to R1 (R0==0)
-	vcp_radd(0x01, 0x01, 0x02),	// R1 = R1 + R2(5)
-	vcp_jump(0x04),			// Unconditional branch to R4 (12, i.e. loop:)
+	vcp_wpix(0x03),			// Wait for pixel R3 (R3==640) i.e. end of scanline
+	vcp_pwrt(0x00, 0x01),		// Set PAL[R0] to R1 (R0==0)
+	vcp_radd(0x01, 0x01, 0x02),	// R1 = R1 + R2(1)
+	vcp_jump(0x04),			// Unconditional branch to R4 (16, i.e. loop:)
 	vcp_noop(),			// Fill the rest with NOOPs
 	vcp_noop(),			// (Noops can also be used for timing adjustments, before branches etc)
 	vcp_noop(),
@@ -146,7 +147,7 @@ int main(int argc, char** argv)
 	decodeStatus(stat);
 
 	printf("Entering demo...\n");
-	uint32_t color = 0x04030201; // VCP program updates some of these colors
+	uint32_t color = 0x03020000; // VCP program updates some of these colors
 	do
 	{
 		// Vsync barrier
@@ -155,20 +156,8 @@ int main(int argc, char** argv)
 		VPUSwapPages(s_platform->vx, s_platform->sc);
 
 		// VPU program demo goes here
-		//VPUClear(s_platform->vx, color);
-		//color = (color<<8) | ((color&0xFF000000)>>24); // roll
-
-		// DEBUG: Show program debug info as a bar
-		//uint32_t* wordA = (uint32_t*)s_platform->sc->writepage;
-		//wordA += 8;
-		//for (int i=0;i<240;++i)
-		//{
-		//	stat = VCPStatus(s_platform);
-		//	*wordA = stat;
-		//	wordA+=stride/4;
-		//}
-		//stat = VCPStatus(s_platform);
-		//decodeStatus(stat);
+		VPUClear(s_platform->vx, color);
+		color = (color<<8) | ((color&0xFF000000)>>24); // roll colors right
 
 		// Queue vsync
 		// This will be processed by the VPU asynchronously when the video beam reaches the vertical blanking interval (vblank).
