@@ -41,15 +41,22 @@ void decodeStatus(uint32_t stat)
 
 // Tiny program to change some palette colors at pixel zero of each scanline
 static uint32_t s_vcpprogram[] = {
-	vcp_ldim(0x02, 0x040404),	// Load 1 into R2 (increment)
+	vcp_ldim(0x02, 0x000001),	// Load 1 into R2 (increment)
 	vcp_ldim(0x03, 640),		// Load 640 into R3 (end of line)
-	vcp_ldim(0x04, 0x000010),	// Load 16 into R4 (offset of loop:)
+	vcp_ldim(0x04, 0x000014),	// Load 20 into R4 (offset of loop:)
+	vcp_ldim(0x05, 0x000010),	// Load 16 into R5 (offset of reset:)
+// reset:
 	vcp_ldim(0x01, 0x55AADD),	// Load a color into R1
 // loop:
 	vcp_wpix(0x03),			// Wait for pixel R3 (R3==640) i.e. end of scanline
-	vcp_pwrt(0x00, 0x01),		// Set PAL[R0] to R1 (R0==0)
+	vcp_scanline_read(0x06),	// Read scanline count into R6
+	vcp_cmp(4, 0x07, 0x06, 0x00),	// Is the scanline zero? (4:EQ, 2:LT, 1:LE)
+	vcp_branch(0x05, 0x07),		// Jump to reset color if true
+	vcp_radd(0x06, 0x06, 0x06),	// R6=R6x2
+	vcp_radd(0x06, 0x06, 0x01),	// +R1
+	vcp_pwrt(0x00, 0x06),		// Set PAL[R0] to R6 (R0==0)
 	vcp_radd(0x01, 0x01, 0x02),	// R1 = R1 + R2(1)
-	vcp_jump(0x04),			// Unconditional branch to R4 (16, i.e. loop:)
+	vcp_jump(0x04),			// Unconditional branch to R4 (20, i.e. loop:)
 	vcp_noop(),			// Fill the rest with NOOPs
 	vcp_noop(),
 	vcp_noop(),
@@ -136,7 +143,7 @@ int main(int argc, char** argv)
 	decodeStatus(stat);
 
 	printf("Entering demo...\n");
-	uint32_t color = 0x03020000; // VCP program updates some of these colors
+	uint32_t color = 0xffffff00; // VCP program updates some of these colors
 	do
 	{
 		// Vsync barrier
@@ -145,8 +152,8 @@ int main(int argc, char** argv)
 		VPUSwapPages(s_platform->vx, s_platform->sc);
 
 		// VPU program demo goes here
-		//VPUClear(s_platform->vx, color);
-		//color = (color<<8) | ((color&0xFF000000)>>24); // roll colors right
+		VPUClear(s_platform->vx, color);
+		color = (color<<8) | ((color&0xFF000000)>>24); // roll colors right
 
 		// Queue vsync
 		// This will be processed by the VPU asynchronously when the video beam reaches the vertical blanking interval (vblank).

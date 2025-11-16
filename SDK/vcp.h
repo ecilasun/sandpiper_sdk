@@ -45,15 +45,15 @@
 // Destination and source registers, as well as immediate values, are always at the same bit positions across different instructions to ensure consistency and simplify decoding.
 // The source and destination register indices are 4 bits each, allowing for 16 registers.
 //												[31:24]				[15:12]				[11:8]				[7:4]				[3:0]
-#define vcp_noop()							(	0					| 0					| 0					| 0					| VCP_NOOP			)
+#define vcp_noop()					(	0					| 0					| 0					| 0					| VCP_NOOP			)
 #define vcp_ldim(dest, immed)				(	IMMED24(immed)												| DESTREG(dest)		| VCP_LOADIMM		)
 #define vcp_pwrt(addrs, src)				(	0					| SRCREG2(src)		| SRCREG1(addrs)	| 0					| VCP_PALWRITE		)
-#define vcp_wscn(line)						(	0					| 0					| SRCREG1(line)		| 0					| VCP_WAITSCANLINE	)
-#define vcp_wpix(pixel)						(	0					| 0					| SRCREG1(pixel)	| 0					| VCP_WAITPIXEL		)
+#define vcp_wscn(line)					(	0					| 0					| SRCREG1(line)		| 0					| VCP_WAITSCANLINE	)
+#define vcp_wpix(pixel)					(	0					| 0					| SRCREG1(pixel)	| 0					| VCP_WAITPIXEL		)
 #define vcp_radd(dest, src1, src2)			(	0					| SRCREG2(src2)		| SRCREG1(src1)		| DESTREG(dest)		| VCP_ADD			)
-#define vcp_jump(addrs)						(	0					| 0					| SRCREG1(addrs)	| 0					| VCP_JUMP			)
-#define vcp_cmp(cmpflags, dest, src1, src2)	(	IMMED8(cmpflags)	| SRCREG2(src2)		| SRCREG1(src1)		| DESTREG(dest)		| VCP_CMP			)
-#define vcp_branch(address, src)			(	0					| SRCREG2(src)		| SRCREG1(addrs)	| 0					| VCP_BRANCH		)
+#define vcp_jump(addrs)					(	0					| 0					| SRCREG1(addrs)	| 0					| VCP_JUMP			)
+#define vcp_cmp(cmpflags, dest, src1, src2)		(	IMMED8(cmpflags)	| SRCREG2(src2)		| SRCREG1(src1)		| DESTREG(dest)		| VCP_CMP			)
+#define vcp_branch(addrs, src)				(	0					| SRCREG2(src)		| SRCREG1(addrs)	| 0					| VCP_BRANCH		)
 #define vcp_store(addrs, src)				(	0					| SRCREG2(src)		| SRCREG1(addrs)	| 0					| VCP_STORE			)
 #define vcp_load(addrs, dest)				(	0					| 0					| SRCREG1(addrs)	| DESTREG(dest)		| VCP_LOAD			)
 #define vcp_scanline_read(dest)				(	0					| 0					| 0					| DESTREG(dest)		| VCP_READSCANLINE	)
