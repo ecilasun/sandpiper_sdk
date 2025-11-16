@@ -52,10 +52,10 @@ void decodeStatus(uint32_t stat)
 
 // Tiny program to change some palette colors at pixel zero of each scanline
 static uint32_t s_vcpprogram[] = {
-	vcp_ldim(0x01, 0x55AADD),	// Load a color into R1
-	vcp_ldim(0x02, 0x000001),	// Load 1 into R2 (increment)
+	vcp_ldim(0x02, 0x040404),	// Load 1 into R2 (increment)
 	vcp_ldim(0x03, 640),		// Load 640 into R3 (end of line)
 	vcp_ldim(0x04, 0x000010),	// Load 16 into R4 (offset of loop:)
+	vcp_ldim(0x01, 0x55AADD),	// Load a color into R1
 // loop:
 	vcp_wpix(0x03),			// Wait for pixel R3 (R3==640) i.e. end of scanline
 	vcp_pwrt(0x00, 0x01),		// Set PAL[R0] to R1 (R0==0)
@@ -103,13 +103,13 @@ int main(int argc, char** argv)
 	// can see the frame swap happening
 	for (int y = 0; y < VIDEO_HEIGHT; y++)
 	{
-		for (int x = 0; x < stride; x++)
+		for (int x = 0; x < stride/4; x++)
 		{
-			uint8_t* pixelA = (uint8_t*)frameBufferA.cpuAddress + (y * stride) + x;
-			*pixelA = 0x00;
+			uint32_t* pixelA = (uint32_t*)frameBufferA.cpuAddress + (y * stride/4) + x;
+			*pixelA = 0x0000FFFF;
 
-			uint8_t* pixelB = (uint8_t*)frameBufferB.cpuAddress + (y * stride) + x;
-			*pixelB = 0x00;
+			uint32_t* pixelB = (uint32_t*)frameBufferB.cpuAddress + (y * stride/4) + x;
+			*pixelB = 0xFFFF0000;
 		}
 	}
 
@@ -156,8 +156,8 @@ int main(int argc, char** argv)
 		VPUSwapPages(s_platform->vx, s_platform->sc);
 
 		// VPU program demo goes here
-		VPUClear(s_platform->vx, color);
-		color = (color<<8) | ((color&0xFF000000)>>24); // roll colors right
+		//VPUClear(s_platform->vx, color);
+		//color = (color<<8) | ((color&0xFF000000)>>24); // roll colors right
 
 		// Queue vsync
 		// This will be processed by the VPU asynchronously when the video beam reaches the vertical blanking interval (vblank).
