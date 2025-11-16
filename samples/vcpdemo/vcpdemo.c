@@ -90,6 +90,7 @@ int main(int argc, char** argv)
 	VPUSetVideoMode(s_platform->vx, VIDEO_MODE, VIDEO_COLOR, EVS_Enable);
 
 	// Allocate our two frame buffers
+	printf("Allocating framebuffers\n");
 	uint32_t stride = VPUGetStride(VIDEO_MODE, VIDEO_COLOR);
 	frameBufferB.size = frameBufferA.size = stride*VIDEO_HEIGHT;
 	SPAllocateBuffer(s_platform, &frameBufferA);
@@ -97,15 +98,16 @@ int main(int argc, char** argv)
 
 	// Fill both buffers with different patterns so we
 	// can see the frame swap happening
+	printf("Clearing framebuffers\n");
 	for (int y = 0; y < VIDEO_HEIGHT; y++)
 	{
 		for (int x = 0; x < stride/4; x++)
 		{
 			uint32_t* pixelA = (uint32_t*)frameBufferA.cpuAddress + (y * stride/4) + x;
-			*pixelA = 0x0000FFFF;
+			*pixelA = 0x00000000;
 
 			uint32_t* pixelB = (uint32_t*)frameBufferB.cpuAddress + (y * stride/4) + x;
-			*pixelB = 0xFFFF0000;
+			*pixelB = 0x00000000;
 		}
 	}
 
@@ -118,20 +120,15 @@ int main(int argc, char** argv)
 	s_platform->sc->framebufferA = &frameBufferA;
 	s_platform->sc->framebufferB = &frameBufferB;
 
-	// Dump program bytecode
-	printf("VCP program:\n");
-	for (int i=0;i<16;++i)
-		printf("0x%.4X: 0x%.8X\n", i, s_vcpprogram[i]);
-
 	uint32_t stat;
 
 	// Stop all running programs by clearing all control registers
-	printf("Stopping programs...");
+	printf("Stopping existing programs...");
 	VPUWriteControlRegister(s_platform->vx, 0x0F, 0x00);
 	stat = VCPStatus(s_platform);
 	decodeStatus(stat);
 
-	printf("Uploading VCP program...");
+	printf("Uploading new VCP program...");
 	VCPUploadProgram(s_platform, s_vcpprogram, PRG_128Bytes);
 	stat = VCPStatus(s_platform);
 	decodeStatus(stat);
@@ -142,12 +139,12 @@ int main(int argc, char** argv)
 	stat = VCPStatus(s_platform);
 	decodeStatus(stat);
 
-	printf("Entering demo...\n");
-	uint32_t color = 0xffffff00; // VCP program updates some of these colors
+	printf("Starting demo...\n");
+	uint32_t color = 0xff0cff00; // VCP program updates some of these colors
 	do
 	{
 		// Vsync barrier
-		// Wait for previous frame to finish and swap buffers
+		// Wait for previous frame (if any) to consume swap command + barrier, then swap buffers
 		while(VPUGetFIFONotEmpty(s_platform->vx)) { }
 		VPUSwapPages(s_platform->vx, s_platform->sc);
 
