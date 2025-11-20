@@ -38,12 +38,22 @@ void VCPUploadProgram(struct SPPlatform *ctx, const uint32_t* _program, enum EVC
 	// TODO: We can wait for DMA completion by polling VCP status if needed
 }
 
+/*
+ * Start or stop VCP program execution
+ * ctx: Platform context
+ * execFlags: Execution flags where only the lowest bit is used (0 = stop, 1 = start)
+ */
 void VCPExecProgram(struct SPPlatform *ctx, const uint8_t _execFlags)
 {
 	// Start or stop execution
 	vcpwrite32(ctx, 0, VCPEXEC | (_execFlags << 4));
 }
 
+/*
+ * Retrieve the current VCP status
+ * ctx: Platform context
+ * returns: VCP status register value
+ */
 uint32_t VCPStatus(struct SPPlatform *ctx)
 {
 	return vcpread32(ctx, 0);

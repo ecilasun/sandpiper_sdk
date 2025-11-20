@@ -37,6 +37,9 @@ struct SPIoctl
 // NOTE: A list of all of the onboard devices can be found under /sys/bus/platform/devices/ including the audio and video devices.
 // The file names are annotated with the device addresses, which is useful for MMIO mapping.
 
+/*
+ * This function is called at program exit to ensure that the Sandpiper platform is cleanly shut down.
+ */
 void shutdowncleanup()
 {
 	if (g_activePlatform)
@@ -85,6 +88,9 @@ void shutdowncleanup()
 	}
 }
 
+/*
+ * Signal handler to catch termination signals and ensure clean shutdown.
+ */
 static void signal_handler(int s)
 {
 	// We don't currently care about which signal was received and simply shut down the platform
@@ -92,6 +98,9 @@ static void signal_handler(int s)
 	exit(0);
 }
 
+/*
+ * Initialize the Sandpiper platform, mapping necessary resources and setting up device contexts.
+ */
 struct SPPlatform* SPInitPlatform()
 {
 	struct SPPlatform* platform = (struct SPPlatform*)malloc(sizeof(struct SPPlatform));
@@ -195,32 +204,39 @@ struct SPPlatform* SPInitPlatform()
 		// Register exit handlers
 		atexit(shutdowncleanup);
 
+		// We handle termination, segmentation fault, abort, and illegal instruction signals to ensure clean shutdown
+		// NOTE: If we hang at exit, we may need to add more signals here.
 		struct sigaction sa;
 		sigemptyset(&sa.sa_mask);
 		sa.sa_flags = 0;
 		sa.sa_handler = signal_handler;
 		if (sigaction(SIGINT, &sa, NULL) == -1)
 		{
+			// Interrupt signal
 			perror("sigaction(SIGINT)");
 			err = 1;
 		}
 		if (sigaction(SIGTERM, &sa, NULL) == -1)
 		{
+			// Termination signal
 			perror("sigaction(SIGTERM)");
 			err = 1;
 		}
 		if (sigaction(SIGSEGV, &sa, NULL) == -1)
 		{
+			// Segmentation fault
 			perror("sigaction(SIGSEGV)");
 			err = 1;
 		}
 		if (sigaction(SIGABRT, &sa, NULL) == -1)
 		{
+			// Abort signal from abort()
 			perror("sigaction(SIGABRT)");
 			err = 1;
 		}
 		if (sigaction(SIGILL, &sa, NULL) == -1)
 		{
+			// Illegal instruction
 			perror("sigaction(SIGILL)");
 			err = 1;
 		}
@@ -235,6 +251,9 @@ struct SPPlatform* SPInitPlatform()
 	return platform;
 }
 
+/*
+ * Shutdown the Sandpiper platform, unmapping resources and closing device handles.
+ */
 void SPShutdownPlatform(struct SPPlatform* _platform)
 {
 	_platform->ready = 0;
@@ -271,6 +290,9 @@ void SPShutdownPlatform(struct SPPlatform* _platform)
 	_platform->vcpio = 0;
 }
 
+/*
+ * Retrieve the console framebuffer addresses for CPU and DMA access.
+ */
 void SPGetConsoleFramebuffer(struct SPPlatform* _platform, struct SPSizeAlloc* _sizealloc)
 {
 	if (_platform->mapped_memory != (uint8_t*)MAP_FAILED)
@@ -285,6 +307,9 @@ void SPGetConsoleFramebuffer(struct SPPlatform* _platform, struct SPSizeAlloc* _
 	}
 }
 
+/*
+ * Allocate a buffer from the reserved memory region.
+ */
 int SPAllocateBuffer(struct SPPlatform* _platform, struct SPSizeAlloc* _sizealloc)
 {
 	if (_platform->mapped_memory != (uint8_t*)MAP_FAILED)
@@ -314,10 +339,16 @@ int SPAllocateBuffer(struct SPPlatform* _platform, struct SPSizeAlloc* _sizeallo
 	}
 }
 
+/*
+ * Free a previously allocated buffer.
+ * Note: This is a placeholder as the current implementation does not support freeing individual allocations.
+ */
 void SPFreeBuffer(struct SPPlatform* _platform, struct SPSizeAlloc *_sizealloc)
 {
 	// TODO
 }
+
+// Read and write functions for APU, VPU, PAL, and VCP control registers.
 
 uint32_t audioread32(struct SPPlatform* _platform, uint32_t offset)
 {
