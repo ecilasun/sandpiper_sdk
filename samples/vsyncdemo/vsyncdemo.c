@@ -1,8 +1,21 @@
-/*
-	@file vsyncdemo.c
-	@brief Demonstrates how to use the Video Processing Unit (VPU).
-	@note WARNING! Very rapid flickering, observe with caution.
-*/
+/**
+ * \file vsyncdemo.c
+ * \brief VSync demonstration program
+ *
+ * \ingroup examples
+ * This example demonstrates two methods of synchronizing frame updates with the vertical
+ * refresh cycle to prevent screen tearing: CPU-based vsync using polling, and VPU-based
+ * vsync using command FIFO monitoring.
+ * 
+ * The CPU-based method waits for the vertical sync signal before swapping buffers,
+ * while the VPU-based method ensures the command FIFO is empty before issuing a buffer
+ * swap command to be executed during the vertical blanking interval.
+ * 
+ * The VPU based approach guarantees that the CPU is as close as possible to the vblank event,
+ * minimizing latency and potential visual artifacts.
+ * 
+ * User is expected to pick one of the two methods via command line argument ("cpu" or "vpu").
+ */
 
 #include <stdint.h>
 #include <stdlib.h>

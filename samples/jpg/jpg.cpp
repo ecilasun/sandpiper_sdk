@@ -1,5 +1,6 @@
-/** \file
- * JPEG image viewer example
+/**
+ * \file jpg.cpp
+ * \brief JPEG image viewer example
  *
  * \ingroup examples
  * This example demonstrates how to decode a JPEG image and display it on the screen.

@@ -1,11 +1,13 @@
-/*
-	@file scroll.c
-	@brief Demonstrates horizontal scrolling using VPUShiftScanout and VPUShiftPixel.
-
-	@note: Inherently, in 320x240 8 bit mode, screen buffer has a stride of 3*128 bytes,
-	@note: which leaves us with 64 pixels of horizontal scrolling space.
-	@note: We can write off-screen data to that narrow area, which can then be scrolled into view.
-*/
+/**
+ * \file scroll.c
+ * \brief VPU scrolling example
+ *
+ * \ingroup examples
+ * This example demonstrates how to use the VPU scrolling features by
+ * rendering a test pattern and smoothly scrolling it vertically.
+ * The background buffer is actually larger than the visible area to allow
+ * for smooth scrolling without visual artifacts.
+ */
 
 #include <stdint.h>
 #include <stdlib.h>

@@ -1,7 +1,12 @@
-/*
-	@file vsyncdemo.c
-	@brief Demonstrates how to use the Video Processing Unit (VPU).
-*/
+/**
+ * \file vcpdemo.c
+ * \brief VCP demo program
+ * 
+ * \ingroup examples
+ * This example demonstrates how to use the VCP (Video Co-Processor) to run a small program
+ * that modifies the palette colors at the start of each scanline.
+ * It also demonstrates how to handle control flow in a VCP program.
+ */
 
 #include <stdint.h>
 #include <stdlib.h>

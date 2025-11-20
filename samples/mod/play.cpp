@@ -1,3 +1,13 @@
+/**
+ * \file play.cpp
+ *  \brief Sample module player with audio visualization
+ *
+ * * \ingroup examples
+ *  This sample demonstrates how to use the APU and VPU to play a module file
+ *  using libxmp, while simultaneously visualizing the audio output as a
+ *  frequency spectrum on the screen.
+ */
+
 #include <complex>
 #include <cmath>
 

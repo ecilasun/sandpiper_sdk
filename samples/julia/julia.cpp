@@ -1,5 +1,6 @@
-/** \file
- * Julia set example
+/**
+ * \file julia.cpp
+ * \brief Julia set example
  *
  * \ingroup examples
  * This example demonstrates the use of the VPU frame buffers to render a Julia set.
