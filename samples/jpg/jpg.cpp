@@ -19,7 +19,13 @@
 #include <unistd.h>
 #include <linux/input.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 #include "nanojpeg.h"
+#ifdef __cplusplus
+}
+#endif
 
 #define VIDEO_MODE      EVM_640_Wide
 #define VIDEO_COLOR     ECM_16bit_RGB

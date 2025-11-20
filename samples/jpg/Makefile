@@ -28,13 +28,13 @@ ARM_GCC ?= g++
 endif
 
 ARM_GCC_OPTS += -std=c++20 -Ofast -flto -mcpu=cortex-a9 -mfpu=vfpv3 -mfloat-abi=hard
-ARM_GCC_LIBS += -lgcc -lc -lm
+ARM_GCC_LIBS += -lgcc -lc -lm -L../../3rdparty/nanojpeg -lnanojpeg
 
-incs += -I$(src_dir) -I$(corelib_dir) -I$(jpglib_dir) $(addprefix -I$(src_dir)/, $(folders))
-libs += $(wildcard $(corelib_dir)/*.S) $(wildcard $(jpglib_dir)/*.c) $(wildcard $(corelib_dir)/*.c)
+incs += -I$(src_dir) -I$(corelib_dir) -I$(jpglib_dir)/ $(addprefix -I$(src_dir)/, $(folders))
+libs += $(wildcard $(corelib_dir)/*.c)
 
-$(TARGET):
-	$(ARM_GCC) $(ARM_GCC_OPTS) $(incs) -o $(TARGET) $(wildcard $(src_dir)/*.cpp) $(libs) $(ARM_GCC_LIBS)
+$(TARGET): $(wildcard $(src_dir)/*)
+	$(ARM_GCC) $(ARM_GCC_OPTS) $(incs) -o $@ $(wildcard $(src_dir)/*.cpp) $(libs) $(ARM_GCC_LIBS)
 
 .PHONY: clean
 clean:
