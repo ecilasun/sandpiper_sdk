@@ -45,10 +45,10 @@ int main(int argc, char** argv)
 	if (argc != 2) {
         fprintf(stderr, "Usage: %s filename.nes\n", argv[0]);
 		fprintf(stderr, "Keyboard controls:\n");
-		fprintf(stderr, "  A:      Enter\n");
+		fprintf(stderr, "  A:      P\n");
 		fprintf(stderr, "  B:      O\n");
 		fprintf(stderr, "  Select: Esc\n");
-		fprintf(stderr, "  Start:  P\n");
+		fprintf(stderr, "  Start:  1\n");
 		fprintf(stderr, "  Up:     W\n");
 		fprintf(stderr, "  Down:   S\n");
 		fprintf(stderr, "  Left:   A\n");
@@ -141,14 +141,14 @@ int main(int argc, char** argv)
 					{
 						// Take action based on key code
 						// Down(1) and autorepeat(2) both set the button, up event(0) clears it
-						case KEY_ENTER:   { s_input.a = ev.value == 0 ? 0 : 1; break; }
-						case KEY_O:   { s_input.b = ev.value == 0 ? 0 : 1; break; }
-						case KEY_P:   { s_input.start = ev.value == 0 ? 0 : 1; break; }
-						case KEY_ESC:   { s_input.select = ev.value == 0 ? 0 : 1; break; }
-						case KEY_A:   { s_input.left = ev.value == 0 ? 0 : 1; break; }
-						case KEY_D:   { s_input.right = ev.value == 0 ? 0 : 1; break; }
-						case KEY_W:   { s_input.up = ev.value == 0 ? 0 : 1; break; }
-						case KEY_S:   { s_input.down = ev.value == 0 ? 0 : 1; break; }
+						case KEY_W:		{ s_input.up = ev.value == 0 ? 0 : 1; break; }
+						case KEY_A:		{ s_input.left = ev.value == 0 ? 0 : 1; break; }
+						case KEY_S:		{ s_input.down = ev.value == 0 ? 0 : 1; break; }
+						case KEY_D:		{ s_input.right = ev.value == 0 ? 0 : 1; break; }
+						case KEY_ESC:	{ s_input.select = ev.value == 0 ? 0 : 1; break; }
+						case KEY_1:		{ s_input.start = ev.value == 0 ? 0 : 1; break; }
+						case KEY_P:		{ s_input.a = ev.value == 0 ? 0 : 1; break; }
+						case KEY_O:   	{ s_input.b = ev.value == 0 ? 0 : 1; break; }
 						default:    break;
 					}
 				}
