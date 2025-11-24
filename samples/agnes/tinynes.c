@@ -2,6 +2,11 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <fcntl.h>
+#include <poll.h>
+#include <unistd.h>
+#include <termios.h>
+#include <linux/input.h>
 
 #include "agnes.h"
 
@@ -14,6 +19,17 @@ static agnes_input_t s_input;
 static agnes_t *s_agnes;
 static bool s_alive = true;
 
+static int havekeyboard = 1;
+static struct pollfd fds[1];
+
+static struct termios orig_termios;
+
+static void restore_terminal(void) {
+    tcsetattr(STDIN_FILENO, TCSANOW, &orig_termios);
+	agnes_destroy(s_agnes);
+	printf("Emulator terminated.\n");
+}
+
 #define VIDEO_MODE		EVM_320_Wide
 #define VIDEO_COLOR		ECM_8bit_Indexed
 #define VIDEO_HEIGHT	240
@@ -24,80 +40,19 @@ struct SPSizeAlloc frameBufferB;
 
 static void* read_file(const char *filename, size_t *out_len);
 
-uint32_t videoCallback(uint32_t interval, void* param)
-{
-	/*uint32_t* pixels = (uint32_t*)s_surface->pixels;
-	uint32_t W = s_surface->w;
-	uint32_t H = s_surface->h-8;
-
-	agnes_color_t *palette = agnes_get_palette(s_agnes);
-
-    uint8_t *source = agnes_get_raw_screen_buffer(s_agnes);
-    for (uint32_t y = 0; y<AGNES_SCREEN_HEIGHT; ++y)
-	{
-        for (uint32_t x = 0; x<AGNES_SCREEN_WIDTH; ++x)
-        {
-            uint32_t color = source[x+AGNES_SCREEN_WIDTH*y];
-            uint32_t col = SDL_MapRGBA(s_surface->format, palette[color].r, palette[color].g, palette[color].b, 255);
-            pixels[0+x*2+W*y*2] = col;
-            pixels[1+x*2+W*y*2] = col;
-            pixels[0+x*2+W*(y*2+1)] = col;
-            pixels[1+x*2+W*(y*2+1)] = col;
-        }
-	}
-
-	if (SDL_MUSTLOCK(s_surface))
-		SDL_UnlockSurface(s_surface);
-	SDL_UpdateWindowSurface(s_window);
-
-    s_frame++;*/
-
-	return interval;
-}
-
-/*void get_input(SDL_Event *ev, agnes_input_t *out_input)
-{
-	if (ev==NULL)
-	{
-		// Read joystick input and convert to agnes_input_t
-		if (s_numjoysticks > 0 && s_joystick != NULL)
-		{
-			out_input->a = SDL_GameControllerGetButton(s_controller, SDL_CONTROLLER_BUTTON_A);
-			out_input->b = SDL_GameControllerGetButton(s_controller, SDL_CONTROLLER_BUTTON_B);
-			out_input->start = SDL_GameControllerGetButton(s_controller, SDL_CONTROLLER_BUTTON_START);
-			out_input->select = SDL_GameControllerGetButton(s_controller, SDL_CONTROLLER_BUTTON_BACK);
-			out_input->up = SDL_GameControllerGetButton(s_controller, SDL_CONTROLLER_BUTTON_DPAD_UP);
-			out_input->down = SDL_GameControllerGetButton(s_controller, SDL_CONTROLLER_BUTTON_DPAD_DOWN);
-			out_input->left = SDL_GameControllerGetButton(s_controller, SDL_CONTROLLER_BUTTON_DPAD_LEFT);
-			out_input->right = SDL_GameControllerGetButton(s_controller, SDL_CONTROLLER_BUTTON_DPAD_RIGHT);
-		}
-	}
-	else
-	{
-		// Convert SDL2 events to agnes_input_t
-		if (ev->type == SDL_KEYDOWN || ev->type == SDL_KEYUP)
-		{
-			SDL_Keycode key = ev->key.keysym.sym;
-			switch(key)
-			{
-				case SDLK_RETURN:   { out_input->start = ev->type == SDL_KEYDOWN; break; }
-				case SDLK_TAB:      { out_input->select = ev->type == SDL_KEYDOWN; break; }
-				case SDLK_a:        { out_input->left = ev->type == SDL_KEYDOWN; break; }
-				case SDLK_d:        { out_input->right = ev->type == SDL_KEYDOWN; break; }
-				case SDLK_w:        { out_input->up = ev->type == SDL_KEYDOWN; break; }
-				case SDLK_s:        { out_input->down = ev->type == SDL_KEYDOWN; break; }
-				case SDLK_COMMA:    { out_input->a = ev->type == SDL_KEYDOWN; break; }
-				case SDLK_PERIOD:   { out_input->b = ev->type == SDL_KEYDOWN; break; }
-				default:            break;
-			}
-		}
-	}
-}*/
-
 int main(int argc, char** argv)
 {
 	if (argc != 2) {
         fprintf(stderr, "Usage: %s filename.nes\n", argv[0]);
+		fprintf(stderr, "Keyboard controls:\n");
+		fprintf(stderr, "  A:      Enter\n");
+		fprintf(stderr, "  B:      O\n");
+		fprintf(stderr, "  Select: Esc\n");
+		fprintf(stderr, "  Start:  P\n");
+		fprintf(stderr, "  Up:     W\n");
+		fprintf(stderr, "  Down:   S\n");
+		fprintf(stderr, "  Left:   A\n");
+		fprintf(stderr, "  Right:  D\n");
         return 1;
     }
 
@@ -122,7 +77,27 @@ int main(int argc, char** argv)
         return 1;
     }
 
+	// Open keyboard device
+	fds[0].fd = open("/dev/input/event0", O_RDONLY | O_NONBLOCK);
+	fds[0].events = POLLIN;
+
+	if (fds[0].fd < 0)
+	{
+		perror("/dev/input/event0: make sure a keyboard is connected");
+		havekeyboard = 0;
+	}
+	else
+		printf("attached to /dev/input/event for keyboard access\n");
+
 	fprintf(stderr, "Starting emulator\n");
+
+    // Save terminal settings and set raw mode
+    struct termios raw_termios;
+    tcgetattr(STDIN_FILENO, &orig_termios); // Save current settings
+    raw_termios = orig_termios;
+    raw_termios.c_lflag &= ~(ECHO | ICANON); // Disable echo and canonical mode
+    tcsetattr(STDIN_FILENO, TCSANOW, &raw_termios);
+	atexit(restore_terminal);
 
 	s_platform = SPInitPlatform();
 	VPUSetVideoMode(s_platform->vx, VIDEO_MODE, VIDEO_COLOR, EVS_Enable);
@@ -153,7 +128,33 @@ int main(int argc, char** argv)
     memset(&s_input, 0, sizeof(agnes_input_t));
 	do
 	{
-		//get_input(&ev, &s_input);
+		if (havekeyboard)
+		{
+			int ret = poll(fds, 1, 10);
+			if (ret > 0)
+			{
+				struct input_event ev;
+				int n = read(fds[0].fd, &ev, sizeof(struct input_event));
+				if (n > 0 && ev.type == EV_KEY)
+				{
+					switch (ev.code)
+					{
+						// Take action based on key code
+						// Down(1) and autorepeat(2) both set the button, up event(0) clears it
+						case KEY_ENTER:   { s_input.a = ev.value == 0 ? 0 : 1; break; }
+						case KEY_O:   { s_input.b = ev.value == 0 ? 0 : 1; break; }
+						case KEY_P:   { s_input.start = ev.value == 0 ? 0 : 1; break; }
+						case KEY_ESC:   { s_input.select = ev.value == 0 ? 0 : 1; break; }
+						case KEY_A:   { s_input.left = ev.value == 0 ? 0 : 1; break; }
+						case KEY_D:   { s_input.right = ev.value == 0 ? 0 : 1; break; }
+						case KEY_W:   { s_input.up = ev.value == 0 ? 0 : 1; break; }
+						case KEY_S:   { s_input.down = ev.value == 0 ? 0 : 1; break; }
+						default:    break;
+					}
+				}
+			}
+		}
+
 		agnes_set_input(s_agnes, &s_input, NULL);
 		s_alive = agnes_next_frame(s_agnes);
 
@@ -181,8 +182,6 @@ int main(int argc, char** argv)
 		VPUNoop(s_platform->vx);
 
 	} while(s_alive);
-
-    agnes_destroy(s_agnes);
 
     return 0;
 }
