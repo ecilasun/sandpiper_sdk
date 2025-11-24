@@ -151,7 +151,7 @@ I_GetRemoteEvent(void)
 					case KEY_F12:			{ event.data1 = DKEY_F12; break; }
 					default:				{ event.data1 = ev.code; break; }
 				}
-				event.type = ev.code == 0 ? ev_keyup : ev_keydown;
+				event.type = ev.value == 0 ? ev_keyup : ev_keydown;
 				D_PostEvent(&event);
 			}
 		}
