@@ -2,8 +2,8 @@
 ifeq ($(OS),Windows_NT)
 	UNAME := Windows
 else
-	UNAME := $(shell uname)
-	ifeq ("", $(findstring xilinx,$(UNAME)))
+	UNAME := $(shell uname -a)
+	ifeq ($(findstring xilinx,$(UNAME)),)
 		UNAME := Linux
 	else
 		UNAME := Petalinux
@@ -15,7 +15,7 @@ ifeq ($(UNAME), Windows)
 ARM_GCC ?= arm-none-linux-gnueabihf-gcc
 else ifeq ($(UNAME), Linux)
 # Linux
-ARM_GCC ?= arm-none-linux-gnueabihf-gcc
+ARM_GCC ?= arm-linux-gnueabihf-gcc
 else
 # Petalinux
 ARM_GCC ?= arm-amd-linux-gnueabi-gcc

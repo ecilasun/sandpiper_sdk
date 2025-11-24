@@ -39,11 +39,15 @@ https://github.com/ecilasun/sandpiper_sdk/
 
 The sandpiper disk image comes prebuilt with gcc13.3.0
 
-For Linux, the cross compilers can be build with from the sandpiper_petalinux project or you can download them from the same link below.
-Please check the repo for more information on building the tools locally.
+For Linux, just run the following two commands (tested on Ubuntu 24.04)
+sudo apt-get install gcc-arm-linux-gnueabihf
+sudo apt-get install g++-arm-linux-gnueabihf
 
-For either Windows or Linux, you can use "13.3.Rel1 AArch32 GNU/Linux target with hard float" version:
+For Windows, you can use "13.3.Rel1 AArch32 GNU/Linux target with hard float" version:
 https://developer.arm.com/downloads/-/arm-gnu-toolchain-downloads
-
-You can install make for Windows from this link:
+Make for Windows can be installed from this link:
 https://gnuwin32.sourceforge.net/packages/make.htm
+
+P.S.:
+For Linux, the cross compilers can be built with from the sandpiper_petalinux project as well, but this is a lot harder than the above method.
+Please check the repo for more information on building the tools locally, in case the options above do not work for you.
