@@ -32,7 +32,7 @@ else
 ARM_GCC ?= arm-amd-linux-gnueabi-g++
 endif
 
-ARM_GCC_OPTS += -std=c++20 -Ofast -flto -mcpu=cortex-a9 -mfpu=vfpv3 -mfloat-abi=hard
+ARM_GCC_OPTS += -std=c++20 -Ofast -flto -mcpu=cortex-a9 -mfpu=vfpv3 -mfloat-abi=hard -fdata-sections -ffunction-sections -fno-exceptions -fno-rtti -Wl,--gc-sections
 ARM_GCC_LIBS += -lgcc -lc -lm
 
 incs  += -I$(src_dir) -I$(corelib_dir) $(addprefix -I$(src_dir)/, $(folders))
