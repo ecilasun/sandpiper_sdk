@@ -551,7 +551,7 @@ void HU_Ticker(void)
                     if (c >= 'a' && c <= 'z')
                         c = (char) shiftxform[(unsigned char) c];
                     rc = HUlib_keyInIText(&w_inputbuffer[i], c);
-                    if (rc && c == KEY_ENTER)
+                    if (rc && c == DKEY_ENTER)
                     {
                         if (w_inputbuffer[i].l.len
                             && (chat_dest[i] == consoleplayer+1
@@ -642,12 +642,12 @@ boolean HU_Responder(event_t *ev)
     for (i=0 ; i<MAXPLAYERS ; i++)
         numplayers += playeringame[i];
 
-    if (ev->data1 == KEY_RSHIFT)
+    if (ev->data1 == DKEY_RSHIFT)
     {
         shiftdown = ev->type == ev_keydown;
         return false;
     }
-    else if (ev->data1 == KEY_RALT || ev->data1 == KEY_LALT)
+    else if (ev->data1 == DKEY_RALT || ev->data1 == DKEY_LALT)
     {
         altdown = ev->type == ev_keydown;
         return false;
@@ -714,12 +714,12 @@ boolean HU_Responder(event_t *ev)
             macromessage = chat_macros[c];
 
             // kill last message with a '\n'
-            HU_queueChatChar(KEY_ENTER); // DEBUG!!!
+            HU_queueChatChar(DKEY_ENTER); // DEBUG!!!
 
             // send the macro message
             while (*macromessage)
                 HU_queueChatChar(*macromessage++);
-            HU_queueChatChar(KEY_ENTER);
+            HU_queueChatChar(DKEY_ENTER);
 
             // leave chat mode and notify that it was sent
             chat_on = false;
@@ -742,7 +742,7 @@ boolean HU_Responder(event_t *ev)
                 // sprintf(buf, "KEY: %d => %d", ev->data1, c);
                 //      plr->message = buf;
             }
-            if (c == KEY_ENTER)
+            if (c == DKEY_ENTER)
             {
                 chat_on = false;
                 if (w_chat.l.len)
@@ -751,7 +751,7 @@ boolean HU_Responder(event_t *ev)
                     plr->message = lastmessage;
                 }
             }
-            else if (c == KEY_ESCAPE)
+            else if (c == DKEY_ESCAPE)
                 chat_on = false;
         }
     }

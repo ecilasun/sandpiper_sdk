@@ -25,6 +25,11 @@
 #include <string.h>
 #include <sys/time.h>
 #include <time.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <poll.h>
+#include <termios.h>
+#include <linux/input.h>
 
 #include "doomdef.h"
 #include "doomstat.h"
@@ -38,6 +43,15 @@
 #include "i_system.h"
 
 #include "core.h"
+
+static struct pollfd fds[1];
+static int s_nokeyboard = 0;
+static int s_inited = 0;
+static struct termios orig_termios;
+
+static void restore_terminal(void) {
+	tcsetattr(STDIN_FILENO, TCSANOW, &orig_termios);
+}
 
 void
 I_Init(void)
@@ -73,65 +87,75 @@ I_GetTime (void)
 static void
 I_GetRemoteEvent(void)
 {
-	/*static uint32_t oldcountKey = 0xAAAABBBB;
-	static uint32_t oldcountJoystick = 0xAAAABBBB;
-
-	volatile struct SKeyboardState* keyState = KeyboardGetState();
-	volatile struct SJoystickState* joystickState = JoystickGetState();
-
-	if (oldcountKey != keyState->count && keyState->scancode != 0x0)
+	if (!s_inited)
 	{
-		oldcountKey = keyState->count;
+		s_nokeyboard = 0;
 
-		uint8_t scancode = keyState->scancode;
+		fds[0].fd = open("/dev/input/event0", O_RDONLY | O_NONBLOCK);
+		fds[0].events = POLLIN;
 
-		event_t event;
-		// See keyboard scan codes for more info
-		switch(scancode)
+		if (fds[0].fd < 0)
 		{
-			case 88:	{ event.data1 = KEY_ENTER; break; }
-			case 40:	{ event.data1 = KEY_ENTER; break; }
-			case 79:	{ event.data1 = KEY_RIGHTARROW; break; }
-			case 80:	{ event.data1 = KEY_LEFTARROW; break; }
-			case 81:	{ event.data1 = KEY_DOWNARROW; break; }
-			case 82:	{ event.data1 = KEY_UPARROW; break; }
-			case 45: 	{ event.data1 = KEY_MINUS; break; }
-			case 46:	{ event.data1 = KEY_EQUALS; break; }
-			case 41:	{ event.data1 = KEY_ESCAPE; break; }
-			case 43:	{ event.data1 = KEY_TAB; break; }
-			case 42:	{ event.data1 = KEY_BACKSPACE; break; }
-			case 229:	{ event.data1 = KEY_RSHIFT; break; }
-			case 228:	{ event.data1 = KEY_RCTRL; break; }
-			case 230:	{ event.data1 = KEY_RALT; break; }
-			case 226:	{ event.data1 = KEY_LALT; break; }
-			case 72:	{ event.data1 = KEY_PAUSE; break; }
-			case 58:	{ event.data1 = KEY_F1; break; }
-			case 59:	{ event.data1 = KEY_F2; break; }
-			case 60:	{ event.data1 = KEY_F3; break; }
-			case 61:	{ event.data1 = KEY_F4; break; }
-			case 62:	{ event.data1 = KEY_F5; break; }
-			case 63:	{ event.data1 = KEY_F6; break; }
-			case 64:	{ event.data1 = KEY_F7; break; }
-			case 65:	{ event.data1 = KEY_F8; break; }
-			case 66:	{ event.data1 = KEY_F9; break; }
-			case 67:	{ event.data1 = KEY_F10; break; }
-			case 68:	{ event.data1 = KEY_F11; break; }
-			case 69:	{ event.data1 = KEY_F12; break; }
-			default:	{ event.data1 = KeyboardScanCodeToASCII(scancode, 0); break; }
+			perror("/dev/input/event0: make sure a keyboard is connected");
+			s_nokeyboard = 1;
 		}
-		event.type = keyState->state&1 ? ev_keydown : ev_keyup;
-		D_PostEvent(&event);
+
+		struct termios raw_termios;
+		tcgetattr(STDIN_FILENO, &orig_termios); // Save current settings
+		raw_termios = orig_termios;
+		raw_termios.c_lflag &= ~(ECHO | ICANON); // Disable echo and canonical mode
+		tcsetattr(STDIN_FILENO, TCSANOW, &raw_termios);
+		atexit(restore_terminal);
+
+		s_inited = 1;
 	}
 
-	if (oldcountJoystick != joystickState->count)
+	if (!s_nokeyboard)
 	{
-		event_t event;
-		event.type = ev_joystick;
-		event.data1 = joystickState->buttons;
-		event.data2 = (int)joystickState->axis[0];
-		event.data3 = (int)joystickState->axis[1];
-		D_PostEvent(&event);
-	}*/
+		int ret = poll(fds, 1, 10);
+		if (ret > 0)
+		{
+			struct input_event ev;
+			int n = read(fds[0].fd, &ev, sizeof(struct input_event));
+			if (n > 0 && ev.type == EV_KEY)
+			{
+				event_t event;
+				switch(ev.code)
+				{
+					case KEY_ENTER:			{ event.data1 = DKEY_ENTER; break; }
+					case KEY_RIGHT:			{ event.data1 = DKEY_RIGHTARROW; break; }
+					case KEY_LEFT:			{ event.data1 = DKEY_LEFTARROW; break; }
+					case KEY_DOWN:			{ event.data1 = DKEY_DOWNARROW; break; }
+					case KEY_UP:			{ event.data1 = DKEY_UPARROW; break; }
+					case KEY_MINUS: 		{ event.data1 = DKEY_MINUS; break; }
+					case KEY_EQUAL:			{ event.data1 = DKEY_EQUALS; break; }
+					case KEY_ESC:			{ event.data1 = DKEY_ESCAPE; break; }
+					case KEY_TAB:			{ event.data1 = DKEY_TAB; break; }
+					case KEY_BACKSPACE:		{ event.data1 = DKEY_BACKSPACE; break; }
+					case KEY_RIGHTSHIFT:	{ event.data1 = DKEY_RSHIFT; break; }
+					case KEY_RIGHTCTRL:		{ event.data1 = DKEY_RCTRL; break; }
+					case KEY_RIGHTALT:		{ event.data1 = DKEY_RALT; break; }
+					case KEY_LEFTALT:		{ event.data1 = DKEY_LALT; break; }
+					case KEY_PAUSE:			{ event.data1 = DKEY_PAUSE; break; }
+					case KEY_F1:			{ event.data1 = DKEY_F1; break; }
+					case KEY_F2:			{ event.data1 = DKEY_F2; break; }
+					case KEY_F3:			{ event.data1 = DKEY_F3; break; }
+					case KEY_F4:			{ event.data1 = DKEY_F4; break; }
+					case KEY_F5:			{ event.data1 = DKEY_F5; break; }
+					case KEY_F6:			{ event.data1 = DKEY_F6; break; }
+					case KEY_F7:			{ event.data1 = DKEY_F7; break; }
+					case KEY_F8:			{ event.data1 = DKEY_F8; break; }
+					case KEY_F9:			{ event.data1 = DKEY_F9; break; }
+					case KEY_F10:			{ event.data1 = DKEY_F10; break; }
+					case KEY_F11:			{ event.data1 = DKEY_F11; break; }
+					case KEY_F12:			{ event.data1 = DKEY_F12; break; }
+					default:				{ event.data1 = ev.code; break; }
+				}
+				event.type = ev.code == 0 ? ev_keyup : ev_keydown;
+				D_PostEvent(&event);
+			}
+		}
+	}
 }
 
 void

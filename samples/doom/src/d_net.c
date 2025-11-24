@@ -465,7 +465,7 @@ void CheckAbort (void)
               ; eventtail = (eventtail+1)&(MAXEVENTS-1) )
     {
         ev = &events[eventtail];
-        if (ev->type == ev_keydown && ev->data1 == KEY_ESCAPE)
+        if (ev->type == ev_keydown && ev->data1 == DKEY_ESCAPE)
             I_Error ("Network game synchronization aborted.");
     }
 }

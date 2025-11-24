@@ -506,7 +506,7 @@ boolean G_Responder (event_t* ev)
 {
     // allow spy mode changes even during the demo
     if (gamestate == GS_LEVEL && ev->type == ev_keydown
-        && ev->data1 == KEY_F12 && (singledemo || !deathmatch) )
+        && ev->data1 == DKEY_F12 && (singledemo || !deathmatch) )
     {
         // spy mode
         do
@@ -559,7 +559,7 @@ boolean G_Responder (event_t* ev)
     switch (ev->type)
     {
       case ev_keydown:
-        if (ev->data1 == KEY_PAUSE)
+        if (ev->data1 == DKEY_PAUSE)
         {
             sendpause = true;
             return true;
