@@ -39,7 +39,8 @@ https://github.com/ecilasun/sandpiper_sdk/
 
 The sandpiper disk image comes prebuilt with gcc13.3.0
 
-For Linux, just run the following two commands (tested on Ubuntu 24.04)
+For Linux, just run the following two commands.
+(The version tested on Ubuntu 24.04 yielded version 13.3.0 which is the correct version)
 sudo apt-get install gcc-arm-linux-gnueabihf
 sudo apt-get install g++-arm-linux-gnueabihf
 
