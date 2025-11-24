@@ -1,6 +1,6 @@
 # Cross compiler sample
 
-This sample is provided as a starting point for those who wish to use their Linux or Windows+WSL setups to build executables, instead of running gcc 13.3.0 binaries on the device itself.
+This sample is provided as a starting point for those who wish to use their Linux or Windows setups to build executables, instead of running gcc 13.3.0 binaries on the device itself.
 
 Unfortunately at this time there's no native Windows build for these tools, as AMD's SDK generator only works on Linux systems.
 

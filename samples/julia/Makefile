@@ -1,12 +1,13 @@
 # Check OS type
 ifeq ($(OS),Windows_NT)
-	ifeq ($(MSYSTEM), MINGW32)
-		UNAME := MSYS
-	else
-		UNAME := Windows
-	endif
+	UNAME := Windows
 else
 	UNAME := $(shell uname)
+	ifeq ("", $(findstring xilinx,$(UNAME)))
+		UNAME := Linux
+	else
+		UNAME := Petalinux
+	endif
 endif
 
 TARGET = julia
@@ -21,24 +22,29 @@ corelib_dir = ../../SDK
 # Rules
 
 ifeq ($(UNAME), Windows)
+# Windows
+ARM_GCC ?= arm-none-linux-gnueabihf-g++
+else ifeq ($(UNAME), Linux)
+# Linux
 ARM_GCC ?= arm-none-linux-gnueabihf-g++
 else
-ARM_GCC ?= g++
+# Petalinux
+ARM_GCC ?= arm-amd-linux-gnueabi-g++
 endif
 
 ARM_GCC_OPTS += -std=c++20 -Ofast -flto -mcpu=cortex-a9 -mfpu=vfpv3 -mfloat-abi=hard
 ARM_GCC_LIBS += -lgcc -lc -lm
 
 incs  += -I$(src_dir) -I$(corelib_dir) $(addprefix -I$(src_dir)/, $(folders))
-libs += $(wildcard $(corelib_dir)/*.S) $(wildcard $(corelib_dir)/*.c)
+libs += $(wildcard $(corelib_dir)/*.c)
 
-$(TARGET):
-	$(ARM_GCC) $(ARM_GCC_OPTS) $(incs) -o $(TARGET) $(wildcard $(src_dir)/*.cpp) $(libs) $(ARM_GCC_LIBS)
+$(TARGET): $(wildcard $(src_dir)/*)
+	$(ARM_GCC) $(ARM_GCC_OPTS) $(incs) -o $@ $(wildcard $(src_dir)/*.cpp) $(libs) $(ARM_GCC_LIBS)
 
 .PHONY: clean
 clean:
 ifeq ($(UNAME), Windows)
-	del $(TARGET)
+	@-del /F /Q $(TARGET)
 else
-	rm $(TARGET)
+	@-rm -f $(TARGET)
 endif

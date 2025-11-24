@@ -1,18 +1,24 @@
 # Check OS type
 ifeq ($(OS),Windows_NT)
-	ifeq ($(MSYSTEM), MINGW32)
-		UNAME := MSYS
-	else
-		UNAME := Windows
-	endif
+	UNAME := Windows
 else
 	UNAME := $(shell uname)
+	ifeq ("", $(findstring xilinx,$(UNAME)))
+		UNAME := Linux
+	else
+		UNAME := Petalinux
+	endif
 endif
 
 ifeq ($(UNAME), Windows)
+# Windows
+ARM_GCC ?= arm-none-linux-gnueabihf-gcc
+else ifeq ($(UNAME), Linux)
+# Linux
 ARM_GCC ?= arm-none-linux-gnueabihf-gcc
 else
-ARM_GCC ?= gcc
+# Petalinux
+ARM_GCC ?= arm-amd-linux-gnueabi-gcc
 endif
 
 ARM_GCC_OPTS = -std=gnu99 -Ofast -flto -mcpu=cortex-a9 -mfpu=vfpv3 -mfloat-abi=hard
@@ -99,12 +105,12 @@ all: quake
 incs = -I../../SDK -Iinclude -Iwinquake -Isandpiper -I.
 
 quake: $(SOURCES_quake_arch)
-	$(ARM_GCC) $(ARM_GCC_OPTS) -o quake $(incs) $(SOURCES_quake_arch) $(ARM_GCC_LIBS)
+	@$(ARM_GCC) $(ARM_GCC_OPTS) -o quake $(incs) $(SOURCES_quake_arch) $(ARM_GCC_LIBS)
 
 .PHONY: all clean
 clean:
 ifeq ($(UNAME), Windows)
-	del quake
+	@-del /F /Q quake
 else
-	rm quake
+	@-rm -f quake
 endif

@@ -1,18 +1,24 @@
 # Check OS type
 ifeq ($(OS),Windows_NT)
-	ifeq ($(MSYSTEM), MINGW32)
-		UNAME := MSYS
-	else
-		UNAME := Windows
-	endif
+	UNAME := Windows
 else
 	UNAME := $(shell uname)
+	ifeq ("", $(findstring xilinx,$(UNAME)))
+		UNAME := Linux
+	else
+		UNAME := Petalinux
+	endif
 endif
 
 ifeq ($(UNAME), Windows)
+# Windows
+ARM_GCC ?= arm-none-linux-gnueabihf-gcc
+else ifeq ($(UNAME), Linux)
+# Linux
 ARM_GCC ?= arm-none-linux-gnueabihf-gcc
 else
-ARM_GCC ?= gcc
+# Petalinux
+ARM_GCC ?= arm-amd-linux-gnueabi-gcc
 endif
 
 ARM_GCC_OPTS += -std=gnu99 -Ofast -flto -mcpu=cortex-a9 -mfpu=vfpv3 -mfloat-abi=hard
@@ -44,12 +50,13 @@ SOURCES_doom_arch := \
 
 all: doom
 doom: $(addprefix ../,$(SOURCES_doom)) $(SOURCES_doom_arch)
-	$(ARM_GCC) $(CFLAGS) -o $@ -I../../../../SDK -I../../src $(addprefix ../,$(SOURCES_doom)) $(SOURCES_doom_arch) $(CLIBS)
+	@$(ARM_GCC) $(CFLAGS) -o $@ -I../../../../SDK -I../../src $(addprefix ../,$(SOURCES_doom)) $(SOURCES_doom_arch) $(CLIBS)
 
 .PHONY: clean
 clean:
 ifeq ($(UNAME), Windows)
-	del doom
+	@-del /F /Q doom
 else
-	rm doom
+	@-rm -f doom
 endif
+

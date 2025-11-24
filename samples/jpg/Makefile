@@ -1,15 +1,16 @@
 # Check OS type
 ifeq ($(OS),Windows_NT)
-	ifeq ($(MSYSTEM), MINGW32)
-		UNAME := MSYS
-	else
-		UNAME := Windows
-	endif
+	UNAME := Windows
 else
 	UNAME := $(shell uname)
+	ifeq ("", $(findstring xilinx,$(UNAME)))
+		UNAME := Linux
+	else
+		UNAME := Petalinux
+	endif
 endif
 
-TARGET = jpg
+TARGET = test
 
 default: $(TARGET)
 
@@ -22,15 +23,20 @@ jpglib_dir = ../../3rdparty/nanojpeg
 # Rules
 
 ifeq ($(UNAME), Windows)
+# Windows
+ARM_GCC ?= arm-none-linux-gnueabihf-g++
+else ifeq ($(UNAME), Linux)
+# Linux
 ARM_GCC ?= arm-none-linux-gnueabihf-g++
 else
-ARM_GCC ?= g++
+# Petalinux
+ARM_GCC ?= arm-amd-linux-gnueabi-g++
 endif
 
 ARM_GCC_OPTS += -std=c++20 -Ofast -flto -mcpu=cortex-a9 -mfpu=vfpv3 -mfloat-abi=hard
 ARM_GCC_LIBS += -lgcc -lc -lm -L../../3rdparty/nanojpeg -lnanojpeg
 
-incs += -I$(src_dir) -I$(corelib_dir) -I$(jpglib_dir)/ $(addprefix -I$(src_dir)/, $(folders))
+incs  += -I$(src_dir) -I$(corelib_dir) -I$(jpglib_dir)/ $(addprefix -I$(src_dir)/, $(folders))
 libs += $(wildcard $(corelib_dir)/*.c)
 
 $(TARGET): $(wildcard $(src_dir)/*)
@@ -39,7 +45,7 @@ $(TARGET): $(wildcard $(src_dir)/*)
 .PHONY: clean
 clean:
 ifeq ($(UNAME), Windows)
-	del $(TARGET)
+	@-del /F /Q $(TARGET)
 else
-	rm $(TARGET)
+	@-rm -f $(TARGET)
 endif
