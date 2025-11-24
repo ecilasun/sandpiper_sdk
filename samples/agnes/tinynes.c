@@ -91,12 +91,12 @@ int main(int argc, char** argv)
 
 	fprintf(stderr, "Starting emulator\n");
 
-    // Save terminal settings and set raw mode
-    struct termios raw_termios;
-    tcgetattr(STDIN_FILENO, &orig_termios); // Save current settings
-    raw_termios = orig_termios;
-    raw_termios.c_lflag &= ~(ECHO | ICANON); // Disable echo and canonical mode
-    tcsetattr(STDIN_FILENO, TCSANOW, &raw_termios);
+	// Save terminal settings and set raw mode
+	struct termios raw_termios;
+	tcgetattr(STDIN_FILENO, &orig_termios); // Save current settings
+	raw_termios = orig_termios;
+	raw_termios.c_lflag &= ~(ECHO | ICANON); // Disable echo and canonical mode
+	tcsetattr(STDIN_FILENO, TCSANOW, &raw_termios);
 	atexit(restore_terminal);
 
 	s_platform = SPInitPlatform();

@@ -23,9 +23,16 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <poll.h>
+#include <termios.h>
 #include <linux/input.h>
 
 #include "core.h"
+
+static struct termios orig_termios;
+
+static void restore_terminal(void) {
+	tcsetattr(STDIN_FILENO, TCSANOW, &orig_termios);
+}
 
 enum {
 	MOUSE_BUTTON_LEFT = 1,
@@ -180,6 +187,14 @@ int qembd_dequeue_key_event(key_event_t *e)
 			perror("/dev/input/event0: make sure a keyboard is connected");
 			nokeyboard = 1;
 		}
+
+		struct termios raw_termios;
+		tcgetattr(STDIN_FILENO, &orig_termios); // Save current settings
+		raw_termios = orig_termios;
+		raw_termios.c_lflag &= ~(ECHO | ICANON); // Disable echo and canonical mode
+		tcsetattr(STDIN_FILENO, TCSANOW, &raw_termios);
+		atexit(restore_terminal);
+
 		inited = 1;
 	}
 
@@ -190,12 +205,11 @@ int qembd_dequeue_key_event(key_event_t *e)
 		{
 			struct input_event ev;
 			int n = read(fds[0].fd, &ev, sizeof(struct input_event));
-			if (n > 0 && ev.type == EV_KEY && (ev.value == 0 || ev.value == 1))
+			if (n > 0 && ev.type == EV_KEY)
 			{
 				// We have our scancode and key state here
 				switch(ev.code)
 				{
-					//case KEY_RETURN:	{ e->keycode = K_ENTER; break; }
 					case KEY_ENTER:		{ e->keycode = K_ENTER; break; }
 					case KEY_RIGHT:		{ e->keycode = K_RIGHTARROW; break; }
 					case KEY_LEFT:		{ e->keycode = K_LEFTARROW; break; }
@@ -229,7 +243,7 @@ int qembd_dequeue_key_event(key_event_t *e)
 					case KEY_DELETE:	{ e->keycode = K_DEL; break; }
 					default:			{ e->keycode = ev.code; break; }
 				}
-				e->state = ev.value;
+				e->state = ev.value == 0 ? 0 : 1; // 1: key down, 0: key up, 2: autorepeat
 				return 0;
 			}
 		}
