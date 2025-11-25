@@ -112,9 +112,9 @@ int main(int argc, char** argv)
 		for (int x = 0; x < stride/4; x++)
 		{
 			uint32_t* pixelA = (uint32_t*)frameBufferA.cpuAddress + (y * stride/4) + x;
-			*pixelA = 0x01010101;
+			*pixelA = 0x0D0D0D0D;
 			uint32_t* pixelB = (uint32_t*)frameBufferB.cpuAddress + (y * stride/4) + x;
-			*pixelB = 0x01010101;
+			*pixelB = 0x0D0D0D0D;
 		}
 	}
 
