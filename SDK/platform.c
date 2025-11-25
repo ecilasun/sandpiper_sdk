@@ -47,35 +47,22 @@ void shutdowncleanup()
 		// Switch to fbcon buffer and shut down video
 		if (g_activePlatform->vx)
 		{
-			// Set video scanout to point at linux console framebuffer
-			VPUSetScanoutAddress(g_activePlatform->vx, 0x18000000);
+			// NOTE: The sandpiper device driver takes care of the following:
+			// - Restore vide scanout address to linux console framebuffer (0x18000000)
+			// - Restore video mode to RGB16 640x480
+			// - Stop all VCP program activity
+			// - Reset VPU control registers
+			// - Reset scroll registers
+			// - Stop all audio output
 
-			// Back to RGB16 mode
-			VPUSetVideoMode(g_activePlatform->vx, EVM_640_Wide, ECM_16bit_RGB, EVS_Enable);
-
-			// Stop all VCP program activity
-			VCPExecProgram(g_activePlatform, 0x0);
-
-			// Reset VPU control registers
-			VPUWriteControlRegister(g_activePlatform->vx, 0xFF, 0x00);
-
-			// Reset scroll
-			VPUShiftCache(g_activePlatform->vx, 0);
-			VPUShiftScanout(g_activePlatform->vx, 0);
-			VPUShiftPixel(g_activePlatform->vx, 0);
-
-			// Tear down video system
-			VPUShutdownVideo(g_activePlatform->vx);
-
+			// We only need to make sure we free memory and tear down API side here
+			
 			free(g_activePlatform->vx);
 			g_activePlatform->vx = 0;
 		}
 
 		if (g_activePlatform->ac)
 		{
-			// Tear down audio system, also stops all audio output
-			APUShutdownAudio(g_activePlatform->ac);
-
 			free(g_activePlatform->ac);
 			g_activePlatform->ac = 0;
 		}
