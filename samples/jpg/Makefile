@@ -10,7 +10,7 @@ else
 	endif
 endif
 
-TARGET = test
+TARGET = jpg
 
 default: $(TARGET)
 

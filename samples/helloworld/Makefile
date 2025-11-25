@@ -10,8 +10,6 @@ else
 	endif
 endif
 
-$(info Building on $(UNAME))
-
 TARGET = test
 
 default: $(TARGET)
