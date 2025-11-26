@@ -103,14 +103,14 @@ void *draw_wave(void *data)
 
 		for (uint32_t i=0; i<BUFFER_SAMPLE_COUNT/2; i+=4)
 		{
-			int16_t L0 = 200 - (int16_t)std::abs(outputL[i+0]);
-			int16_t L1 = 200 - (int16_t)std::abs(outputL[i+1]);
-			int16_t L2 = 200 - (int16_t)std::abs(outputL[i+2]);
-			int16_t L3 = 200 - (int16_t)std::abs(outputL[i+3]);
-			int16_t R0 = 200 - (int16_t)std::abs(outputR[i+0]);
-			int16_t R1 = 200 - (int16_t)std::abs(outputR[i+1]);
-			int16_t R2 = 200 - (int16_t)std::abs(outputR[i+2]);
-			int16_t R3 = 200 - (int16_t)std::abs(outputR[i+3]);
+			int16_t L0 = 200 - (int16_t)(sqrt(std::abs(outputL[i+0])*32.f));
+			int16_t L1 = 200 - (int16_t)(sqrt(std::abs(outputL[i+1])*32.f));
+			int16_t L2 = 200 - (int16_t)(sqrt(std::abs(outputL[i+2])*32.f));
+			int16_t L3 = 200 - (int16_t)(sqrt(std::abs(outputL[i+3])*32.f));
+			int16_t R0 = 200 - (int16_t)(sqrt(std::abs(outputR[i+0])*32.f));
+			int16_t R1 = 200 - (int16_t)(sqrt(std::abs(outputR[i+1])*32.f));
+			int16_t R2 = 200 - (int16_t)(sqrt(std::abs(outputR[i+2])*32.f));
+			int16_t R3 = 200 - (int16_t)(sqrt(std::abs(outputR[i+3])*32.f));
 			barsL[i>>2] = (barsL[i>>2] + L0 + L1 + L2 + L3)/5;
 			barsR[i>>2] = (barsR[i>>2] + R0 + R1 + R2 + R3)/5;
 		}
