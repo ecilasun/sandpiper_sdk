@@ -133,7 +133,7 @@ void *draw_wave(void *data)
 				{
 					int16_t L = std::min<int16_t>(239, std::max<int16_t>(0, barsL[i]));
 					for (int16_t k=L; k<200; ++k)
-						vmem[16 + logi+j + k*stride] = 0xFFFF;
+						vmem[16 + logi+j + k*stride/2] = 0xFFFF;
 				}
 			}
 
@@ -144,7 +144,7 @@ void *draw_wave(void *data)
 				{
 					int16_t R = std::min<int16_t>(239, std::max<int16_t>(0, barsR[i]));
 					for (int16_t k=R; k<200; ++k)
-						vmem[304 - logi-j + k*stride] = 0xFFFF;
+						vmem[304 - logi-j + k*stride/2] = 0xFFFF;
 				}
 			}
 		}
