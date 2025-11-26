@@ -116,7 +116,6 @@ void *draw_wave(void *data)
 		}
 
 		// Draw first 128 samples
-		uint16_t* vmem = (uint16_t*)s_platform->sc->writepage;
 		for (uint32_t i=0; i<128; ++i)
 		{
 			// Convert i to a logarithmic coordinate
@@ -133,7 +132,7 @@ void *draw_wave(void *data)
 				{
 					int16_t L = std::min<int16_t>(239, std::max<int16_t>(0, barsL[i]));
 					for (int16_t k=L; k<200; ++k)
-						vmem[16 + logi+j + k*stride/2] = 0xFFFF;
+						s_platform->sc->writepage[16 + logi+j + k*stride] = 255;
 				}
 			}
 
@@ -144,13 +143,13 @@ void *draw_wave(void *data)
 				{
 					int16_t R = std::min<int16_t>(239, std::max<int16_t>(0, barsR[i]));
 					for (int16_t k=R; k<200; ++k)
-						vmem[304 - logi-j + k*stride/2] = 0xFFFF;
+						s_platform->sc->writepage[304 - logi-j + k*stride] = 255;
 				}
 			}
 		}
 
 		for (uint32_t i=0;i<320*240;++i)
-			vmem[i] = std::max(0, vmem[i]>>1);
+			s_platform->sc->writepage[i] = std::max(0, s_platform->sc->writepage[i]>>1);
 
 		// Let VPU handle the vsync and scanout swap
 		VPUSyncSwap(s_platform->vx, 0);
@@ -237,12 +236,12 @@ int main(int argc, char *argv[])
 
 	if (!novis)
 	{
-		uint32_t stride = VPUGetStride(EVM_320_Wide, ECM_16bit_RGB);
+		uint32_t stride = VPUGetStride(EVM_320_Wide, ECM_8bit_Indexed);
 		bufferB.size = bufferA.size = stride*240;
 		SPAllocateBuffer(s_platform, &bufferA);
 		SPAllocateBuffer(s_platform, &bufferB);
 
-		VPUSetVideoMode(s_platform->vx, EVM_320_Wide, ECM_16bit_RGB, EVS_Enable);
+		VPUSetVideoMode(s_platform->vx, EVM_320_Wide, ECM_8bit_Indexed, EVS_Enable);
 
 		s_platform->sc->cycle = 0;
 		s_platform->sc->framebufferA = &bufferA;
