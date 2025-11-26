@@ -156,10 +156,12 @@ int main(int argc, char** argv)
 			colorOdd = ((colorOdd>>8)&0x00FFFFFF) | ((colorOdd&0x000000FF)<<24);	// roll odd colors left
 			uint32_t *vramBase = (uint32_t*)s_platform->vx->m_cpuWriteAddressCacheAligned;
 			uint32_t H = s_platform->vx->m_graphicsHeight;
+			uint32_t W = s_platform->vx->m_strideInWords;
 			for (uint32_t y=0; y<H; ++y)
 			{
-				uint32_t row = y*s_platform->vx->m_strideInWords;
-				vramBase[row] = y&1 ? colorOdd : colorEven;
+				uint32_t row = y*W;
+				for (uint32_t x=0; x<W; ++x)
+					vramBase[row+x] = y&1 ? colorOdd : colorEven;
 			}
 		}
 
