@@ -1,5 +1,11 @@
+#include <sys/ioctl.h> // For ioctl
+#include <stdio.h> // For perror
+
 #include "core.h"
 #include "apu.h"
+
+#define SP_IOCTL_AUDIO_READ			_IOR('k', 3, void*)
+#define SP_IOCTL_AUDIO_WRITE		_IOW('k', 4, void*)
 
 // Command codes for APU control
 #define APUCMD_BUFFERSIZE   0x00000000
@@ -9,6 +15,26 @@
 #define APUCMD_SETRATE      0x00000004
 
 // Audio Processing Unit (APU) functions
+
+// Internal read function for APU control registers.
+uint32_t audioread32(struct SPPlatform* _platform, uint32_t offset)
+{
+	struct SPIoctl ioctlstruct;
+	ioctlstruct.offset = offset;
+	ioctlstruct.value = 0;
+	if (ioctl(_platform->sandpiperfd, SP_IOCTL_AUDIO_READ, &ioctlstruct) < 0)
+		return 0;
+	return ioctlstruct.value;
+}
+
+// Internal write function for APU control registers.
+void audiowrite32(struct SPPlatform* _platform, uint32_t offset, uint32_t value)
+{
+	struct SPIoctl ioctlstruct;
+	ioctlstruct.offset = offset;
+	ioctlstruct.value = value;
+	ioctl(_platform->sandpiperfd, SP_IOCTL_AUDIO_WRITE, &ioctlstruct);
+}
 
 /*
  * Set the audio buffer size.

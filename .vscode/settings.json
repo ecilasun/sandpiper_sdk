@@ -23,7 +23,8 @@
 		"xtr1common": "c",
 		"xutility": "c",
 		"vcp.h": "c",
-		"numbers": "c"
+		"numbers": "c",
+		"utility": "c"
 	},
 	"idf.pythonInstallPath": "/usr/bin/python3"
 }

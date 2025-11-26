@@ -1,8 +1,8 @@
 #include "core.h"
 #include "platform.h"
-#include <sys/ioctl.h>
+#include <sys/ioctl.h> // For ioctl
 #include <stdint.h>
-#include <stdio.h>
+#include <stdio.h> // For perror
 #include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -14,24 +14,10 @@
 
 static struct SPPlatform* g_activePlatform = NULL;
 
-struct SPIoctl
-{
-	uint32_t offset;
-	uint32_t value;
-};
-
 // ioctl numbers for sandpiper device
 #define SP_IOCTL_GET_VIDEO_CTL		_IOR('k', 0, void*)
 #define SP_IOCTL_GET_AUDIO_CTL		_IOR('k', 1, void*)
 #define SP_IOCTL_GET_PALETTE_CTL	_IOR('k', 2, void*)
-#define SP_IOCTL_AUDIO_READ			_IOR('k', 3, void*)
-#define SP_IOCTL_AUDIO_WRITE		_IOW('k', 4, void*)
-#define SP_IOCTL_VIDEO_READ			_IOR('k', 5, void*)
-#define SP_IOCTL_VIDEO_WRITE		_IOW('k', 6, void*)
-#define SP_IOCTL_VCP_READ			_IOR('k', 7, void*)
-#define SP_IOCTL_VCP_WRITE			_IOW('k', 8, void*)
-#define SP_IOCTL_PALETTE_READ		_IOR('k', 9, void*)
-#define SP_IOCTL_PALETTE_WRITE		_IOW('k', 10, void*)
 #define SP_IOCTL_GET_VCP_CTL		_IOR('k', 11, void*)
 
 // NOTE: A list of all of the onboard devices can be found under /sys/bus/platform/devices/ including the audio and video devices.
@@ -339,85 +325,4 @@ int SPAllocateBuffer(struct SPPlatform* _platform, struct SPSizeAlloc* _sizeallo
 void SPFreeBuffer(struct SPPlatform* _platform, struct SPSizeAlloc *_sizealloc)
 {
 	// TODO
-}
-
-// Read and write functions for APU, VPU, PAL, and VCP control registers.
-
-uint32_t audioread32(struct SPPlatform* _platform, uint32_t offset)
-{
-	struct SPIoctl ioctlstruct;
-	ioctlstruct.offset = offset;
-	ioctlstruct.value = 0;
-	if (ioctl(_platform->sandpiperfd, SP_IOCTL_AUDIO_READ, &ioctlstruct) < 0)
-		return 0;
-	return ioctlstruct.value;
-}
-
-void audiowrite32(struct SPPlatform* _platform, uint32_t offset, uint32_t value)
-{
-	struct SPIoctl ioctlstruct;
-	ioctlstruct.offset = offset;
-	ioctlstruct.value = value;
-	ioctl(_platform->sandpiperfd, SP_IOCTL_AUDIO_WRITE, &ioctlstruct);
-}
-
-uint32_t videoread32(struct SPPlatform* _platform, uint32_t offset)
-{
-	struct SPIoctl ioctlstruct;
-	ioctlstruct.offset = offset;
-	ioctlstruct.value = 0;
-	if (ioctl(_platform->sandpiperfd, SP_IOCTL_VIDEO_READ, &ioctlstruct) < 0)
-		return 0;
-	return ioctlstruct.value;
-}
-
-void videowrite32(struct SPPlatform* _platform, uint32_t offset, uint32_t value)
-{
-	struct SPIoctl ioctlstruct;
-	ioctlstruct.offset = offset;
-	ioctlstruct.value = value;
-	ioctl(_platform->sandpiperfd, SP_IOCTL_VIDEO_WRITE, &ioctlstruct);
-}
-
-uint32_t paletteread32(struct SPPlatform* _platform, uint32_t offset)
-{
-	struct SPIoctl ioctlstruct;
-	ioctlstruct.offset = offset;
-	ioctlstruct.value = 0;
-	if (ioctl(_platform->sandpiperfd, SP_IOCTL_PALETTE_READ, &ioctlstruct) < 0)
-	{
-		perror("can't read from PAL");
-		return 0xCDCDCDCD;
-	}
-	return ioctlstruct.value;
-}
-
-void palettewrite32(struct SPPlatform* _platform, uint32_t offset, uint32_t value)
-{
-	struct SPIoctl ioctlstruct;
-	ioctlstruct.offset = offset;
-	ioctlstruct.value = value;
-	ioctl(_platform->sandpiperfd, SP_IOCTL_PALETTE_WRITE, &ioctlstruct);
-}
-
-uint32_t vcpread32(struct SPPlatform* _platform, uint32_t offset)
-{
-	struct SPIoctl ioctlstruct;
-	ioctlstruct.offset = offset;
-	ioctlstruct.value = 0;
-	if (ioctl(_platform->sandpiperfd, SP_IOCTL_VCP_READ, &ioctlstruct) < 0)
-	{
-		perror("can't read from VCP");
-		return 0xCDCDCDCD;
-	}
-	return ioctlstruct.value;
-}
-
-void vcpwrite32(struct SPPlatform* _platform, uint32_t offset, uint32_t value)
-{
-	struct SPIoctl ioctlstruct;
-	ioctlstruct.offset = offset;
-	ioctlstruct.value = value;
-	if (ioctl(_platform->sandpiperfd, SP_IOCTL_VCP_WRITE, &ioctlstruct) < 0)
-		perror("can't write to VCP");
 }

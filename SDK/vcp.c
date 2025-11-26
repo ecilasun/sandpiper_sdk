@@ -1,7 +1,37 @@
 
+#include <sys/ioctl.h> // For ioctl
+#include <stdio.h> // For perror
+
+#include "core.h"
 #include "platform.h"
 #include "vcp.h"
-//#include "stdio.h"
+
+#define SP_IOCTL_VCP_READ			_IOR('k', 7, void*)
+#define SP_IOCTL_VCP_WRITE			_IOW('k', 8, void*)
+
+// Internal function to read a 32-bit value from a VCP register
+uint32_t vcpread32(struct SPPlatform* _platform, uint32_t offset)
+{
+	struct SPIoctl ioctlstruct;
+	ioctlstruct.offset = offset;
+	ioctlstruct.value = 0;
+	if (ioctl(_platform->sandpiperfd, SP_IOCTL_VCP_READ, &ioctlstruct) < 0)
+	{
+		perror("can't read from VCP");
+		return 0xCDCDCDCD;
+	}
+	return ioctlstruct.value;
+}
+
+// Internal function to write a 32-bit value to a VCP register
+void vcpwrite32(struct SPPlatform* _platform, uint32_t offset, uint32_t value)
+{
+	struct SPIoctl ioctlstruct;
+	ioctlstruct.offset = offset;
+	ioctlstruct.value = value;
+	if (ioctl(_platform->sandpiperfd, SP_IOCTL_VCP_WRITE, &ioctlstruct) < 0)
+		perror("can't write to VCP");
+}
 
 /*
  * Upload a program to the VCP

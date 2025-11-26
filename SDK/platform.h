@@ -7,15 +7,13 @@
 // Base address of the reserved memory region
 #define RESERVED_MEMORY_ADDRESS	0x18000000
 
-// Hardware MMIO addresses
-#define AUDIODEVICE_ADDRESS	0x40000000
-#define VIDEODEVICE_ADDRESS	0x40001000
-
 // 32Mbytes reserved for device access
 #define RESERVED_MEMORY_SIZE	0x2000000
-// Device region of access
+
+// Device region of access (4Kbytes for each memory-mapped I/O block)
 #define DEVICE_MEMORY_SIZE		0x1000
 
+// Shared memory allocation helper with physical and CPU addresses
 struct SPSizeAlloc
 {
 	uint8_t* cpuAddress;
@@ -23,6 +21,7 @@ struct SPSizeAlloc
 	uint32_t size;
 };
 
+// Main platform structure
 struct SPPlatform
 {
 	// Internal state
@@ -43,6 +42,7 @@ struct SPPlatform
 	struct EAudioContext* ac;
 };
 
+// Audio sample rates
 enum EAPUSampleRate
 {
 	ASR_44_100_Hz = 0,	// 44.1000 KHz
@@ -51,6 +51,7 @@ enum EAPUSampleRate
 	ASR_Halt = 3,		// Halt
 };
 
+// Audio buffer sizes
 enum EAPUBufferSize
 {
 	ABS_128Bytes  = 0,	//   32 16bit stereo samples
@@ -61,6 +62,7 @@ enum EAPUBufferSize
 	ABS_4096Bytes = 5,	// 1024 16bit stereo samples
 };
 
+// VCP program buffer sizes
 enum EVCPBufferSize
 {
 	PRG_128Bytes  = 0,	//   32 words
@@ -71,6 +73,7 @@ enum EVCPBufferSize
 	PRG_4096Bytes = 5,	// 1024 words
 };
 
+// Video modes
 enum EVideoMode
 {
 	EVM_320_Wide,
@@ -78,6 +81,7 @@ enum EVideoMode
 	EVM_Count
 };
 
+// Video color modes
 enum EColorMode
 {
 	ECM_8bit_Indexed,
@@ -85,6 +89,7 @@ enum EColorMode
 	ECM_Count
 };
 
+// Video scanout enable/disable
 enum EVideoScanoutEnable
 {
 	EVS_Disable,
@@ -92,6 +97,7 @@ enum EVideoScanoutEnable
 	EVS_Count
 };
 
+// Audio context structure
 struct EAudioContext
 {
 	struct SPPlatform *m_platform;
@@ -99,6 +105,7 @@ struct EAudioContext
 	uint32_t m_bufferSize;
 };
 
+// Video context structure
 struct EVideoContext
 {
 	struct SPPlatform *m_platform;
@@ -121,6 +128,7 @@ struct EVideoContext
     uint8_t m_caretType;
 };
 
+// Video swap context structure
 struct EVideoSwapContext
 {
 	// Swap cycle counter
@@ -139,13 +147,3 @@ void SPShutdownPlatform(struct SPPlatform* _platform);
 void SPGetConsoleFramebuffer(struct SPPlatform* _platform, struct SPSizeAlloc *_sizealloc);
 int SPAllocateBuffer(struct SPPlatform* _platform, struct SPSizeAlloc *_sizealloc);
 void SPFreeBuffer(struct SPPlatform* _platform, struct SPSizeAlloc *_sizealloc);
-
-uint32_t audioread32(struct SPPlatform* _platform, uint32_t offset);
-uint32_t videoread32(struct SPPlatform* _platform, uint32_t offset);
-uint32_t paletteread32(struct SPPlatform* _platform, uint32_t offset);
-uint32_t vcpread32(struct SPPlatform* _platform, uint32_t offset);
-
-void audiowrite32(struct SPPlatform* _platform, uint32_t offset, uint32_t value);
-void videowrite32(struct SPPlatform* _platform, uint32_t offset, uint32_t value);
-void palettewrite32(struct SPPlatform* _platform, uint32_t offset, uint32_t value);
-void vcpwrite32(struct SPPlatform* _platform, uint32_t offset, uint32_t value);

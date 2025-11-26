@@ -1,13 +1,20 @@
-#include "core.h"
-#include "vpu.h"
-#include <stdint.h>
-#include <stdio.h>
+#include <sys/ioctl.h> // For ioctl
+#include <stdio.h> // For perror
 #include <stdlib.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <fcntl.h>
+
+#include "core.h"
+#include "vpu.h"
+
+#define SP_IOCTL_VIDEO_READ			_IOR('k', 5, void*)
+#define SP_IOCTL_VIDEO_WRITE		_IOW('k', 6, void*)
+#define SP_IOCTL_PALETTE_READ		_IOR('k', 9, void*)
+#define SP_IOCTL_PALETTE_WRITE		_IOW('k', 10, void*)
+
 
 // Video mode control word
 #define MAKEVMODEINFO(_cmode, _vmode, _scanEnable) ((_cmode&0x1)<<2) | ((_vmode&0x1)<<1) | (_scanEnable&0x1)
@@ -178,6 +185,46 @@ static const uint32_t vgapalette[] __attribute__((aligned(16))) = {
 	0x002d2d41, 0x00312d41, 0x00352d41, 0x003d2d41, 0x00412d41, 0x00412d3d, 0x00412d35, 0x00412d31, 0x00412d2d, 0x0041312d, 0x0041352d, 0x00413d2d, 0x0041412d, 0x003d412d, 0x0035412d, 0x0031412d,
 	0x002d412d, 0x002d4131, 0x002d4135, 0x002d413d, 0x002d4141, 0x002d3d41, 0x002d3541, 0x002d3141, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000
 };
+
+// Internal function to read a 32-bit value from a specified VPU register offset.
+uint32_t videoread32(struct SPPlatform* _platform, uint32_t offset)
+{
+	struct SPIoctl ioctlstruct;
+	ioctlstruct.offset = offset;
+	ioctlstruct.value = 0;
+	if (ioctl(_platform->sandpiperfd, SP_IOCTL_VIDEO_READ, &ioctlstruct) < 0)
+		return 0;
+	return ioctlstruct.value;
+}
+
+// Internal function to write a 32-bit value to a specified VPU register offset.
+void videowrite32(struct SPPlatform* _platform, uint32_t offset, uint32_t value)
+{
+	struct SPIoctl ioctlstruct;
+	ioctlstruct.offset = offset;
+	ioctlstruct.value = value;
+	ioctl(_platform->sandpiperfd, SP_IOCTL_VIDEO_WRITE, &ioctlstruct);
+}
+
+// Internal function to read a 32-bit value from the VPU palette at a specified offset.
+uint32_t paletteread32(struct SPPlatform* _platform, uint32_t offset)
+{
+	struct SPIoctl ioctlstruct;
+	ioctlstruct.offset = offset;
+	ioctlstruct.value = 0;
+	if (ioctl(_platform->sandpiperfd, SP_IOCTL_PALETTE_READ, &ioctlstruct) < 0)
+		return 0xCDCDCDCD;
+	return ioctlstruct.value;
+}
+
+// Internal function to write a 32-bit value to the VPU palette at a specified offset.
+void palettewrite32(struct SPPlatform* _platform, uint32_t offset, uint32_t value)
+{
+	struct SPIoctl ioctlstruct;
+	ioctlstruct.offset = offset;
+	ioctlstruct.value = value;
+	ioctl(_platform->sandpiperfd, SP_IOCTL_PALETTE_WRITE, &ioctlstruct);
+}
 
 /*
  * Sets the default VGA palette by writing each color entry to the hardware.

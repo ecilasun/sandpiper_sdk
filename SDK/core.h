@@ -69,3 +69,9 @@ struct SElfSectionHeader32
 #pragma pack(pop)
 
 #define E32AlignUp(_x_, _align_) ((_x_ + (_align_ - 1)) & (~(_align_ - 1)))
+
+struct SPIoctl
+{
+	uint32_t offset;
+	uint32_t value;
+};
