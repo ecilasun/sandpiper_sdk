@@ -144,7 +144,7 @@ int main(int argc, char** argv)
 
 	// VCP program updates color at palette index 0x00
 	uint32_t colorEven = 0xFFFFFF00;
-	uint32_t colorOdd = 0x00000000;
+	uint32_t colorOdd = 0x00FFFFFF;
 
 	do
 	{
