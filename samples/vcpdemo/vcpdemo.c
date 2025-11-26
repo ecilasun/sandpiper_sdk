@@ -153,7 +153,7 @@ int main(int argc, char** argv)
 		// VPU program demo goes here
 		{
 			colorEven = (colorEven<<8) | ((colorEven&0xFF000000)>>24);
-			colorOdd = (colorEven<<4) | ((colorEven&0xF0000000)>>28);
+			colorOdd = (colorOdd>>8) | ((colorOdd&0x000000FF)<<24);
 			uint32_t *vramBase = (uint32_t*)s_platform->vx->m_cpuWriteAddressCacheAligned;
 			uint32_t H = s_platform->vx->m_graphicsHeight;
 			uint32_t W = s_platform->vx->m_strideInWords;
