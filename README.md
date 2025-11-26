@@ -36,6 +36,10 @@ https://developer.arm.com/downloads/-/arm-gnu-toolchain-downloads
 Make for Windows can be installed from this link:
 https://gnuwin32.sourceforge.net/packages/make.htm
 
+For MacOS, try:
+brew install arm-linux-gnueabihf-binutils
+brew link arm-linux-gnueabihf-binutils
+
 P.S.:
 For Linux, the cross compilers can be built with from the sandpiper_petalinux project as well, but this is a lot harder than the above method.
 Please check the repo for more information on building the tools locally, in case the options above do not work for you.
