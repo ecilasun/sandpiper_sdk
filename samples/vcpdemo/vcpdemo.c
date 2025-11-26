@@ -97,21 +97,6 @@ int main(int argc, char** argv)
 	SPAllocateBuffer(s_platform, &frameBufferA);
 	SPAllocateBuffer(s_platform, &frameBufferB);
 
-	// Fill both buffers with different patterns so we
-	// can see the frame swap happening
-	printf("Clearing framebuffers\n");
-	for (int y = 0; y < VIDEO_HEIGHT; y++)
-	{
-		for (int x = 0; x < stride/4; x++)
-		{
-			uint32_t* pixelA = (uint32_t*)frameBufferA.cpuAddress + (y * stride/4) + x;
-			*pixelA = 0x00000000;
-
-			uint32_t* pixelB = (uint32_t*)frameBufferB.cpuAddress + (y * stride/4) + x;
-			*pixelB = 0x00000000;
-		}
-	}
-
 	printf("Setting up VPU assisted swap address\n");
 	// For hardware assisted vsync, we need to set this up once at start
 	VPUSetScanoutAddress(s_platform->vx, (uint32_t)frameBufferA.dmaAddress);
@@ -143,8 +128,8 @@ int main(int argc, char** argv)
 	printf("Starting demo...\n");
 
 	// VCP program updates color at palette index 0x00
-	uint32_t colorEven = 0xFFFFFF00;
-	uint32_t colorOdd = 0x00FFFFFF;
+	uint32_t colorEven = 0xFF00FF00;
+	uint32_t colorOdd = 0x00FF00FF;
 
 	do
 	{

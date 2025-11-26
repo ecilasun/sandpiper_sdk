@@ -255,6 +255,12 @@ int main(int argc, char *argv[])
 		VPUSwapPages(s_platform->vx, s_platform->sc);
 		VPUClear(s_platform->vx, 0x00000000);
 
+		for (uint32_t i=0; i<256; ++i)
+		{
+			int j = (255-i);
+			VPUSetPal(s_platform->vx, i, j, j, j);
+		}
+
 		memset(barsL, 0, 256*sizeof(int16_t));
 		memset(barsR, 0, 256*sizeof(int16_t));
 	}
