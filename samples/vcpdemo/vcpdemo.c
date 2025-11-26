@@ -141,7 +141,7 @@ int main(int argc, char** argv)
 	decodeStatus(stat);
 
 	printf("Starting demo...\n");
-	uint32_t color = 0xff0cff00; // VCP program updates some of these colors
+	uint32_t color = 0x0C0A0B00; // VCP program updates some of these colors
 	do
 	{
 		// Vsync barrier
