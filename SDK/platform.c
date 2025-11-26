@@ -227,6 +227,12 @@ struct SPPlatform* SPInitPlatform()
 			perror("sigaction(SIGILL)");
 			err = 1;
 		}
+		if (sigaction(SIGFPE, &sa, NULL) == -1)
+		{
+			// Floating point exception
+			perror("sigaction(SIGFPE)");
+			err = 1;
+		}
 	}
 
 	if (err)
