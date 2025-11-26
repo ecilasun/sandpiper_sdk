@@ -141,7 +141,8 @@ int main(int argc, char** argv)
 	decodeStatus(stat);
 
 	printf("Starting demo...\n");
-	uint32_t color = 0xFFFFFF00; // VCP program updates color at palette index 0x00
+	uint32_t colorEven = 0xFFFFFF00; // VCP program updates color at palette index 0x00
+	uint32_t colorOdd = 0x13131300;
 	do
 	{
 		// Vsync barrier
@@ -150,10 +151,19 @@ int main(int argc, char** argv)
 		VPUSwapPages(s_platform->vx, s_platform->sc);
 
 		// VPU program demo goes here
-		VPUClear(s_platform->vx, color);
-		color = (color<<8) | ((color&0xFF000000)>>24); // roll colors right
+		{
+			colorEven = (colorEven<<8) | ((colorEven&0xFF000000)>>24);				// roll even colors right
+			colorOdd = ((colorOdd>>8)&0x00FFFFFF) | ((colorOdd&0x000000FF)<<24);	// roll odd colors left
+			uint32_t *vramBase = (uint32_t*)s_platform->vx->m_cpuWriteAddressCacheAligned;
+			uint32_t H = s_platform->vx->m_graphicsHeight;
+			for (uint32_t y=0; y<H; ++y)
+			{
+				uint32_t row = y*s_platform->vx->m_strideInWords;
+				vramBase[row] = y&1 ? colorOdd : colorEven;
+			}
+		}
 
-		// Queue vsync
+			// Queue vsync
 		// This will be processed by the VPU asynchronously when the video beam reaches the vertical blanking interval (vblank).
 		// It ensures that the buffer swap happens at the correct time to prevent screen tearing.
 		VPUSyncSwap(s_platform->vx, 0);
