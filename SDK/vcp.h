@@ -77,13 +77,13 @@
 #define vcp_load(addrs, dest)					(	0					| 0					| SRCREG1(addrs)	| DESTREG(dest)		| VCP_LOAD			)
 #define vcp_scanline_read(dest)					(	0					| 0					| 0					| DESTREG(dest)		| VCP_READSCANLINE	)
 #define vcp_scanpixel_read(dest)				(	0					| 0					| 0					| DESTREG(dest)		| VCP_READSCANPIXEL	)
-#define vcp_and(dest, src1, src2)				(	IMMED8(OPL_AND)		| SRCREG2(src2)		| SRCREG1(src1)		| DESTREG(dest)		| VCP_LOGICOP		)
-#define vcp_or(dest, src1, src2)				(	IMMED8(OPL_OR)		| SRCREG2(src2)		| SRCREG1(src1)		| DESTREG(dest)		| VCP_LOGICOP		)
-#define vcp_xor(dest, src1, src2)				(	IMMED8(OPL_XOR)		| SRCREG2(src2)		| SRCREG1(src1)		| DESTREG(dest)		| VCP_LOGICOP		)
-#define vcp_asr(dest, src1, src2)				(	IMMED8(OPL_ASR)		| SRCREG2(src2)		| SRCREG1(src1)		| DESTREG(dest)		| VCP_LOGICOP		)
-#define vcp_shr(dest, src1, src2)				(	IMMED8(OPL_SHR)		| SRCREG2(src2)		| SRCREG1(src1)		| DESTREG(dest)		| VCP_LOGICOP		)
-#define vcp_shl(dest, src1, src2)				(	IMMED8(OPL_SHL)		| SRCREG2(src2)		| SRCREG1(src1)		| DESTREG(dest)		| VCP_LOGICOP		)
-#define vcp_neg(dest, src1)						(	IMMED8(OPL_NOT)		| 0					| SRCREG1(src1)		| DESTREG(dest)		| VCP_LOGICOP		)
+#define vcp_rand(dest, src1, src2)				(	IMMED8(OPL_AND)		| SRCREG2(src2)		| SRCREG1(src1)		| DESTREG(dest)		| VCP_LOGICOP		)
+#define vcp_ror(dest, src1, src2)				(	IMMED8(OPL_OR)		| SRCREG2(src2)		| SRCREG1(src1)		| DESTREG(dest)		| VCP_LOGICOP		)
+#define vcp_rxor(dest, src1, src2)				(	IMMED8(OPL_XOR)		| SRCREG2(src2)		| SRCREG1(src1)		| DESTREG(dest)		| VCP_LOGICOP		)
+#define vcp_rasr(dest, src1, src2)				(	IMMED8(OPL_ASR)		| SRCREG2(src2)		| SRCREG1(src1)		| DESTREG(dest)		| VCP_LOGICOP		)
+#define vcp_rshr(dest, src1, src2)				(	IMMED8(OPL_SHR)		| SRCREG2(src2)		| SRCREG1(src1)		| DESTREG(dest)		| VCP_LOGICOP		)
+#define vcp_rshl(dest, src1, src2)				(	IMMED8(OPL_SHL)		| SRCREG2(src2)		| SRCREG1(src1)		| DESTREG(dest)		| VCP_LOGICOP		)
+#define vcp_rneg(dest, src1)					(	IMMED8(OPL_NOT)		| 0					| SRCREG1(src1)		| DESTREG(dest)		| VCP_LOGICOP		)
 
 void VCPUploadProgram(struct SPPlatform *ctx, const uint32_t* _program, enum EVCPBufferSize size);
 void VCPExecProgram(struct SPPlatform *ctx, const uint8_t _execFlags);
