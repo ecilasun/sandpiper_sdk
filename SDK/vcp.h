@@ -60,7 +60,7 @@
 // Macros that help define VPU instructions with register indices or constants embedded into a single word
 // Destination and source registers, as well as immediate values, are always at the same bit positions across different instructions to ensure consistency and simplify decoding.
 // The source and destination register indices are 4 bits each, allowing for 16 registers.
-//												[31:24]				[15:12]				[11:8]				[7:4]				[3:0]
+//												[31:24]					[15:12]				[11:8]				[7:4]				[3:0]
 #define vcp_noop()								(	0					| 0					| 0					| 0					| VCP_NOOP			)
 #define vcp_ldim(dest, immed)					(	IMMED24(immed)												| DESTREG(dest)		| VCP_LOADIMM		)
 #define vcp_pwrt(addrs, src)					(	0					| SRCREG2(src)		| SRCREG1(addrs)	| 0					| VCP_PALWRITE		)
