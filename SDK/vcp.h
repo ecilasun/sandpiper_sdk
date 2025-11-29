@@ -32,11 +32,14 @@
 #define IMMED8(value)			((value & 0xFFU) << 24)
 
 // Condition codes for VCP_CMP instruction
-#define COND_EQ			0x01	// or NE if inverted
+#define COND_INV		0x08	// invert the condition code (OR with values below)
+
+#define COND_LE			0x01	// or GT if inverted
 #define COND_LT			0x02 	// or GE if inverted
-#define COND_LE			0x04 	// or GT if inverted
-#define COND_ZERO		0x08	// or NZ if inverted
-#define COND_INV		0x10	// invert the condition code
+#define COND_EQ			0x04 	// or NE if inverted
+#define COND_GT			(COND_LE | COND_INV)
+#define COND_GE			(COND_LT | COND_INV)
+#define COND_NE			(COND_EQ | COND_INV)
 
 // Math operation codes for VCP_MATHOP instruction
 #define OP_ADD			0x00
