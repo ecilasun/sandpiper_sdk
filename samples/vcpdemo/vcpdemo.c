@@ -59,41 +59,41 @@ void decodeStatus(uint32_t stat)
 // This is a 128-byte program (32 wwords)
 static uint32_t s_vcpprogram[] = {
 // start:
-	vcp_ldim(0x01, 0x000000),		// scrolloffset = 0
-	vcp_ldim(0x02, 0x0000FF),		// colorincrement = 255
-	vcp_ldim(0x03, 640),			// endofline = 640
-	vcp_ldim(0x04, 0x000020),		// loop: = 32
-	vcp_ldim(0x05, 0x00001C),		// reset: = 28
-	vcp_ldim(0x0C, 0x00004C),		// idle: = 76
-	vcp_ldim(0x08, 0x000001),		// scrollspeed = 1
+	vcp_ldim(0x01, 0x000000),			// scrolloffset = 0
+	vcp_ldim(0x02, 0x0000FF),			// colorincrement = 255
+	vcp_ldim(0x03, 640),				// endofline = 640
+	vcp_ldim(0x04, 0x000020),			// loop: = 32
+	vcp_ldim(0x05, 0x00001C),			// reset: = 28
+	vcp_ldim(0x0C, 0x00004C),			// idle: = 76
+	vcp_ldim(0x08, 0x000001),			// scrollspeed = 1
 // reset:
-	vcp_radd(0x01, 0x01, 0x08),		// scrolloffset += scrollspeed
+	vcp_radd(0x01, 0x01, 0x08),			// scrolloffset += scrollspeed
 // loop:
-	vcp_wpix(0x03),					// wait for endofline
-	vcp_scanline_read(0x06),		// scanline = $videoscanline
-	vcp_ldim(0x09, 0x000080),		// temp = 128
-	vcp_cmp(4, 0x07, 0x06, 0x09),	// scanline == 128 ?
-	vcp_branch(0x0C, 0x07),			// branch.eq idle:
-	vcp_ldim(0x09, 0x000002),		// temp = 2
-	vcp_rshl(0x06, 0x06, 0x09),		// scanline = scanline << temp
-	vcp_radd(0x06, 0x06, 0x01),		// scanline = scanline + scrolloffset
-	vcp_pwrt(0x00, 0x06),			// PAL[0] = scanline
-	vcp_radd(0x01, 0x01, 0x02),		// color = color + colorincrement
-	vcp_jump(0x04),					// jmp loop:
+	vcp_wpix(0x03),						// wait for endofline
+	vcp_scanline_read(0x06),			// scanline = $videoscanline
+	vcp_ldim(0x09, 0x000080),			// temp = 128
+	vcp_cmp(COND_EQ, 0x07, 0x06, 0x09),	// scanline == 128 ?
+	vcp_branch(0x0C, 0x07),				// branch.eq idle:
+	vcp_ldim(0x09, 0x000002),			// temp = 2
+	vcp_rshl(0x06, 0x06, 0x09),			// scanline = scanline << temp
+	vcp_radd(0x06, 0x06, 0x01),			// scanline = scanline + scrolloffset
+	vcp_pwrt(0x00, 0x06),				// PAL[0] = scanline
+	vcp_radd(0x01, 0x01, 0x02),			// color = color + colorincrement
+	vcp_jump(0x04),						// jmp loop:
 // idle:
-	vcp_pwrt(0x00, 0x00),			// PAL[0] = 0
-	vcp_wpix(0x03),					// wait for endofline
-	vcp_scanline_read(0x06),		// scanline = $videoscanline
-	vcp_cmp(4, 0x07, 0x06, 0x00),	// scanline == 0 ?
-	vcp_branch(0x05, 0x07),			// branch.eq reset:
-	vcp_jump(0x0C),					// jmp idle:
+	vcp_pwrt(0x00, 0x00),				// PAL[0] = 0
+	vcp_wpix(0x03),						// wait for endofline
+	vcp_scanline_read(0x06),			// scanline = $videoscanline
+	vcp_cmp(COND_EQ, 0x07, 0x06, 0x00),	// scanline == 0 ?
+	vcp_branch(0x05, 0x07),				// branch.eq reset:
+	vcp_jump(0x0C),						// jmp idle:
 	vcp_noop(),
 	vcp_noop(),
 	vcp_noop(),
 	vcp_noop(),
 	vcp_noop(),
 	vcp_noop(),
-	vcp_noop(),						// Padding to 128 bytes (TODO: upload code should handle this in the future)
+	vcp_noop(),	// padding to align size to 128 bytes
 };
 
 int main(int argc, char** argv)
