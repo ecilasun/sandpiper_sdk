@@ -6,6 +6,14 @@
  * This example demonstrates how to use the VCP (Video Co-Processor) to run a small program
  * that modifies the palette colors at the start of each scanline.
  * It also demonstrates how to handle control flow in a VCP program.
+ * 
+ * This program sets up a video mode, allocates frame buffers, uploads a VCP program,
+ * and runs a loop that updates the frame buffer with a simple pattern while the VCP
+ * program modifies the palette colors.
+ * 
+ * The VCP program changes the color at palette index 0x00 based on the current scanline,
+ * creating a scrolling color effect. It stops at scanline 128, sets the update color to black
+ * and idles until the next frame.
  */
 
 #include <stdint.h>
