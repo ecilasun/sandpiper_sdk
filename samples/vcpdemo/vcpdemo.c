@@ -48,42 +48,41 @@ void decodeStatus(uint32_t stat)
 // This is a 128-byte program (32 wwords)
 static uint32_t s_vcpprogram[] = {
 // start:
-	vcp_ldim(0x02, 0x000080),		// colorincrement = 128
-	vcp_ldim(0x03, 640),			// endofline = 640
-	vcp_ldim(0x04, 0x000018),		// loop: = 24
-	vcp_ldim(0x05, 0x000014),		// reset: = 20
 	vcp_ldim(0x01, 0x000000),		// scrolloffset = 0
+	vcp_ldim(0x02, 0x0000FF),		// colorincrement = 255
+	vcp_ldim(0x03, 640),			// endofline = 640
+	vcp_ldim(0x04, 0x000020),		// loop: = 32
+	vcp_ldim(0x05, 0x00001C),		// reset: = 28
+	vcp_ldim(0x0C, 0x00004C),		// idle: = 76
 	vcp_ldim(0x08, 0x000001),		// scrollspeed = 1
 // reset:
 	vcp_radd(0x01, 0x01, 0x08),		// scrolloffset += scrollspeed
 // loop:
 	vcp_wpix(0x03),					// wait for endofline
 	vcp_scanline_read(0x06),		// scanline = $videoscanline
-	vcp_cmp(4, 0x07, 0x06, 0x00),	// scanline == 0 ? (4:EQ, 2:LT, 1:LE)
-	vcp_branch(0x05, 0x07),			// branch.eq reset:
+	vcp_ldim(0x09, 0x000080),		// temp = 128
+	vcp_cmp(4, 0x07, 0x06, 0x09),	// scanline == 128 ?
+	vcp_branch(0x0C, 0x07),			// branch.eq idle:
 	vcp_ldim(0x09, 0x000002),		// temp = 2
 	vcp_rshl(0x06, 0x06, 0x09),		// scanline = scanline << temp
 	vcp_radd(0x06, 0x06, 0x01),		// scanline = scanline + scrolloffset
 	vcp_pwrt(0x00, 0x06),			// PAL[0] = scanline
 	vcp_radd(0x01, 0x01, 0x02),		// color = color + colorincrement
 	vcp_jump(0x04),					// jmp loop:
+// idle:
+	vcp_pwrt(0x00, 0x00),			// PAL[0] = 0
+	vcp_wpix(0x03),					// wait for endofline
+	vcp_scanline_read(0x06),		// scanline = $videoscanline
+	vcp_cmp(4, 0x07, 0x06, 0x00),	// scanline == 0 ?
+	vcp_branch(0x05, 0x07),			// branch.eq reset:
+	vcp_jump(0x0C),					// jmp idle:
 	vcp_noop(),
 	vcp_noop(),
 	vcp_noop(),
 	vcp_noop(),
 	vcp_noop(),
 	vcp_noop(),
-	vcp_noop(),
-	vcp_noop(),
-	vcp_noop(),
-	vcp_noop(),
-	vcp_noop(),
-	vcp_noop(),
-	vcp_noop(),
-	vcp_noop(),
-	vcp_noop(),
-	vcp_noop(),
-	vcp_noop(),
+	vcp_noop(),						// Padding to 128 bytes (TODO: upload code should handle this in the future)
 };
 
 int main(int argc, char** argv)
@@ -131,9 +130,10 @@ int main(int argc, char** argv)
 	printf("Starting demo...\n");
 
 	// VCP program updates color at palette index 0x00
-	uint32_t colorEven = 0xFF00FF00;
-	uint32_t colorOdd = 0x00FF00FF;
+	uint32_t colorEven = 0x0000FFFF; // Even/odd pixels, scrolling at 60Hz
+	uint32_t colorOdd = 0x00000000; // Solid line
 
+	uint32_t frame = 0;
 	do
 	{
 		// Vsync barrier
@@ -143,10 +143,13 @@ int main(int argc, char** argv)
 
 		// VPU program demo goes here
 		{
-			colorEven = (colorEven<<8) | ((colorEven&0xFF000000)>>24);
-			uint32_t *vramBase = (uint32_t*)s_platform->vx->m_cpuWriteAddressCacheAligned;
+			++frame;
+			if ((frame%10) == 0)
+				colorEven = ((colorEven&0xFF)<<24) | ((colorEven>>8)&0x00FFFFFF);
 			uint32_t H = s_platform->vx->m_graphicsHeight;
 			uint32_t W = s_platform->vx->m_strideInWords;
+			// Read this every frame since it flips between buffers
+			uint32_t *vramBase = (uint32_t*)s_platform->vx->m_cpuWriteAddressCacheAligned;
 			for (uint32_t y=0; y<H; ++y)
 			{
 				uint32_t row = y*W;
@@ -155,7 +158,7 @@ int main(int argc, char** argv)
 			}
 		}
 
-			// Queue vsync
+		// Queue vsync
 		// This will be processed by the VPU asynchronously when the video beam reaches the vertical blanking interval (vblank).
 		// It ensures that the buffer swap happens at the correct time to prevent screen tearing.
 		VPUSyncSwap(s_platform->vx, 0);
