@@ -89,6 +89,14 @@ enum EColorMode
 	ECM_Count
 };
 
+// Scanline doubling
+enum EVideoScanlineDoubling
+{
+	EVD_Disable,
+	EVD_Enable,
+	EVD_Count
+};
+
 // Video scanout enable/disable
 enum EVideoScanoutEnable
 {
@@ -114,6 +122,7 @@ struct EVideoContext
 	enum EVideoMode m_vmode;
 	enum EColorMode m_cmode;
 	enum EVideoScanoutEnable m_scanEnable;
+	enum EVideoScanlineDoubling m_scanlineDoubling;
 	uint32_t m_strideInWords;
 	uint32_t m_scanoutAddressCacheAligned;
 	uint32_t m_cpuWriteAddressCacheAligned;

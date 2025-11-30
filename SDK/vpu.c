@@ -17,7 +17,7 @@
 
 
 // Video mode control word
-#define MAKEVMODEINFO(_cmode, _vmode, _scanEnable) ((_cmode&0x1)<<2) | ((_vmode&0x1)<<1) | (_scanEnable&0x1)
+#define MAKEVMODEINFO(_cmode, _vmode, _scanlineDoubleEnable, _scanEnable) ((_scanlineDoubleEnable&0x1)<<3) | ((_cmode&0x1)<<2) | ((_vmode&0x1)<<1) | (_scanEnable&0x1)
 
 /*
  * Resident font data aligned to 16 bytes for optimal access.
@@ -303,6 +303,7 @@ void VPUSetVideoMode(struct EVideoContext *_context, const enum EVideoMode _mode
 
 		// NOTE: Caller sets vmode/cmode fields
 		_context->m_scanEnable = _scanEnable;
+		_context->m_scanlineDoubling = _mode == EVM_320_Wide ? EVD_Enable : EVD_Disable; // NOTE: We'll support more modes by exposing this later
 		_context->m_strideInWords = VPUGetStride(_context->m_vmode, _context->m_cmode) / sizeof(uint32_t);
 
 		VPUGetDimensions(_context->m_vmode, &_context->m_graphicsWidth, &_context->m_graphicsHeight);
@@ -313,13 +314,13 @@ void VPUSetVideoMode(struct EVideoContext *_context, const enum EVideoMode _mode
 		_context->m_consoleUpdated = 0;
 
 		videowrite32(_context->m_platform, 0, VPUCMD_SETVMODE);
-		videowrite32(_context->m_platform, 0, MAKEVMODEINFO((uint32_t)_context->m_cmode, (uint32_t)_context->m_vmode, (uint32_t)_scanEnable));
+		videowrite32(_context->m_platform, 0, MAKEVMODEINFO((uint32_t)_context->m_cmode, (uint32_t)_context->m_vmode, (uint32_t)_context->m_scanlineDoubling, (uint32_t)_scanEnable));
 	}
 	else
 	{
 		// Does not preserve state, mostly preferred during shutdown
 		videowrite32(_context->m_platform, 0, VPUCMD_SETVMODE);
-		videowrite32(_context->m_platform, 0, MAKEVMODEINFO((uint32_t)_cmode, (uint32_t)_mode, (uint32_t)_scanEnable));
+		videowrite32(_context->m_platform, 0, MAKEVMODEINFO((uint32_t)_cmode, (uint32_t)_mode, _mode == EVM_320_Wide ? 1 : 0, (uint32_t)_scanEnable));
 	}
 }
 
