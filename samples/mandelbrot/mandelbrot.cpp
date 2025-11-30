@@ -126,7 +126,7 @@ void PickNextTile(int* tilex, int* tiley, float* R)
 		*tilex = 0;
 		(*tiley)++;
 	}
-	if (*tiley == 15)
+	if (*tiley == 30)
 	{
 		*tiley = 0;
 		// Zoom at last tile
