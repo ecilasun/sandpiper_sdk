@@ -59,34 +59,34 @@ void decodeStatus(uint32_t stat)
 // This is a 128-byte program (32 wwords)
 static uint32_t s_vcpprogram[] = {
 // start:
-	vcp_ldim(0x01, 0x000000),			// scrolloffset = 0
-	vcp_ldim(0x02, 0x0000FF),			// colorincrement = 255
-	vcp_ldim(0x03, 640),				// endofline = 640
-	vcp_ldim(0x04, 0x000020),			// loop: = 32
-	vcp_ldim(0x05, 0x00001C),			// reset: = 28
-	vcp_ldim(0x0C, 0x00004C),			// idle: = 76
-	vcp_ldim(0x08, 0x000001),			// scrollspeed = 1
+	vcp_ldim(VREG_1, 0x000000),						// scrolloffset = 0
+	vcp_ldim(VREG_2, 0x0000FF),						// colorincrement = 255
+	vcp_ldim(VREG_3, 640),							// endofline = 640
+	vcp_ldim(VREG_4, 0x000020),						// loop: = 32
+	vcp_ldim(VREG_5, 0x00001C),						// reset: = 28
+	vcp_ldim(VREG_C, 0x000048),						// idle: = 72
+	vcp_ldim(VREG_8, 0x000002),						// scrollspeed = 2
 // reset:
-	vcp_radd(0x01, 0x01, 0x08),			// scrolloffset += scrollspeed
+	vcp_radd(VREG_1, VREG_1, VREG_8),				// scrolloffset += scrollspeed
 // loop:
-	vcp_wpix(0x03),						// wait for endofline
-	vcp_scanline_read(0x06),			// scanline = $videoscanline
-	vcp_ldim(0x09, 0x000080),			// temp = 128
-	vcp_cmp(COND_EQ, 0x07, 0x06, 0x09),	// scanline == 128 ?
-	vcp_branch(0x0C, 0x07),				// branch.eq idle:
-	vcp_ldim(0x09, 0x000002),			// temp = 2
-	vcp_rshl(0x06, 0x06, 0x09),			// scanline = scanline << temp
-	vcp_radd(0x06, 0x06, 0x01),			// scanline = scanline + scrolloffset
-	vcp_pwrt(0x00, 0x06),				// PAL[0] = scanline
-	vcp_radd(0x01, 0x01, 0x02),			// color = color + colorincrement
-	vcp_jump(0x04),						// jmp loop:
+	vcp_wpix(VREG_3),								// wait for endofline
+	vcp_scanline_read(VREG_6),						// scanline = $videoscanline
+	vcp_ldim(VREG_9, 0x000080),						// temp = 128
+	vcp_cmp(COND_EQ, VREG_7, VREG_6, VREG_9),		// scanline == 128 ?
+	vcp_branch(VREG_C, VREG_7),						// branch.eq idle:
+	vcp_ldim(VREG_9, 0x000003),						// temp = 3
+	vcp_rshl(VREG_6, VREG_6, VREG_9),				// scanline = scanline << temp
+	vcp_radd(VREG_6, VREG_6, VREG_1),				// scanline = scanline + scrolloffset
+	vcp_pwrt(VREG_ZERO, VREG_6),					// PAL[0] = scanline
+	vcp_jump(VREG_4),								// jmp loop:
 // idle:
-	vcp_pwrt(0x00, 0x00),				// PAL[0] = 0
-	vcp_wpix(0x03),						// wait for endofline
-	vcp_scanline_read(0x06),			// scanline = $videoscanline
-	vcp_cmp(COND_EQ, 0x07, 0x06, 0x00),	// scanline == 0 ?
-	vcp_branch(0x05, 0x07),				// branch.eq reset:
-	vcp_jump(0x0C),						// jmp idle:
+	vcp_pwrt(VREG_ZERO, VREG_ZERO),					// PAL[0] = 0
+	vcp_wpix(VREG_3),								// wait for endofline
+	vcp_scanline_read(VREG_6),						// scanline = $videoscanline
+	vcp_cmp(COND_EQ, VREG_7, VREG_6, VREG_ZERO),	// scanline == 0 ?
+	vcp_branch(VREG_5, VREG_7),						// branch.eq reset:
+	vcp_jump(VREG_C),								// jmp idle:
+	vcp_noop(),
 	vcp_noop(),
 	vcp_noop(),
 	vcp_noop(),

@@ -56,6 +56,24 @@
 #define OPL_SHL			0x05
 #define OPL_NEG			0x06
 
+// Register names
+#define VREG_ZERO	0x00
+#define VREG_1		0x01
+#define VREG_2		0x02
+#define VREG_3		0x03
+#define VREG_4		0x04
+#define VREG_5		0x05
+#define VREG_6		0x06
+#define VREG_7		0x07
+#define VREG_8		0x08
+#define VREG_9		0x09
+#define VREG_A		0x0A
+#define VREG_B		0x0B
+#define VREG_C		0x0C
+#define VREG_D		0x0D
+#define VREG_E		0x0E
+#define VREG_F		0x0F
+
 // NOTE: JMP is implemented in two instructions as:
 // compare(ACC,ACC,EQ) -> result goes to ACC register
 // branch(dest) -> jump based on lowest bit of ACC
@@ -87,6 +105,11 @@
 #define vcp_rshr(dest, src1, src2)				(	IMMED8(OPL_SHR)		| SRCREG2(src2)		| SRCREG1(src1)		| DESTREG(dest)		| VCP_LOGICOP		)
 #define vcp_rshl(dest, src1, src2)				(	IMMED8(OPL_SHL)		| SRCREG2(src2)		| SRCREG1(src1)		| DESTREG(dest)		| VCP_LOGICOP		)
 #define vcp_rneg(dest, src1)					(	IMMED8(OPL_NOT)		| 0					| SRCREG1(src1)		| DESTREG(dest)		| VCP_LOGICOP		)
+
+// Pseudo instructions
+#define vcp_mv(dest, src)		vcp_radd(dest, src, VREG_ZERO)
+#define vcp_mvi(dest, imm)		vcp_ldim(dest, imm)
+#define vcp_clr(dest)			vcp_mv(dest, VREG_ZERO)
 
 void VCPUploadProgram(struct SPPlatform *ctx, const uint32_t* _program, enum EVCPBufferSize size);
 void VCPExecProgram(struct SPPlatform *ctx, const uint8_t _execFlags);
