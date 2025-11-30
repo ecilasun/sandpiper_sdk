@@ -48,7 +48,7 @@ static inline float min(float x, float y) { return x<y?x:y; }
 // - smaller image size (for faster run in simulation)
 
 static int graphics_width  = 320;
-static int graphics_height = 240;
+static int graphics_height = 480;
 
 static int bench_run = 0;
 
@@ -411,7 +411,7 @@ static inline void render_pixel(
 
 void render(Sphere* spheres, int nb_spheres, Light* lights, int nb_lights) {
 	stats_begin_frame();
-	uint32_t stride = VPUGetStride(EVM_320_240, ECM_16bit_RGB);
+	uint32_t stride = VPUGetStride(EVM_320_480, ECM_16bit_RGB);
 #ifdef graphics_double_lines
    for (int j = 0; j<graphics_height; j+=2) {
       for (int i = 0; i<graphics_width; i++) {
@@ -469,12 +469,12 @@ int main()
 	}
 
 	// Grab video buffer
-	uint32_t stride = VPUGetStride(EVM_320_240, ECM_16bit_RGB);
-	framebuffer.size = stride*240;
+	uint32_t stride = VPUGetStride(EVM_320_480, ECM_16bit_RGB);
+	framebuffer.size = stride*480;
 	SPAllocateBuffer(s_platform, &framebuffer);
 
 	// Set up the video mode and frame pointers
-	VPUSetVideoMode(s_platform->vx, EVM_320_240, ECM_16bit_RGB, EVS_Enable);
+	VPUSetVideoMode(s_platform->vx, EVM_320_480, ECM_16bit_RGB, EVS_Enable);
 	s_platform->sc->cycle = 0;
 	s_platform->sc->framebufferA = &framebuffer; // Not double-buffering
 	s_platform->sc->framebufferB = &framebuffer;
@@ -485,7 +485,7 @@ int main()
 
 	bench_run = 0;
 	graphics_width = 320;
-	graphics_height = 240;
+	graphics_height = 480;
 	render(spheres, nb_spheres, lights, nb_lights);
 
 	while(1) {

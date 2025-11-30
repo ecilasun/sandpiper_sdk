@@ -52,8 +52,8 @@ float evalMandel(const int maxiter, int col, int row, float ox, float oy, float 
 {
 	float iteration = 0.f;
 
-	float c_re = (float(col) - 160.f) / 480.f * sx + ox; // Divide by shortest side of display for correct aspect ratio
-	float c_im = (float(row) - 120.f) / 480.f * sx + oy;
+	float c_re = (float(col) - 160.f) / 240.f * sx + ox; // Divide by shortest side of display for correct aspect ratio
+	float c_im = (float(row) - 120.f) / 240.f * sx + oy;
 	float x = 0.f, y = 0.f;
 	float x2 = 0.f, y2 = 0.f;
 	while (x2+y2 < 4.f && iteration < maxiter)
@@ -98,7 +98,7 @@ void* mandelbrot(void* arg)
 {
 	SThreadData* data = (SThreadData*)arg;
 
-	uint32_t stride = VPUGetStride(EVM_320_480, ECM_16bit_RGB);
+	uint32_t stride = VPUGetStride(EVM_320_240, ECM_16bit_RGB);
 
 	while(1)
 	{
@@ -126,7 +126,7 @@ void PickNextTile(int* tilex, int* tiley, float* R)
 		*tilex = 0;
 		(*tiley)++;
 	}
-	if (*tiley == 30)
+	if (*tiley == 15)
 	{
 		*tiley = 0;
 		// Zoom at last tile
@@ -146,13 +146,13 @@ int main()
 	}
 
 	// Grab video buffer
-	uint32_t stride = VPUGetStride(EVM_320_480, ECM_16bit_RGB);
+	uint32_t stride = VPUGetStride(EVM_320_240, ECM_16bit_RGB);
 	SPSizeAlloc* framebuffer = new SPSizeAlloc();
-	framebuffer->size = stride*480;
+	framebuffer->size = stride*240;
 	SPAllocateBuffer(platform, framebuffer);
 
 	// Set up the video mode and frame pointers
-	VPUSetVideoMode(platform->vx, EVM_320_480, ECM_16bit_RGB, EVS_Enable);
+	VPUSetVideoMode(platform->vx, EVM_320_240, ECM_16bit_RGB, EVS_Enable);
 	platform->sc->cycle = 0;
 	platform->sc->framebufferA = framebuffer; // Not double-buffering
 	platform->sc->framebufferB = framebuffer;
