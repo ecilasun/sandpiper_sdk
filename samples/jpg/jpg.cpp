@@ -28,7 +28,7 @@ extern "C" {
 }
 #endif
 
-#define VIDEO_MODE      EVM_640_Wide
+#define VIDEO_MODE      EVM_640_480
 #define VIDEO_COLOR     ECM_16bit_RGB
 #define VIDEO_WIDTH     640
 #define VIDEO_HEIGHT    480

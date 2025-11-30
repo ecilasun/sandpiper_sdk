@@ -303,7 +303,7 @@ void VPUSetVideoMode(struct EVideoContext *_context, const enum EVideoMode _mode
 
 		// NOTE: Caller sets vmode/cmode fields
 		_context->m_scanEnable = _scanEnable;
-		_context->m_scanlineDoubling = _mode == EVM_320_Wide ? EVD_Enable : EVD_Disable; // NOTE: We'll support more modes by exposing this later
+		_context->m_scanlineDoubling = ((_mode == EVM_320_240) || (_mode == EVM_640_240)) ? EVD_Enable : EVD_Disable; // NOTE: We'll support more modes by exposing this later
 		_context->m_strideInWords = VPUGetStride(_context->m_vmode, _context->m_cmode) / sizeof(uint32_t);
 
 		VPUGetDimensions(_context->m_vmode, &_context->m_graphicsWidth, &_context->m_graphicsHeight);
@@ -320,7 +320,7 @@ void VPUSetVideoMode(struct EVideoContext *_context, const enum EVideoMode _mode
 	{
 		// Does not preserve state, mostly preferred during shutdown
 		videowrite32(_context->m_platform, 0, VPUCMD_SETVMODE);
-		videowrite32(_context->m_platform, 0, MAKEVMODEINFO((uint32_t)_cmode, (uint32_t)_mode, _mode == EVM_320_Wide ? 1 : 0, (uint32_t)_scanEnable));
+		videowrite32(_context->m_platform, 0, MAKEVMODEINFO((uint32_t)_cmode, (uint32_t)_mode, ((_mode == EVM_320_240) || (_mode == EVM_640_240)) ? EVD_Enable : EVD_Disable, (uint32_t)_scanEnable));
 	}
 }
 
@@ -843,8 +843,8 @@ void VPUConsolePrint(struct EVideoContext *_context, const char *_message, int _
  */
 void VPUGetDimensions(const enum EVideoMode _mode, uint32_t *_width, uint32_t *_height)
 {
-	*_width = _mode == EVM_640_Wide ? 640 : 320;
-	*_height = _mode == EVM_640_Wide ? 480 : 240;
+	*_width = ((_mode == EVM_640_240) || (_mode == EVM_640_480)) ? 640 : 320;
+	*_height = ((_mode == EVM_640_480) || (_mode == EVM_320_480)) ? 480 : 240;
 }
 
 /*
@@ -857,9 +857,9 @@ uint32_t VPUGetStride(const enum EVideoMode _mode, const enum EColorMode _cmode)
 {
     uint32_t stride = 0;
     if (_cmode == ECM_8bit_Indexed)
-        stride = _mode == EVM_320_Wide ? 3 : 5;
+        stride = ((_mode == EVM_320_240) || (_mode == EVM_320_480)) ? 3 : 5;
     else
-        stride = _mode == EVM_320_Wide ? 5 : 10;
+        stride = ((_mode == EVM_320_240) || (_mode == EVM_320_480)) ? 5 : 10;
 
     return stride * 128;
 }

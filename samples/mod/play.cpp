@@ -82,7 +82,7 @@ void fft(std::complex<float>* data)
 
 void *draw_wave(void *data)
 {
-	uint32_t stride = VPUGetStride(EVM_320_Wide, ECM_8bit_Indexed);
+	uint32_t stride = VPUGetStride(EVM_320_240, ECM_8bit_Indexed);
 
 	while(1)
 	{
@@ -236,12 +236,12 @@ int main(int argc, char *argv[])
 
 	if (!novis)
 	{
-		uint32_t stride = VPUGetStride(EVM_320_Wide, ECM_8bit_Indexed);
+		uint32_t stride = VPUGetStride(EVM_320_240, ECM_8bit_Indexed);
 		bufferB.size = bufferA.size = stride*240;
 		SPAllocateBuffer(s_platform, &bufferA);
 		SPAllocateBuffer(s_platform, &bufferB);
 
-		VPUSetVideoMode(s_platform->vx, EVM_320_Wide, ECM_8bit_Indexed, EVS_Enable);
+		VPUSetVideoMode(s_platform->vx, EVM_320_240, ECM_8bit_Indexed, EVS_Enable);
 
 		s_platform->sc->cycle = 0;
 		s_platform->sc->framebufferA = &bufferA;

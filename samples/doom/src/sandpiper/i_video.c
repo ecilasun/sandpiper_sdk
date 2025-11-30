@@ -70,7 +70,7 @@ I_FinishUpdate (void)
 	// Copy screen to framebuffer
 	if (s_platform->sc->writepage != 0x0)
 	{
-		uint32_t stride = VPUGetStride(EVM_320_Wide, ECM_8bit_Indexed);
+		uint32_t stride = VPUGetStride(EVM_320_240, ECM_8bit_Indexed);
 		for (uint32_t i=0;i<SCREENHEIGHT;++i)
 		{
 			uint32_t targetoffset = stride*i;

@@ -236,13 +236,13 @@ int main(int argc, char **argv)
 	}
 
 	// Grab video buffer
-	uint32_t stride = VPUGetStride(EVM_320_Wide, ECM_16bit_RGB);
+	uint32_t stride = VPUGetStride(EVM_320_240, ECM_16bit_RGB);
 	framebufferA.size = framebufferB.size = stride*240;
 	SPAllocateBuffer(s_platform, &framebufferA);
 	SPAllocateBuffer(s_platform, &framebufferB);
 
 	// Set up the video mode and frame pointers
-	VPUSetVideoMode(s_platform->vx, EVM_320_Wide, ECM_16bit_RGB, EVS_Enable);
+	VPUSetVideoMode(s_platform->vx, EVM_320_240, ECM_16bit_RGB, EVS_Enable);
 
 	s_platform->sc->cycle = 0;
 	s_platform->sc->framebufferA = &framebufferA;

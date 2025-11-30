@@ -39,12 +39,12 @@ void qembd_sndinit()
 void qembd_vidinit()
 {
 	// Grab video buffer
-	uint32_t stride = VPUGetStride(EVM_320_Wide, ECM_8bit_Indexed);
+	uint32_t stride = VPUGetStride(EVM_320_240, ECM_8bit_Indexed);
 	framebuffer.size = stride*240;
 	SPAllocateBuffer(s_platform, &framebuffer);
 
 	// Set up the video mode and frame pointers
-	VPUSetVideoMode(s_platform->vx, EVM_320_Wide, ECM_8bit_Indexed, EVS_Enable);
+	VPUSetVideoMode(s_platform->vx, EVM_320_240, ECM_8bit_Indexed, EVS_Enable);
 	s_platform->sc->cycle = 0;
 	s_platform->sc->framebufferA = &framebuffer; // Not double-buffering
 	s_platform->sc->framebufferB = &framebuffer;
@@ -53,7 +53,7 @@ void qembd_vidinit()
 
 void qembd_fillrect(uint8_t *src, uint16_t x, uint16_t y, uint16_t xsize, uint16_t ysize)
 {
-	uint32_t stride = VPUGetStride(EVM_320_Wide, ECM_8bit_Indexed);
+	uint32_t stride = VPUGetStride(EVM_320_240, ECM_8bit_Indexed);
 	uint8_t* pixels = (uint8_t*)s_platform->sc->writepage;
 
 	for (int py = 0; py < ysize; py++) {

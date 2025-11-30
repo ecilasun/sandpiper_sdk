@@ -29,7 +29,7 @@
 #include "vpu.h"
 #include "vcp.h"
 
-#define VIDEO_MODE      EVM_320_Wide
+#define VIDEO_MODE      EVM_320_240
 #define VIDEO_COLOR     ECM_8bit_Indexed
 #define VIDEO_HEIGHT    240
 

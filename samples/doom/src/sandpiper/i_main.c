@@ -50,10 +50,10 @@ int main(int argc, char *argv[])
 	APUSetBufferSize(s_platform->ac, ABS_2048Bytes); // Number of 16 bit stereo samples
 	APUSetSampleRate(s_platform->ac, ASR_11_025_Hz);
 
-	uint32_t stride = VPUGetStride(EVM_320_Wide, ECM_8bit_Indexed);
+	uint32_t stride = VPUGetStride(EVM_320_240, ECM_8bit_Indexed);
 	frameBuffer.size = stride*SCREENHEIGHT;
 	SPAllocateBuffer(s_platform, &frameBuffer);
-	VPUSetVideoMode(s_platform->vx, EVM_320_Wide, ECM_8bit_Indexed, EVS_Enable);
+	VPUSetVideoMode(s_platform->vx, EVM_320_240, ECM_8bit_Indexed, EVS_Enable);
 	s_platform->sc->cycle = 0;
 	s_platform->sc->framebufferA = &frameBuffer; // No double buffering
 	s_platform->sc->framebufferB = &frameBuffer;

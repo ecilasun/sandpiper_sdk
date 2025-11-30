@@ -24,7 +24,9 @@
 		"xutility": "c",
 		"vcp.h": "c",
 		"numbers": "c",
-		"utility": "c"
+		"utility": "c",
+		"vpu.h": "c",
+		"string.h": "c"
 	},
 	"idf.pythonInstallPath": "/usr/bin/python3"
 }

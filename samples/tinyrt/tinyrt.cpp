@@ -411,7 +411,7 @@ static inline void render_pixel(
 
 void render(Sphere* spheres, int nb_spheres, Light* lights, int nb_lights) {
 	stats_begin_frame();
-	uint32_t stride = VPUGetStride(EVM_320_Wide, ECM_16bit_RGB);
+	uint32_t stride = VPUGetStride(EVM_320_240, ECM_16bit_RGB);
 #ifdef graphics_double_lines
    for (int j = 0; j<graphics_height; j+=2) {
       for (int i = 0; i<graphics_width; i++) {
@@ -469,12 +469,12 @@ int main()
 	}
 
 	// Grab video buffer
-	uint32_t stride = VPUGetStride(EVM_320_Wide, ECM_16bit_RGB);
+	uint32_t stride = VPUGetStride(EVM_320_240, ECM_16bit_RGB);
 	framebuffer.size = stride*240;
 	SPAllocateBuffer(s_platform, &framebuffer);
 
 	// Set up the video mode and frame pointers
-	VPUSetVideoMode(s_platform->vx, EVM_320_Wide, ECM_16bit_RGB, EVS_Enable);
+	VPUSetVideoMode(s_platform->vx, EVM_320_240, ECM_16bit_RGB, EVS_Enable);
 	s_platform->sc->cycle = 0;
 	s_platform->sc->framebufferA = &framebuffer; // Not double-buffering
 	s_platform->sc->framebufferB = &framebuffer;

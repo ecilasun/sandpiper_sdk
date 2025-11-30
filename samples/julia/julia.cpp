@@ -85,7 +85,7 @@ int main()
 
 	// Grab video buffer
 	printf("Allocating video buffers\n");
-	uint32_t stride = VPUGetStride(EVM_320_Wide, ECM_8bit_Indexed);
+	uint32_t stride = VPUGetStride(EVM_320_240, ECM_8bit_Indexed);
 	framebufferA.size = stride*240;
 	framebufferB.size = stride*240;
 	SPAllocateBuffer(s_platform, &framebufferA);
@@ -93,7 +93,7 @@ int main()
 
 	// Set up the video mode and frame pointers
 	printf("setting video mode\n");
-	VPUSetVideoMode(s_platform->vx, EVM_320_Wide, ECM_8bit_Indexed, EVS_Enable);
+	VPUSetVideoMode(s_platform->vx, EVM_320_240, ECM_8bit_Indexed, EVS_Enable);
 
 	struct EVideoSwapContext* sc = s_platform->sc;
 	sc->cycle = 0;

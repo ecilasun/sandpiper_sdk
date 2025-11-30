@@ -98,7 +98,7 @@ void* mandelbrot(void* arg)
 {
 	SThreadData* data = (SThreadData*)arg;
 
-	uint32_t stride = VPUGetStride(EVM_320_Wide, ECM_16bit_RGB);
+	uint32_t stride = VPUGetStride(EVM_320_240, ECM_16bit_RGB);
 
 	while(1)
 	{
@@ -146,13 +146,13 @@ int main()
 	}
 
 	// Grab video buffer
-	uint32_t stride = VPUGetStride(EVM_320_Wide, ECM_16bit_RGB);
+	uint32_t stride = VPUGetStride(EVM_320_240, ECM_16bit_RGB);
 	SPSizeAlloc* framebuffer = new SPSizeAlloc();
 	framebuffer->size = stride*240;
 	SPAllocateBuffer(platform, framebuffer);
 
 	// Set up the video mode and frame pointers
-	VPUSetVideoMode(platform->vx, EVM_320_Wide, ECM_16bit_RGB, EVS_Enable);
+	VPUSetVideoMode(platform->vx, EVM_320_240, ECM_16bit_RGB, EVS_Enable);
 	platform->sc->cycle = 0;
 	platform->sc->framebufferA = framebuffer; // Not double-buffering
 	platform->sc->framebufferB = framebuffer;

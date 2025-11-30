@@ -13,7 +13,7 @@
 #include "platform.h"
 #include "vpu.h"
 
-#define VIDEO_MODE      EVM_640_Wide
+#define VIDEO_MODE      EVM_640_480
 #define VIDEO_COLOR     ECM_8bit_Indexed
 #define VIDEO_HEIGHT    480
 
@@ -70,24 +70,6 @@ void restoreKeyboardInput()
 	fcntl(STDIN_FILENO, F_SETFL, stdin_flags);
 }
 
-void shutdowncleanup()
-{
-	// Reset shifts
-	VPUShiftCache(&s_vctx, 0);
-	VPUShiftScanout(&s_vctx, 0);
-	VPUShiftPixel(&s_vctx, 0);
-
-	// Switch to fbcon buffer
-	VPUSetScanoutAddress(&s_vctx, 0x18000000);
-	VPUSetVideoMode(&s_vctx, EVM_640_Wide, ECM_16bit_RGB, EVS_Enable);
-
-	// Yield physical memory and reset video routines
-	VPUShutdownVideo();
-
-	// Shutdown platform
-	SPShutdownPlatform(&s_platform);
-}
-
 int getKeyboardInput(char *input_char)
 {
 	int result = read(STDIN_FILENO, input_char, 1);
@@ -96,7 +78,6 @@ int getKeyboardInput(char *input_char)
 
 void sigint_handler(int /*s*/)
 {
-	shutdowncleanup();
 	restoreKeyboardInput();
 	exit(0);
 }
