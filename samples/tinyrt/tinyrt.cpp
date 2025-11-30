@@ -21,23 +21,6 @@ static inline float max(float x, float y) { return x>y?x:y; }
 static inline float min(float x, float y) { return x<y?x:y; }
 
 /*******************************************************************/
-
-// If you want to adapt tinyraytracer to your own platform, there are
-// mostly two macros and two functions to write:
-//   graphics_width
-//   graphics_height
-//   graphics_init()
-//   graphics_set_pixel()
-//
-// You can also write the following functions (or leave them empty if
-// you do not need them):
-//   graphics_terminate()
-//   stats_begin_frame()
-//   stats_begin_pixel()
-//   stats_end_pixel()
-//   stats_end_frame()
-
-
 // Size of the screen
 // Replace with your own variables or values
 
@@ -83,63 +66,6 @@ inline void graphics_set_pixel(uint32_t addrs, uint32_t stride, int x, int y, fl
 
   uint16_t *pixel = (uint16_t*)(addrs + 2*x + y*stride);
   *pixel = (red<<11) | (green<<5) | blue;
-}
-
-
-// Begins statistics collection for current pixel
-// Leave emtpy if not needed.
-// There are these two levels because on some
-// femtorv32 cores (quark, tachyon), the clock tick counter does not
-// have sufficient bits and will wrap during the time taken by
-// rendering a frame (up to several minutes).
-static inline void stats_begin_pixel() {
-}
-
-// Ends statistics collection for current pixel
-// Leave emtpy if not needed.
-static inline void stats_end_pixel() {
-}
-
-// Print "fixed point" number (integer/1000)
-static void printk(uint64_t kx) {
-    int intpart  = (int)(kx / 1000);
-    int fracpart = (int)(kx % 1000);
-    printf("%d.", intpart);
-    if(fracpart<100) {
-	    printf("0");
-    }
-    if(fracpart<10) {
-	    printf("0");
-    }
-    printf("%d", fracpart);
-}
-
-static uint64_t instret_start;
-static uint64_t cycles_start;
-
-// Begins statistics collection for current frame.
-// Leave emtpy if not needed.
-static inline void stats_begin_frame() {
-    instret_start = 0;//E32ReadRetiredInstructions();
-    cycles_start  = 0;//E32ReadCycles();
-}
-
-// Ends statistics collection for current frame
-// and displays result.
-// Leave emtpy if not needed.
-static inline void stats_end_frame() {
-   graphics_terminate();
-   uint64_t instret = 0;//E32ReadRetiredInstructions() - instret_start;
-   uint64_t cycles = 0;//E32ReadCycles()    - cycles_start ;
-   uint64_t kCPI       = cycles*1000/instret;
-   uint64_t pixels     = graphics_width * graphics_height;
-   uint64_t kRAYSTONES = (pixels*1000000000)/cycles;
-   printf("\n%dx%d      %s", graphics_width, graphics_height, bench_run ? "no gfx output (measurement is accurate)" : "gfx output (measurement is NOT accurate)");
-   printf("CPI=");
-   printk(kCPI);
-   printf("     RAYSTONES=");
-   printk(kRAYSTONES);
-   printf("\n");
 }
 
 // Normally you will not need to modify anything beyond that point.
@@ -396,8 +322,7 @@ static inline void render_pixel(
 	uint32_t addrs, uint32_t stride,
     int i, int j, Sphere* spheres, int nb_spheres, Light* lights, int nb_lights
 ) {
-   const float fov  = 3.14159265358979323846/3.;
-   stats_begin_pixel();
+   const float fov  = 3.14159265358979323846/6.;
    float dir_x =  (i + 0.5) - graphics_width/2.;
    float dir_y = -(j + 0.5) + graphics_height/2.; // this flips the image.
    float dir_z = -graphics_height/(2.*tan(fov/2.));
@@ -406,11 +331,9 @@ static inline void render_pixel(
        spheres, nb_spheres, lights, nb_lights, 0
    );
    graphics_set_pixel(addrs,stride,i,j,C.x,C.y,C.z);
-   //stats_end_pixel();
 }
 
 void render(Sphere* spheres, int nb_spheres, Light* lights, int nb_lights) {
-	stats_begin_frame();
 	uint32_t stride = VPUGetStride(EVM_320_480, ECM_16bit_RGB);
 #ifdef graphics_double_lines
    for (int j = 0; j<graphics_height; j+=2) {
@@ -426,7 +349,6 @@ void render(Sphere* spheres, int nb_spheres, Light* lights, int nb_lights) {
     }
   }
 #endif
-   //stats_end_frame();
 }
 
 int nb_spheres = 4;
