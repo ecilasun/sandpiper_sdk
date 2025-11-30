@@ -295,6 +295,8 @@ void VPUShiftPixel(struct EVideoContext *_context, uint8_t _offset)
  */
 void VPUSetVideoMode(struct EVideoContext *_context, const enum EVideoMode _mode, const enum EColorMode _cmode, const enum EVideoScanoutEnable _scanEnable)
 {
+	uint32_t videoModeSelect = ((_mode == EVM_320_240) || (_mode == EVM_320_480)) ? 0 : 1; // Pick between 320(0) and 640(1) wide modes
+
 	if (_context)
 	{
 		// Store for later
@@ -314,13 +316,13 @@ void VPUSetVideoMode(struct EVideoContext *_context, const enum EVideoMode _mode
 		_context->m_consoleUpdated = 0;
 
 		videowrite32(_context->m_platform, 0, VPUCMD_SETVMODE);
-		videowrite32(_context->m_platform, 0, MAKEVMODEINFO((uint32_t)_context->m_cmode, (uint32_t)_context->m_vmode, (uint32_t)_context->m_scanlineDoubling, (uint32_t)_scanEnable));
+		videowrite32(_context->m_platform, 0, MAKEVMODEINFO((uint32_t)_context->m_cmode, videoModeSelect, (uint32_t)_context->m_scanlineDoubling, (uint32_t)_scanEnable));
 	}
 	else
 	{
 		// Does not preserve state, mostly preferred during shutdown
 		videowrite32(_context->m_platform, 0, VPUCMD_SETVMODE);
-		videowrite32(_context->m_platform, 0, MAKEVMODEINFO((uint32_t)_cmode, (uint32_t)_mode, ((_mode == EVM_320_240) || (_mode == EVM_640_240)) ? EVD_Enable : EVD_Disable, (uint32_t)_scanEnable));
+		videowrite32(_context->m_platform, 0, MAKEVMODEINFO((uint32_t)_cmode, videoModeSelect, ((_mode == EVM_320_240) || (_mode == EVM_640_240)) ? EVD_Enable : EVD_Disable, (uint32_t)_scanEnable));
 	}
 }
 
@@ -858,7 +860,7 @@ uint32_t VPUGetStride(const enum EVideoMode _mode, const enum EColorMode _cmode)
     uint32_t stride = 0;
     if (_cmode == ECM_8bit_Indexed)
         stride = ((_mode == EVM_320_240) || (_mode == EVM_320_480)) ? 3 : 5;
-    else
+    else // ECM_16bit_RGB
         stride = ((_mode == EVM_320_240) || (_mode == EVM_320_480)) ? 5 : 10;
 
     return stride * 128;

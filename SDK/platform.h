@@ -77,9 +77,9 @@ enum EVCPBufferSize
 enum EVideoMode
 {
 	EVM_320_240,
+	EVM_640_480,
 	EVM_320_480,
 	EVM_640_240,
-	EVM_640_480,
 	EVM_Count
 };
 
