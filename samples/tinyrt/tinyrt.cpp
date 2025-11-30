@@ -322,10 +322,10 @@ static inline void render_pixel(
 	uint32_t addrs, uint32_t stride,
     int i, int j, Sphere* spheres, int nb_spheres, Light* lights, int nb_lights
 ) {
-   const float fov  = 3.14159265358979323846/2.;
+   const float fov  = 3.14159265358979323846/2.5;
    float dir_x =  (i + 0.5) - graphics_width/2.;
    float dir_y = -(j + 0.5) + graphics_height/2.; // this flips the image.
-   float dir_z = -graphics_height/(2.*tan(fov/2.));
+   float dir_z = -graphics_width/(2.*tan(fov/2.)); // Since we have a tall framebuffer this relates to width instead of height
    vec3 C = cast_ray(
        make_vec3(0,0,0), vec3_normalize(make_vec3(dir_x, dir_y, dir_z)),
        spheres, nb_spheres, lights, nb_lights, 0
