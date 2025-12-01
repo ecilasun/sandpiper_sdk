@@ -48,11 +48,20 @@ static constexpr int kScreenWidth = 320;
 static constexpr int kScreenHeight = 240;
 static constexpr int kSpectrumBaseline = 200;
 
+static constexpr uint8_t kBarGradient[] = { 235, 205, 165, 120, 90 };
+static constexpr int kGradientSteps = sizeof(kBarGradient) / sizeof(kBarGradient[0]);
+
 static inline uint8_t color_for_row(int16_t row)
 {
 	int16_t clamped = std::max<int16_t>(0, std::min<int16_t>(row, kSpectrumBaseline - 1));
 	int16_t depth = (kSpectrumBaseline - 1) - clamped;
-	return static_cast<uint8_t>(80 + (depth * 175) / (kSpectrumBaseline - 1));
+	int32_t scaled = static_cast<int32_t>(depth) * (kGradientSteps - 1);
+	int16_t segment = scaled / (kSpectrumBaseline - 1);
+	int16_t remainder = scaled % (kSpectrumBaseline - 1);
+	uint8_t start = kBarGradient[segment];
+	uint8_t end = kBarGradient[segment == kGradientSteps - 1 ? segment : segment + 1];
+	int32_t numerator = (static_cast<int32_t>(start) * ((kSpectrumBaseline - 1) - remainder)) + (static_cast<int32_t>(end) * remainder);
+	return static_cast<uint8_t>(numerator / (kSpectrumBaseline - 1));
 }
 
 // Fade old pixels and let a bit of energy drift downward for a dissolve effect
