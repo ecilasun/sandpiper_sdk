@@ -201,14 +201,10 @@ void tracePixel(stdi pi,stdi pj,t_pixel *pix)
   v3f  scr  = {pi/4 , pj/4, 0};  // screen point in world space
   v3f  eye  = {0,to_fixed(8),to_fixed(-64)}; // eye in world space
   v3f  v    = normalize( sub(scr,eye) );
-  int  pitch = 48;
-  stdi cs    = sine_table[(pitch+1024)&4095]<<(FP-12);
-  stdi ss    = sine_table[(pitch     )&4095]<<(FP-12);
-  v3f  vp    = {v.x,(fxmul(v.y,cs) - fxmul(v.z,ss)),(fxmul(v.y,ss) + fxmul(v.z,cs))};
-  int  yaw   = (g_time<<3) & 4095; // animate camera yaw using scene time
-  stdi ycs   = sine_table[(yaw+1024)&4095]<<(FP-12);
-  stdi yss   = sine_table[(yaw     )&4095]<<(FP-12);
-  v3f  vr    = { (fxmul(vp.x,ycs) - fxmul(vp.z,yss)), vp.y, (fxmul(vp.x,yss) + fxmul(vp.z,ycs)) };
+  int  a    = 48;
+  stdi cs   = sine_table[(a+1024)&4095]<<(FP-12);
+  stdi ss   = sine_table[(a     )&4095]<<(FP-12);
+  v3f  vr   = {v.x,(fxmul(v.y,cs) - fxmul(v.z,ss)),(fxmul(v.y,ss) + fxmul(v.z,cs))};
   // shoot ray
   t_ray r   = { eye, vr };
   t_hit h;
@@ -252,10 +248,10 @@ int main(int argc, char **argv)
 	s_platform->sc->framebufferA = &framebufferA;
 	s_platform->sc->framebufferB = &framebufferB;
 	VPUSwapPages(s_platform->vx, s_platform->sc);
-	VPUClear(s_platform->vx, 0x00000000);
 
 	while (1)
 	{
+		VPUClear(s_platform->vx, 0x00000000);
 		render(stride);
 
 		VPUWaitVSync(s_platform->vx);
