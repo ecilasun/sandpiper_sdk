@@ -10,6 +10,7 @@
 
 #include <complex>
 #include <cmath>
+#include <algorithm>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -42,6 +43,53 @@ std::complex<float> outputL[BUFFER_SAMPLE_COUNT];
 std::complex<float> outputR[BUFFER_SAMPLE_COUNT];
 int16_t barsL[256];
 int16_t barsR[256];
+
+static constexpr int kScreenWidth = 320;
+static constexpr int kScreenHeight = 240;
+static constexpr int kSpectrumBaseline = 200;
+
+static inline uint8_t color_for_row(int16_t row)
+{
+	int16_t clamped = std::max<int16_t>(0, std::min<int16_t>(row, kSpectrumBaseline - 1));
+	int16_t depth = (kSpectrumBaseline - 1) - clamped;
+	return static_cast<uint8_t>(80 + (depth * 175) / (kSpectrumBaseline - 1));
+}
+
+// Fade old pixels and let a bit of energy drift downward for a dissolve effect
+static void fade_framebuffer(uint8_t *page, uint32_t stride)
+{
+	constexpr uint8_t fadeStep = 2;
+	constexpr uint8_t dripShift = 3;
+
+	for (int y = 0; y < kScreenHeight - 1; ++y)
+	{
+		uint8_t *row = page + y * stride;
+		uint8_t *next = row + stride;
+		for (int x = 0; x < kScreenWidth; ++x)
+		{
+			uint8_t value = row[x];
+			if (!value)
+				continue;
+
+			uint8_t drip = value >> dripShift;
+			uint8_t decayed = value > fadeStep ? value - fadeStep : 0;
+			row[x] = decayed;
+
+			if (drip)
+			{
+				uint16_t combined = static_cast<uint16_t>(next[x]) + drip;
+				next[x] = combined > 255 ? 255 : static_cast<uint8_t>(combined);
+			}
+		}
+	}
+
+	uint8_t *lastRow = page + (kScreenHeight - 1) * stride;
+	for (int x = 0; x < kScreenWidth; ++x)
+	{
+		uint8_t value = lastRow[x];
+		lastRow[x] = value > fadeStep ? value - fadeStep : 0;
+	}
+}
 
 void fft(std::complex<float>* data)
 {
@@ -91,6 +139,9 @@ void *draw_wave(void *data)
 		// VPU's swapped pages, so should we
 		VPUSwapPages(s_platform->vx, s_platform->sc);
 
+		uint8_t *framebuffer = s_platform->sc->writepage;
+		fade_framebuffer(framebuffer, stride);
+
 		short* buf = (short*)apubuffer.cpuAddress;
 		for (size_t i = 0; i < BUFFER_SAMPLE_COUNT; ++i)
 		{
@@ -130,9 +181,9 @@ void *draw_wave(void *data)
 			{
 				if (logi+j >= 0 && logi+j < 320)
 				{
-					int16_t L = std::min<int16_t>(239, std::max<int16_t>(0, barsL[i]));
-					for (int16_t k=L; k<200; ++k)
-						s_platform->sc->writepage[16 + logi+j + k*stride] = 0x02;
+					int16_t L = std::min<int16_t>(kSpectrumBaseline - 1, std::max<int16_t>(0, barsL[i]));
+					for (int16_t k=L; k<kSpectrumBaseline; ++k)
+						framebuffer[16 + logi+j + k*stride] = color_for_row(k);
 				}
 			}
 
@@ -141,15 +192,12 @@ void *draw_wave(void *data)
 			{
 				if (logi+j >= 0 && logi+j < 320)
 				{
-					int16_t R = std::min<int16_t>(239, std::max<int16_t>(0, barsR[i]));
-					for (int16_t k=R; k<200; ++k)
-						s_platform->sc->writepage[304 - logi-j + k*stride] = 0x02;
+					int16_t R = std::min<int16_t>(kSpectrumBaseline - 1, std::max<int16_t>(0, barsR[i]));
+					for (int16_t k=R; k<kSpectrumBaseline; ++k)
+						framebuffer[304 - logi-j + k*stride] = color_for_row(k);
 				}
 			}
 		}
-
-		for (uint32_t i=0;i<320*240;++i)
-			s_platform->sc->writepage[i] = std::max(0, s_platform->sc->writepage[i]<<1);
 
 		// Let VPU handle the vsync and scanout swap
 		VPUSyncSwap(s_platform->vx, 0);
