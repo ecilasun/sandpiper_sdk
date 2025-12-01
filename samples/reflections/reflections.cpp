@@ -201,10 +201,14 @@ void tracePixel(stdi pi,stdi pj,t_pixel *pix)
   v3f  scr  = {pi/4 , pj/4, 0};  // screen point in world space
   v3f  eye  = {0,to_fixed(8),to_fixed(-64)}; // eye in world space
   v3f  v    = normalize( sub(scr,eye) );
-  int  a    = g_time & 4095; // tie camera rotation to animated time
-  stdi cs   = sine_table[(a+1024)&4095]<<(FP-12);
-  stdi ss   = sine_table[(a     )&4095]<<(FP-12);
-  v3f  vr   = {v.x,(fxmul(v.y,cs) - fxmul(v.z,ss)),(fxmul(v.y,ss) + fxmul(v.z,cs))};
+  int  pitch = 48;
+  stdi cs    = sine_table[(pitch+1024)&4095]<<(FP-12);
+  stdi ss    = sine_table[(pitch     )&4095]<<(FP-12);
+  v3f  vp    = {v.x,(fxmul(v.y,cs) - fxmul(v.z,ss)),(fxmul(v.y,ss) + fxmul(v.z,cs))};
+  int  yaw   = (g_time<<3) & 4095; // animate camera yaw using scene time
+  stdi ycs   = sine_table[(yaw+1024)&4095]<<(FP-12);
+  stdi yss   = sine_table[(yaw     )&4095]<<(FP-12);
+  v3f  vr    = { (fxmul(vp.x,ycs) - fxmul(vp.z,yss)), vp.y, (fxmul(vp.x,yss) + fxmul(vp.z,ycs)) };
   // shoot ray
   t_ray r   = { eye, vr };
   t_hit h;
