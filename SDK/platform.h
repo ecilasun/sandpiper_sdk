@@ -4,6 +4,13 @@
 #include <linux/limits.h>
 #include <sys/mman.h>
 
+// Small O(1) allocator parameters
+#define SP_ALLOC_ALIGNMENT     128U
+#define SP_ALLOC_MAX_ORDER     18U
+#define SP_ALLOC_ORDER_COUNT   (SP_ALLOC_MAX_ORDER + 1U)
+
+struct SPFreeBlock;
+
 // Base address of the reserved memory region
 #define RESERVED_MEMORY_ADDRESS	0x18000000
 
@@ -31,6 +38,7 @@ struct SPPlatform
 	volatile uint32_t *vcpio;
 	uint8_t* mapped_memory;
 	uint32_t alloc_cursor;
+	struct SPFreeBlock* freeLists[SP_ALLOC_ORDER_COUNT];
 	int sandpiperfd;
 
 	// Status

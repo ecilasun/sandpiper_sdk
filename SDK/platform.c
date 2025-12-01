@@ -1,3 +1,7 @@
+#ifndef _POSIX_C_SOURCE
+#define _POSIX_C_SOURCE 200809L
+#endif
+
 #include "core.h"
 #include "platform.h"
 #include <sys/ioctl.h> // For ioctl
@@ -7,12 +11,54 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <signal.h>
+#include <string.h>
 
 #include "vpu.h"
 #include "vcp.h"
 #include "apu.h"
 
 static struct SPPlatform* g_activePlatform = NULL;
+
+struct SPFreeBlock
+{
+	struct SPFreeBlock* next;
+};
+
+static inline uint32_t SPAlignSize(uint32_t size)
+{
+	return size ? E32AlignUp(size, SP_ALLOC_ALIGNMENT) : 0;
+}
+
+static int SPOrderForSize(uint32_t size)
+{
+	if (!size)
+		return -1;
+
+	uint32_t blockSize = SP_ALLOC_ALIGNMENT;
+	int order = 0;
+	while (order <= (int)SP_ALLOC_MAX_ORDER)
+	{
+		if (blockSize >= size)
+			return order;
+		blockSize <<= 1;
+		order++;
+	}
+
+	return -1;
+}
+
+static inline uint32_t SPBlockSizeForOrder(uint32_t order)
+{
+	return SP_ALLOC_ALIGNMENT << order;
+}
+
+static volatile uint32_t* SPPointerFromIoctl(uint32_t value)
+{
+	uintptr_t addr = (uintptr_t)value;
+	if (!addr)
+		return NULL;
+	return (volatile uint32_t*)addr;
+}
 
 // ioctl numbers for sandpiper device
 #define SP_IOCTL_GET_VIDEO_CTL		_IOR('k', 0, void*)
@@ -66,6 +112,7 @@ void shutdowncleanup()
  */
 static void signal_handler(int s)
 {
+	(void)s;
 	// We don't currently care about which signal was received and simply shut down the platform
 	shutdowncleanup();
 	exit(0);
@@ -88,12 +135,14 @@ struct SPPlatform* SPInitPlatform()
 	platform->paletteio = (uint32_t*)MAP_FAILED;
 	platform->vcpio = (uint32_t*)MAP_FAILED;
 	platform->mapped_memory = (uint8_t*)MAP_FAILED;
-	platform->alloc_cursor = 0x96000; // The cursor has to stay outside the framebuffer region, which is 640*480*2 bytes in size.
+	// The cursor has to stay outside the framebuffer region, which is 640*480*2 bytes in size.
+	platform->alloc_cursor = E32AlignUp(0x96000, SP_ALLOC_ALIGNMENT);
 	platform->sandpiperfd = -1;
 	platform->vx = 0;
 	platform->ac = 0;
 	platform->sc = 0;
 	platform->ready = 0;
+	memset(platform->freeLists, 0, sizeof(platform->freeLists));
 
 	int err = 0;
 
@@ -124,7 +173,7 @@ struct SPPlatform* SPInitPlatform()
 		err = 1;
 	}
 	else
-		platform->audioio = (volatile uint32_t*)ioctlstruct.value;
+		platform->audioio = SPPointerFromIoctl(ioctlstruct.value);
 
 	// Grab the contol registers for video device
 	ioctlstruct.offset = 0;
@@ -136,7 +185,7 @@ struct SPPlatform* SPInitPlatform()
 		err = 1;
 	}
 	else
-		platform->videoio = (volatile uint32_t*)ioctlstruct.value;
+		platform->videoio = SPPointerFromIoctl(ioctlstruct.value);
 
 	// Grab the contol registers for palette device
 	ioctlstruct.offset = 0;
@@ -148,7 +197,7 @@ struct SPPlatform* SPInitPlatform()
 		err = 1;
 	}
 	else
-		platform->paletteio = (volatile uint32_t*)ioctlstruct.value;
+		platform->paletteio = SPPointerFromIoctl(ioctlstruct.value);
 
 	// Grab the contol registers for VCP (this is inside VPU for now)
 	ioctlstruct.offset = 0;
@@ -160,7 +209,7 @@ struct SPPlatform* SPInitPlatform()
 		err = 1;
 	}
 	else
-		platform->vcpio = (volatile uint32_t*)ioctlstruct.value;
+		platform->vcpio = SPPointerFromIoctl(ioctlstruct.value);
 
 	if (!err)
 	{
@@ -262,11 +311,12 @@ void SPShutdownPlatform(struct SPPlatform* _platform)
 		free(_platform->sc);
 	_platform->sc = 0;
 
-	_platform->alloc_cursor = 0x96000;
+	_platform->alloc_cursor = E32AlignUp(0x96000, SP_ALLOC_ALIGNMENT);
 	_platform->audioio = 0;
 	_platform->videoio = 0;
 	_platform->paletteio = 0;
 	_platform->vcpio = 0;
+	memset(_platform->freeLists, 0, sizeof(_platform->freeLists));
 }
 
 /*
@@ -291,31 +341,52 @@ void SPGetConsoleFramebuffer(struct SPPlatform* _platform, struct SPSizeAlloc* _
  */
 int SPAllocateBuffer(struct SPPlatform* _platform, struct SPSizeAlloc* _sizealloc)
 {
-	if (_platform->mapped_memory != (uint8_t*)MAP_FAILED)
+	if (!_platform || !_sizealloc || _platform->mapped_memory == (uint8_t*)MAP_FAILED)
 	{
-		uint32_t alignedSize = E32AlignUp(_sizealloc->size, 128);
-
-		// Add bounds checking
-		if (_platform->alloc_cursor + alignedSize > RESERVED_MEMORY_SIZE)
+		if (_sizealloc)
 		{
 			_sizealloc->cpuAddress = NULL;
 			_sizealloc->dmaAddress = NULL;
-			return -1; // Indicate allocation failure due to out of memory
 		}
-
-		_sizealloc->cpuAddress = _platform->mapped_memory + _platform->alloc_cursor;
-		_sizealloc->dmaAddress = (uint8_t*)RESERVED_MEMORY_ADDRESS + _platform->alloc_cursor;
-		_platform->alloc_cursor += alignedSize;
-
-		return 0;
+		return -1;
 	}
-	else
+
+	uint32_t alignedSize = SPAlignSize(_sizealloc->size);
+	int order = SPOrderForSize(alignedSize);
+	if (order < 0)
 	{
 		_sizealloc->cpuAddress = NULL;
 		_sizealloc->dmaAddress = NULL;
-
 		return -1;
 	}
+
+	uint32_t bucket = (uint32_t)order;
+	uint32_t blockSize = SPBlockSizeForOrder(bucket);
+	struct SPFreeBlock* block = _platform->freeLists[bucket];
+
+	if (block)
+	{
+		_platform->freeLists[bucket] = block->next;
+	}
+	else
+	{
+		if (_platform->alloc_cursor + blockSize > RESERVED_MEMORY_SIZE)
+		{
+			_sizealloc->cpuAddress = NULL;
+			_sizealloc->dmaAddress = NULL;
+			return -1;
+		}
+
+		block = (struct SPFreeBlock*)(_platform->mapped_memory + _platform->alloc_cursor);
+		_platform->alloc_cursor += blockSize;
+	}
+
+	uint8_t* cpuAddress = (uint8_t*)block;
+	uintptr_t offset = (uintptr_t)(cpuAddress - _platform->mapped_memory);
+	_sizealloc->cpuAddress = cpuAddress;
+	_sizealloc->dmaAddress = (uint8_t*)RESERVED_MEMORY_ADDRESS + offset;
+	_sizealloc->size = blockSize;
+	return 0;
 }
 
 /*
@@ -324,5 +395,32 @@ int SPAllocateBuffer(struct SPPlatform* _platform, struct SPSizeAlloc* _sizeallo
  */
 void SPFreeBuffer(struct SPPlatform* _platform, struct SPSizeAlloc *_sizealloc)
 {
-	// TODO
+	if (!_platform || !_sizealloc || !_sizealloc->cpuAddress || !_sizealloc->size)
+		return;
+
+	if (_platform->mapped_memory == (uint8_t*)MAP_FAILED)
+		return;
+
+	uint8_t* cpuAddress = _sizealloc->cpuAddress;
+	uint8_t* regionStart = _platform->mapped_memory;
+	uint8_t* regionEnd = regionStart + RESERVED_MEMORY_SIZE;
+	if (cpuAddress < regionStart || cpuAddress >= regionEnd)
+		return;
+
+	uintptr_t offset = (uintptr_t)(cpuAddress - regionStart);
+	if ((offset & (SP_ALLOC_ALIGNMENT - 1U)) != 0)
+		return;
+
+	uint32_t alignedSize = SPAlignSize(_sizealloc->size);
+	int order = SPOrderForSize(alignedSize);
+	if (order < 0)
+		return;
+
+	struct SPFreeBlock* block = (struct SPFreeBlock*)cpuAddress;
+	block->next = _platform->freeLists[order];
+	_platform->freeLists[order] = block;
+
+	_sizealloc->cpuAddress = NULL;
+	_sizealloc->dmaAddress = NULL;
+	_sizealloc->size = 0;
 }
