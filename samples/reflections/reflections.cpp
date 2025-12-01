@@ -201,7 +201,7 @@ void tracePixel(stdi pi,stdi pj,t_pixel *pix)
   v3f  scr  = {pi/4 , pj/4, 0};  // screen point in world space
   v3f  eye  = {0,to_fixed(8),to_fixed(-64)}; // eye in world space
   v3f  v    = normalize( sub(scr,eye) );
-  int  a    = 48;
+  int  a    = g_time & 4095; // tie camera rotation to animated time
   stdi cs   = sine_table[(a+1024)&4095]<<(FP-12);
   stdi ss   = sine_table[(a     )&4095]<<(FP-12);
   v3f  vr   = {v.x,(fxmul(v.y,cs) - fxmul(v.z,ss)),(fxmul(v.y,ss) + fxmul(v.z,cs))};
