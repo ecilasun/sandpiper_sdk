@@ -18,6 +18,7 @@
 #include <signal.h>
 #include <pthread.h>
 #include <atomic>
+#include <arm_neon.h>
 
 #include "core.h"
 #include "platform.h"
@@ -94,6 +95,95 @@ void mandelbrotFloat(uint32_t tid, uint32_t stride, uint16_t* frame, float ox, f
 	// if( di>0.5 ) d=0.0;
 }
 
+void evalMandelNEON(const int maxiter, int startCol, int row, float ox, float oy, float sx, uint16_t* outColors)
+{
+    // Process 4 pixels at once (startCol, startCol+1, startCol+2, startCol+3)
+    float32x4_t col_offset = {0.f, 1.f, 2.f, 3.f};
+    float32x4_t cols = vaddq_f32(vdupq_n_f32((float)startCol), col_offset);
+    
+    // c_re = (col - 160) / 240 * sx + ox
+    float32x4_t c_re = vaddq_f32(
+        vmulq_n_f32(
+            vmulq_n_f32(vsubq_f32(cols, vdupq_n_f32(160.f)), 1.f/240.f),
+            sx),
+        vdupq_n_f32(ox));
+    
+    // c_im = (row - 120) / 240 * sx + oy (same for all 4 pixels)
+    float32x4_t c_im = vdupq_n_f32((float(row) - 120.f) / 240.f * sx + oy);
+    
+    float32x4_t x = vdupq_n_f32(0.f);
+    float32x4_t y = vdupq_n_f32(0.f);
+    float32x4_t x2 = vdupq_n_f32(0.f);
+    float32x4_t y2 = vdupq_n_f32(0.f);
+    float32x4_t iteration = vdupq_n_f32(0.f);
+    
+    float32x4_t four = vdupq_n_f32(4.f);
+    float32x4_t one = vdupq_n_f32(1.f);
+    float32x4_t two = vdupq_n_f32(2.f);
+    float32x4_t maxiter_v = vdupq_n_f32((float)maxiter);
+    
+    for (int i = 0; i < maxiter; i++)
+    {
+        // Check which lanes are still active: (x2+y2 < 4) && (iteration < maxiter)
+        float32x4_t mag = vaddq_f32(x2, y2);
+        uint32x4_t not_escaped = vcltq_f32(mag, four);
+        uint32x4_t not_done = vcltq_f32(iteration, maxiter_v);
+        uint32x4_t active = vandq_u32(not_escaped, not_done);
+        
+        // Early exit if all 4 pixels have escaped (ARMv7 compatible)
+        uint32x2_t active_reduced = vorr_u32(vget_low_u32(active), vget_high_u32(active));
+        if ((vget_lane_u32(active_reduced, 0) | vget_lane_u32(active_reduced, 1)) == 0) break;
+        
+        // y = c_im + 2*x*y
+        float32x4_t new_y = vaddq_f32(c_im, vmulq_f32(two, vmulq_f32(x, y)));
+        // x = c_re + x2 - y2
+        float32x4_t new_x = vaddq_f32(c_re, vsubq_f32(x2, y2));
+        
+        // Only update active lanes
+        x = vbslq_f32(active, new_x, x);
+        y = vbslq_f32(active, new_y, y);
+        x2 = vbslq_f32(active, vmulq_f32(x, x), x2);
+        y2 = vbslq_f32(active, vmulq_f32(y, y), y2);
+        
+        // Increment iteration only for active lanes
+        iteration = vaddq_f32(iteration, vreinterpretq_f32_u32(vandq_u32(active, vreinterpretq_u32_f32(one))));
+    }
+    
+    // Convert iterations to colors (4 pixels)
+    float32x4_t ratio = vmulq_n_f32(iteration, 31.f / (float)maxiter);
+    int32x4_t colors_i = vcvtq_s32_f32(ratio);
+    
+    // Store the 4 color values
+    int32_t c[4];
+    vst1q_s32(c, colors_i);
+    
+    for (int i = 0; i < 4; i++) {
+        outColors[i] = MAKECOLORRGB16(c[i], c[i], c[i]);
+    }
+}
+
+void mandelbrotFloatNEON(uint32_t tid, uint32_t stride, uint16_t* frame, float ox, float oy, float sx, int tilex, int tiley)
+{
+    float ratio = 27.71f - 5.156f * logf(sx);
+    int maxiter = (int)ratio;
+
+    for (int y = 0; y < 16; ++y)
+    {
+        int row = y + tiley * 16;
+        for (int x = 0; x < 16; x += 4)  // Process 4 pixels per iteration
+        {
+            int col = x + tilex * 16;
+            uint16_t colors[4];
+            evalMandelNEON(maxiter, col, row, ox, oy, sx, colors);
+            
+            // Write 4 pixels
+            for (int i = 0; i < 4; i++) {
+                frame[col + i + (row * stride >> 1)] = colors[i];
+            }
+        }
+    }
+}
+
 void* mandelbrot(void* arg)
 {
 	SThreadData* data = (SThreadData*)arg;
@@ -108,7 +198,7 @@ void* mandelbrot(void* arg)
 			int tilex = data->tilex;
 			int tiley = data->tiley;
 			float R = data->R;
-			mandelbrotFloat(data->tid, stride, (uint16_t*)data->platform->sc->writepage, X, Y, R, tilex, tiley);
+			mandelbrotFloatNEON(data->tid, stride, (uint16_t*)data->platform->sc->writepage, X, Y, R, tilex, tiley);
 			data->go.store(false);
 		}
 
