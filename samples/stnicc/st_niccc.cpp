@@ -16,6 +16,7 @@
 #include "vpu.h"
 #include "io.h"
 
+#include <arm_neon.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -126,9 +127,37 @@ void gfx_fillpoly(uint8_t* buffer, uint32_t stride, int nb_pts, int* points, uin
 		}
 	}
 
+	// optimized scanline fill - process 16 pixels at a time
+	uint8x16_t color16 = vdupq_n_u8(color);
+
 	for(int y = miny; y <= maxy; ++y)
-		for(int x = x_left[y]; x <= x_right[y]; ++x)
-			buffer[(16 + y) * stride + x + 32] = color;
+	{
+		int xl = x_left[y];
+		int xr = x_right[y];
+		uint8_t* row = buffer + (16 + y) * stride + 32;
+		int x = xl;
+
+		// Fill unaligned head pixels one at a time
+		while(x <= xr && ((uintptr_t)(row + x) & 15) != 0)
+		{
+			row[x] = color;
+			x++;
+		}
+
+		// Fill 16 pixels at a time with NEON
+		while(x + 15 <= xr)
+		{
+			vst1q_u8(row + x, color16);
+			x += 16;
+		}
+
+		// Fill remaining tail pixels one at a time
+		while(x <= xr)
+		{
+			row[x] = color;
+			x++;
+		}
+	}
 }
 
 int main(int argc, char** argv)
