@@ -49,6 +49,8 @@ void InitThreadData(SThreadData* data, struct SPPlatform* platform, struct SPSiz
 	data->go.store(false);
 }
 
+/*
+// Oldschool non-NEON version
 float evalMandel(const int maxiter, int col, int row, float ox, float oy, float sx)
 {
 	float iteration = 0.f;
@@ -93,7 +95,7 @@ void mandelbrotFloat(uint32_t tid, uint32_t stride, uint16_t* frame, float ox, f
 	// d(c) = |Z|·log|Z|/|Z'|
 	// float d = 0.5*sqrt(dot(z,z)/dot(dz,dz))*log(dot(z,z));
 	// if( di>0.5 ) d=0.0;
-}
+}*/
 
 void evalMandelNEON(const int maxiter, int startCol, int row, float ox, float oy, float sx, uint16_t* outColors)
 {
