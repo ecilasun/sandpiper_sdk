@@ -83,6 +83,10 @@ int main()
 	printf("starting platform code\n");
 	s_platform = SPInitPlatform();
 
+	// Set up the video mode and frame pointers
+	printf("setting video mode\n");
+	VPUSetVideoMode(s_platform->vx, EVM_320_240, ECM_8bit_Indexed, EVS_Enable);
+
 	// Grab video buffer
 	printf("Allocating video buffers\n");
 	uint32_t stride = VPUGetStride(EVM_320_240, ECM_8bit_Indexed);
@@ -91,16 +95,12 @@ int main()
 	SPAllocateBuffer(s_platform, &framebufferA);
 	SPAllocateBuffer(s_platform, &framebufferB);
 
-	// Set up the video mode and frame pointers
-	printf("setting video mode\n");
-	VPUSetVideoMode(s_platform->vx, EVM_320_240, ECM_8bit_Indexed, EVS_Enable);
-
 	struct EVideoSwapContext* sc = s_platform->sc;
-	sc->cycle = 0;
-	sc->framebufferA = &framebufferA;
-	sc->framebufferB = &framebufferB;
-	VPUSwapPages(s_platform->vx, sc);
-	VPUClear(s_platform->vx, 0x00000000);
+	VPUSetScanoutAddress(s_platform->vx, (uint32_t)framebufferA.dmaAddress);
+	VPUSetScanoutAddress2(s_platform->vx, (uint32_t)framebufferA.dmaAddress);
+	s_platform->sc->cycle = 0;
+	s_platform->sc->framebufferA = &framebufferA;
+	s_platform->sc->framebufferB = &framebufferA;
 
 	// Grayscale palette
 	printf("setting palette\n");
@@ -114,6 +114,9 @@ int main()
 
 	while(1)
 	{
+		while(VPUGetFIFONotEmpty(s_platform->vx)) { }
+		VPUSwapPages(s_platform->vx, s_platform->sc);
+
 		juliaTile(s_platform->sc->writepage, stride);
 
 		tilex++;
@@ -130,12 +133,6 @@ int main()
 			if (x_c < XCmin || x_c > XCmax) { x_c_i = - x_c_i; }
 			y_c += y_c_i;
 			if (y_c < YCmin || y_c > YCmax) { y_c_i = - y_c_i; }
-
-			// Ensure VPU fifo is empty
-			while(VPUGetFIFONotEmpty(s_platform->vx)) { }
-
-			// Swap buffers
-			VPUSwapPages(s_platform->vx, s_platform->sc);
 
 			// Add a buffer swap commmand to the VPU timeline
 			VPUSyncSwap(s_platform->vx, 0);
