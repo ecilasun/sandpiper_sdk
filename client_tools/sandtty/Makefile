@@ -12,7 +12,7 @@ corelib_dir = ../SDK
 
 ARM_GCC ?= gcc
 
-ARM_GCC_OPTS += -Wall -Wextra -Ofast -flto -mcpu=cortex-a9 -mfpu=vfpv3 -mfloat-abi=hard
+ARM_GCC_OPTS += -Wall -Wextra -Ofast -flto -mcpu=cortex-a9 -mfpu=neon -mfloat-abi=hard
 ARM_GCC_LIBS += -lutil -lgcc -lc -lm
 
 incs += -I$(src_dir) -I$(corelib_dir) $(addprefix -I$(src_dir)/, $(folders))

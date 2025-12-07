@@ -33,7 +33,7 @@ else
 ARM_GCC ?= arm-amd-linux-gnueabi-g++
 endif
 
-ARM_GCC_OPTS += -std=c++20 -Ofast -flto -mcpu=cortex-a9 -mfpu=vfpv3 -mfloat-abi=hard
+ARM_GCC_OPTS += -std=c++20 -Ofast -flto -mcpu=cortex-a9 -mfpu=neon -mfloat-abi=hard
 ARM_GCC_LIBS += -lgcc -lc -lm -L../../3rdparty/nanojpeg -lnanojpeg
 
 incs  += -I$(src_dir) -I$(corelib_dir) -I$(jpglib_dir)/ $(addprefix -I$(src_dir)/, $(folders))

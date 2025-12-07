@@ -29,7 +29,7 @@ else
 ARM_GCC ?= gcc
 endif
 
-ARM_GCC_OPTS += -c -mcpu=cortex-a9 -mfpu=vfpv3 -mfloat-abi=hard
+ARM_GCC_OPTS += -c -mcpu=cortex-a9 -mfpu=neon -mfloat-abi=hard
 ARM_GCC_OPTS += -DLIBXMP_NO_DEPACKERS -DLIBXMP_CORE_PLAYER -Wno-narrowing
 
 incs += -I$(src_dir) -I$(inc_dir) $(addprefix -I$(src_dir)/, $(folders))

@@ -21,7 +21,7 @@ else
 ARM_GCC ?= arm-amd-linux-gnueabi-gcc
 endif
 
-ARM_GCC_OPTS += -std=gnu99 -Ofast -flto -mcpu=cortex-a9 -mfpu=vfpv3 -mfloat-abi=hard
+ARM_GCC_OPTS += -std=gnu99 -Ofast -flto -mcpu=cortex-a9 -mfpu=neon -mfloat-abi=hard
 
 CFLAGS += \
 	-DNORMALUNIX \
