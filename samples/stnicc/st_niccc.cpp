@@ -127,35 +127,60 @@ void gfx_fillpoly(uint8_t* buffer, uint32_t stride, int nb_pts, int* points, uin
 		}
 	}
 
-	// optimized scanline fill - process 16 pixels at a time
+	// Optimized scanline fill with 32-byte NEON stores
 	uint8x16_t color16 = vdupq_n_u8(color);
 
 	for(int y = miny; y <= maxy; ++y)
 	{
 		int xl = x_left[y];
 		int xr = x_right[y];
+		if(xl > xr) continue; // Skip degenerate spans
+
 		uint8_t* row = buffer + (16 + y) * stride + 32;
 		int x = xl;
+		int width = xr - xl + 1;
 
-		// Fill unaligned head pixels one at a time
-		while(x <= xr && ((uintptr_t)(row + x) & 15) != 0)
+		// Fill unaligned head pixels (up to 15 bytes to reach 16-byte alignment)
+		while(width > 0 && ((uintptr_t)(row + x) & 15) != 0)
 		{
-			row[x] = color;
-			x++;
+			row[x++] = color;
+			width--;
 		}
 
-		// Fill 16 pixels at a time with NEON
-		while(x + 15 <= xr)
+		// Fill 64 pixels at a time (4x16 bytes) - major speedup for wide spans
+		while(width >= 64)
+		{
+			uint8_t* ptr = row + x;
+			vst1q_u8(ptr,      color16);
+			vst1q_u8(ptr + 16, color16);
+			vst1q_u8(ptr + 32, color16);
+			vst1q_u8(ptr + 48, color16);
+			x += 64;
+			width -= 64;
+		}
+
+		// Fill 16 pixels at a time
+		while(width >= 16)
 		{
 			vst1q_u8(row + x, color16);
 			x += 16;
+			width -= 16;
 		}
 
-		// Fill remaining tail pixels one at a time
-		while(x <= xr)
+		// Fill remaining tail pixels using a small unrolled loop
+		while(width >= 4)
 		{
-			row[x] = color;
-			x++;
+			row[x]   = color;
+			row[x+1] = color;
+			row[x+2] = color;
+			row[x+3] = color;
+			x += 4;
+			width -= 4;
+		}
+		while(width > 0)
+		{
+			row[x++] = color;
+			width--;
 		}
 	}
 }
