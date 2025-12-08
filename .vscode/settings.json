@@ -5,7 +5,6 @@
 		"platform.h": "c",
 		"signal.h": "c",
 		"stdint.h": "c",
-		"doomdef.h": "c",
 		"fb.h": "c",
 		"*.q1": "c",
 		"*.q2": "c",
