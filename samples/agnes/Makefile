@@ -35,6 +35,9 @@ endif
 
 ARM_GCC_OPTS += -std=c++20 -Ofast -flto -mcpu=cortex-a9 -mfpu=neon -mfloat-abi=hard
 ARM_GCC_OPTS += -DLIBXMP_NO_DEPACKERS -DLIBXMP_CORE_PLAYER -Wno-narrowing
+ARM_GCC_OPTS += -fdata-sections -ffunction-sections -fomit-frame-pointer -fno-math-errno -fno-trapping-math -fstrict-aliasing -pipe -DNDEBUG
+ARM_GCC_OPTS += -falign-functions=16 -falign-loops=16
+ARM_LD_OPTS  += -Wl,--gc-sections
 ARM_GCC_LIBS += -lgcc -lc -lm -pthread -L../../3rdparty/libxmp/ -lxmp 
 
 incs  += -I$(src_dir) -I$(corelib_dir) -I$(libxmp)/include/ -I$(libxmp)/src/ $(addprefix -I$(src_dir)/, $(folders))
@@ -43,7 +46,7 @@ libs += $(wildcard $(corelib_dir)/*.c)
 $(foreach folder,$(folders),$(eval $(call compile_template,$(folder))))
 
 $(TARGET): $(wildcard $(src_dir)/*)
-	$(ARM_GCC) $(ARM_GCC_OPTS) $(incs) -o $@ $(wildcard $(src_dir)/*.c) $(libs) $(ARM_GCC_LIBS)
+	$(ARM_GCC) $(ARM_GCC_OPTS) $(ARM_LD_OPTS) $(incs) -o $@ $(wildcard $(src_dir)/*.c) $(libs) $(ARM_GCC_LIBS)
 
 .PHONY: clean
 clean:

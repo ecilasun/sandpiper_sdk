@@ -2,6 +2,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <fcntl.h>
 #include <poll.h>
 #include <unistd.h>
@@ -42,6 +43,8 @@ static void restore_terminal(void) {
 #define AUDIO_SAMPLE_RATE 22050.0
 #define AUDIO_BUFFER_SAMPLES 512
 #define AUDIO_BUFFER_BYTES (AUDIO_BUFFER_SAMPLES * sizeof(short) * 2)  // Stereo 16-bit
+#define AUDIO_ACCUM_SAMPLES (AUDIO_BUFFER_SAMPLES * 4)                  // Ring buffer size (power-of-two)
+#define AUDIO_SCALE 28000.0f
 
 // Set to 1 to generate a test tone instead of NES audio (for debugging)
 #define AUDIO_TEST_TONE 0
@@ -54,9 +57,44 @@ struct SPSizeAlloc audioBuffer;
 // Float buffer for accumulating NES audio samples
 static float s_nesAudioBuffer[AUDIO_BUFFER_SAMPLES * 2];  // Extra space for accumulation
 
-// Audio accumulation buffer for continuous playback
-static float s_audioAccumBuffer[AUDIO_BUFFER_SAMPLES * 4];
-static uint32_t s_audioAccumIndex = 0;
+// Audio accumulation ring buffer for continuous playback
+static float s_audioAccumBuffer[AUDIO_ACCUM_SAMPLES];
+static uint32_t s_audioWriteIndex = 0;
+static uint32_t s_audioReadIndex = 0;
+static uint32_t s_audioFrame = 0;
+static bool s_dmaQueued = false;
+
+static inline uint32_t audio_available(void)
+{
+	return (s_audioWriteIndex - s_audioReadIndex) & (AUDIO_ACCUM_SAMPLES - 1);
+}
+
+static inline void audio_push_sample(float sample)
+{
+	uint32_t next = (s_audioWriteIndex + 1) & (AUDIO_ACCUM_SAMPLES - 1);
+	if (next == s_audioReadIndex)
+	{
+		return; // Drop if full to avoid blocking; rare with current sizing
+	}
+	s_audioAccumBuffer[s_audioWriteIndex] = sample;
+	s_audioWriteIndex = next;
+}
+
+static inline float audio_pop_sample(void)
+{
+	float v = s_audioAccumBuffer[s_audioReadIndex];
+	s_audioReadIndex = (s_audioReadIndex + 1) & (AUDIO_ACCUM_SAMPLES - 1);
+	return v;
+}
+
+static inline int16_t float_to_i16(float sample)
+{
+	if (sample > 1.0f) sample = 1.0f;
+	if (sample < -1.0f) sample = -1.0f;
+	return (int16_t)(sample * AUDIO_SCALE);
+}
+
+static_assert((AUDIO_ACCUM_SAMPLES & (AUDIO_ACCUM_SAMPLES - 1)) == 0, "AUDIO_ACCUM_SAMPLES must be power of two");
 
 static void* read_file(const char *filename, size_t *out_len);
 
@@ -135,6 +173,8 @@ int main(int argc, char** argv)
 	// Configure the platform APU
 	APUSetBufferSize(s_platform->ac, ABS_2048Bytes);  // 512 stereo samples
 	APUSetSampleRate(s_platform->ac, ASR_22_050_Hz);
+	s_audioFrame = APUFrame(s_platform->ac);
+	s_dmaQueued = false;
 
 	// Configure NES APU audio output - use larger buffer for frame samples
 	agnes_set_audio_sample_rate(s_agnes, AUDIO_SAMPLE_RATE);
@@ -215,38 +255,36 @@ int main(int argc, char** argv)
 #else
 		// Get samples generated this frame
 		uint32_t samples = agnes_get_audio_samples(s_agnes);
-		
-		// Accumulate samples from NES APU
-		for (uint32_t i = 0; i < samples && s_audioAccumIndex < AUDIO_BUFFER_SAMPLES * 4; i++)
+
+		// Push samples into ring buffer
+		for (uint32_t i = 0; i < samples; i++)
 		{
-			s_audioAccumBuffer[s_audioAccumIndex++] = s_nesAudioBuffer[i];
+			audio_push_sample(s_nesAudioBuffer[i]);
 		}
-		
-		// When we have enough samples, send a buffer
-		if (s_audioAccumIndex >= AUDIO_BUFFER_SAMPLES)
+
+		// When enough samples are available, send a buffer
+		// Only queue when the hardware has swapped to the other half
+		uint32_t currentFrame = APUFrame(s_platform->ac);
+		if (s_dmaQueued && currentFrame != s_audioFrame)
 		{
-			// Convert float mono to 16-bit stereo
-			// APU already applies high-pass filter for click reduction
+			s_audioFrame = currentFrame;
+			s_dmaQueued = false;
+		}
+
+		while (!s_dmaQueued && audio_available() >= AUDIO_BUFFER_SAMPLES)
+		{
 			for (uint32_t i = 0; i < AUDIO_BUFFER_SAMPLES; i++)
 			{
-				int16_t sample = (int16_t)(s_audioAccumBuffer[i] * 28000.0f);
+				int16_t sample = float_to_i16(audio_pop_sample());
 				audioDest[i * 2 + 0] = sample;  // Left channel
 				audioDest[i * 2 + 1] = sample;  // Right channel
 			}
 
-			// Send audio to APU DMA
+			// Send audio to APU DMA and mark as queued; the hardware will flip halves
 			APUStartDMA(s_platform->ac, (uint32_t)audioBuffer.dmaAddress);
-			APUWaitSync(s_platform->ac);
-			
-			// Shift remaining samples to front of accumulator using memmove
-			uint32_t remaining = s_audioAccumIndex - AUDIO_BUFFER_SAMPLES;
-			if (remaining > 0)
-			{
-				memmove(s_audioAccumBuffer, &s_audioAccumBuffer[AUDIO_BUFFER_SAMPLES], remaining * sizeof(float));
-			}
-			s_audioAccumIndex = remaining;
+			s_dmaQueued = true;
 		}
-		
+
 		// Reset the NES audio buffer for next frame
 		agnes_reset_audio_buffer(s_agnes);
 #endif
