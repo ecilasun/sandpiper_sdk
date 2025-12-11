@@ -82,6 +82,12 @@ agnes_color_t agnes_get_screen_pixel(const agnes_t *agnes, int x, int y);
 uint32_t agnes_get_raw_screen_pixel4(const agnes_t *agnes, int x, int y);
 uint8_t *agnes_get_raw_screen_buffer(const agnes_t *agnes);
 
+// Audio functions
+void agnes_set_audio_sample_rate(agnes_t *agnes, double sample_rate);
+void agnes_set_audio_buffer(agnes_t *agnes, float *buffer, uint32_t size);
+uint32_t agnes_get_audio_samples(agnes_t *agnes);
+void agnes_reset_audio_buffer(agnes_t *agnes);
+
 #ifdef __cplusplus
 }
 #endif

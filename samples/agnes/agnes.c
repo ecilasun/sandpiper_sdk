@@ -160,6 +160,145 @@ typedef struct ppu {
     int sprite_ixs_count;
 } ppu_t;
 
+/************************************ APU ************************************/
+
+// Length counter lookup table
+static const uint8_t apu_length_table[32] = {
+    10, 254, 20, 2, 40, 4, 80, 6, 160, 8, 60, 10, 14, 12, 26, 14,
+    12, 16, 24, 18, 48, 20, 96, 22, 192, 24, 72, 26, 16, 28, 32, 30
+};
+
+// Duty cycle sequences for pulse channels
+static const uint8_t apu_duty_table[4][8] = {
+    {0, 1, 0, 0, 0, 0, 0, 0}, // 12.5%
+    {0, 1, 1, 0, 0, 0, 0, 0}, // 25%
+    {0, 1, 1, 1, 1, 0, 0, 0}, // 50%
+    {1, 0, 0, 1, 1, 1, 1, 1}  // 25% negated
+};
+
+// Triangle waveform sequence
+static const uint8_t apu_triangle_table[32] = {
+    15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0,
+    0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
+};
+
+// Noise period lookup table (NTSC)
+static const uint16_t apu_noise_table[16] = {
+    4, 8, 16, 32, 64, 96, 128, 160, 202, 254, 380, 508, 762, 1016, 2034, 4068
+};
+
+// DMC rate lookup table (NTSC)
+static const uint16_t apu_dmc_table[16] = {
+    428, 380, 340, 320, 286, 254, 226, 214, 190, 160, 142, 128, 106, 84, 72, 54
+};
+
+typedef struct apu_pulse {
+    bool enabled;
+    uint8_t duty;
+    bool loop_envelope;  // also length counter halt
+    bool constant_volume;
+    uint8_t volume;      // also envelope divider period
+    
+    bool sweep_enabled;
+    uint8_t sweep_period;
+    bool sweep_negate;
+    uint8_t sweep_shift;
+    bool sweep_reload;
+    uint8_t sweep_divider;
+    
+    uint16_t timer_period;
+    uint16_t timer_value;
+    uint8_t duty_pos;
+    
+    uint8_t length_counter;
+    
+    uint8_t envelope_divider;
+    uint8_t envelope_counter;
+    bool envelope_start;
+} apu_pulse_t;
+
+typedef struct apu_triangle {
+    bool enabled;
+    bool control_flag;   // also length counter halt
+    uint8_t linear_load;
+    
+    uint16_t timer_period;
+    uint16_t timer_value;
+    uint8_t sequence_pos;
+    
+    uint8_t length_counter;
+    uint8_t linear_counter;
+    bool linear_reload;
+} apu_triangle_t;
+
+typedef struct apu_noise {
+    bool enabled;
+    bool loop_envelope;  // also length counter halt
+    bool constant_volume;
+    uint8_t volume;
+    
+    bool mode;
+    uint16_t timer_period;
+    uint16_t timer_value;
+    uint16_t shift_register;
+    
+    uint8_t length_counter;
+    
+    uint8_t envelope_divider;
+    uint8_t envelope_counter;
+    bool envelope_start;
+} apu_noise_t;
+
+typedef struct apu_dmc {
+    bool enabled;
+    bool irq_enabled;
+    bool loop_flag;
+    uint16_t rate;
+    
+    uint16_t sample_address;
+    uint16_t sample_length;
+    uint16_t current_address;
+    uint16_t bytes_remaining;
+    
+    uint8_t sample_buffer;
+    bool sample_buffer_empty;
+    
+    uint8_t shift_register;
+    uint8_t bits_remaining;
+    uint8_t output_level;
+    bool silence;
+    
+    bool irq_flag;
+} apu_dmc_t;
+
+typedef struct apu {
+    struct agnes *agnes;
+    
+    apu_pulse_t pulse[2];
+    apu_triangle_t triangle;
+    apu_noise_t noise;
+    apu_dmc_t dmc;
+    
+    uint64_t cycle;
+    uint8_t frame_counter_mode;  // 0 = 4-step, 1 = 5-step
+    bool frame_irq_inhibit;
+    bool frame_irq_flag;
+    uint8_t frame_step;
+    uint16_t frame_divider;
+    
+    // Audio output buffer
+    float *audio_buffer;
+    uint32_t audio_buffer_size;
+    uint32_t audio_buffer_index;
+    double sample_rate;
+    double cycles_per_sample;
+    double sample_accumulator;
+    
+    // High-pass filter state for DC removal
+    float filter_prev_in;
+    float filter_prev_out;
+} apu_t;
+
 /********************************** MAPPERS **********************************/
 
 typedef enum {
@@ -243,6 +382,7 @@ typedef struct controller {
 typedef struct agnes {
     cpu_t cpu;
     ppu_t ppu;
+    apu_t apu;
     uint8_t ram[2 * 1024];
     gamepack_t gamepack;
     controller_t controllers[2];
@@ -437,6 +577,28 @@ AGNES_INTERNAL void mapper4_pa12_rising_edge(mapper4_t *mapper);
 
 #endif /* mapper4_h */
 //FILE_END
+//FILE_START:apu.h
+#ifndef apu_nes_h
+#define apu_nes_h
+
+#ifndef AGNES_AMALGAMATED
+#include "common.h"
+#endif
+
+typedef struct apu apu_t;
+typedef struct agnes agnes_t;
+
+AGNES_INTERNAL void apu_init(apu_t *apu, agnes_t *agnes);
+AGNES_INTERNAL void apu_tick(apu_t *apu);
+AGNES_INTERNAL uint8_t apu_read_register(apu_t *apu, uint16_t addr);
+AGNES_INTERNAL void apu_write_register(apu_t *apu, uint16_t addr, uint8_t val);
+AGNES_INTERNAL float apu_get_output(apu_t *apu);
+AGNES_INTERNAL void apu_set_sample_rate(apu_t *apu, double sample_rate);
+AGNES_INTERNAL void apu_set_audio_buffer(apu_t *apu, float *buffer, uint32_t size);
+AGNES_INTERNAL uint32_t apu_get_audio_samples(apu_t *apu);
+
+#endif /* apu_nes_h */
+//FILE_END
 
 //-----------------------------------------------------------------------------
 // C files
@@ -556,6 +718,7 @@ bool agnes_load_ines_data(agnes_t *agnes, void *data, size_t data_size) {
 
     cpu_init(&agnes->cpu, agnes);
     ppu_init(&agnes->ppu, agnes);
+    apu_init(&agnes->apu, agnes);
 
 	agnes->ppu.screen_buffer = (uint8_t*)malloc(AGNES_SCREEN_HEIGHT * AGNES_SCREEN_WIDTH);
     
@@ -609,6 +772,11 @@ bool agnes_tick(agnes_t *agnes, bool *out_new_frame) {
         return false;
     }
 
+    // APU runs at CPU rate
+    for (int i = 0; i < cpu_cycles; i++) {
+        apu_tick(&agnes->apu);
+    }
+
     int ppu_cycles = cpu_cycles * 3;
     for (int i = 0; i < ppu_cycles; i++) {
         ppu_tick(&agnes->ppu, out_new_frame);
@@ -654,6 +822,23 @@ uint32_t agnes_get_raw_screen_pixel4(const agnes_t *agnes, int x, int y) {
 
 void agnes_destroy(agnes_t *agnes) {
     free(agnes);
+}
+
+// Audio API functions
+void agnes_set_audio_sample_rate(agnes_t *agnes, double sample_rate) {
+    apu_set_sample_rate(&agnes->apu, sample_rate);
+}
+
+void agnes_set_audio_buffer(agnes_t *agnes, float *buffer, uint32_t size) {
+    apu_set_audio_buffer(&agnes->apu, buffer, size);
+}
+
+uint32_t agnes_get_audio_samples(agnes_t *agnes) {
+    return apu_get_audio_samples(&agnes->apu);
+}
+
+void agnes_reset_audio_buffer(agnes_t *agnes) {
+    agnes->apu.audio_buffer_index = 0;
 }
 
 static uint8_t get_input_byte(const agnes_input_t* input) {
@@ -803,17 +988,26 @@ void cpu_write8(cpu_t *cpu, uint16_t addr, uint8_t val) {
     } else if (addr < 0x4000) {
         ppu_write_register(&agnes->ppu, 0x2000 | (addr & 0x7), val);
     } else if (addr == 0x4014) {
+        // OAM DMA
         ppu_write_register(&agnes->ppu, 0x4014, val);
     } else if (addr == 0x4016) {
+        // Controller strobe
         agnes->controllers_latch = val & 0x1;
         if (agnes->controllers_latch) {
             agnes->controllers[0].shift = agnes->controllers[0].state;
             agnes->controllers[1].shift = agnes->controllers[1].state;
         }
-    } else if (addr < 0x4018) { // apu and io
-
-    } else if (addr < 0x4020) { // disabled
-
+    } else if (addr >= 0x4000 && addr <= 0x4013) {
+        // APU registers $4000-$4013
+        apu_write_register(&agnes->apu, addr, val);
+    } else if (addr == 0x4015) {
+        // APU control register
+        apu_write_register(&agnes->apu, addr, val);
+    } else if (addr == 0x4017) {
+        // APU frame counter
+        apu_write_register(&agnes->apu, addr, val);
+    } else if (addr < 0x4020) {
+        // disabled ($4018-$401F)
     } else {
         mapper_write(agnes, addr, val);
     }
@@ -829,8 +1023,12 @@ uint8_t cpu_read8(cpu_t *cpu, uint16_t addr) {
         res = agnes->ram[addr & 0x7ff];
     } else if (addr < 0x4000) {
         res = ppu_read_register(&agnes->ppu, 0x2000 | (addr & 0x7));
+    } else if (addr == 0x4015) {
+        // APU status register
+        res = apu_read_register(&agnes->apu, addr);
     } else if (addr < 0x4016) {
-        // apu
+        // Other APU registers (write-only, return 0)
+        res = 0;
     } else if (addr < 0x4018) {
         int controller = addr & 0x1; // 0: 0x4016, 1: 0x4017
         if (agnes->controllers_latch) {
@@ -934,6 +1132,602 @@ static int handle_interrupt(cpu_t *cpu) {
 static bool check_pages_differ(uint16_t a, uint16_t b) {
     return (0xff00 & a) != (0xff00 & b);
 }
+//FILE_END
+//FILE_START:apu.c
+#include <stdlib.h>
+#include <string.h>
+#include <math.h>
+
+#ifndef AGNES_AMALGAMATED
+#include "apu.h"
+#include "agnes_types.h"
+#include "cpu.h"
+#endif
+
+// CPU clock rate for NTSC NES
+#define APU_CPU_CLOCK 1789773.0
+
+// Frame counter divider value (APU runs at CPU/2 rate, frame counter at CPU/4)
+#define FRAME_COUNTER_RATE 7457
+
+AGNES_INTERNAL void apu_init(apu_t *apu, agnes_t *agnes) {
+    memset(apu, 0, sizeof(apu_t));
+    apu->agnes = agnes;
+    
+    // Initialize noise shift register to 1
+    apu->noise.shift_register = 1;
+    
+    // Default sample rate (will be set by user)
+    apu->sample_rate = 22050.0;
+    apu->cycles_per_sample = APU_CPU_CLOCK / apu->sample_rate;
+    
+    // Initialize DMC output level
+    apu->dmc.sample_buffer_empty = true;
+    apu->dmc.silence = true;
+    apu->dmc.bits_remaining = 8;
+    
+    // Initialize high-pass filter state
+    apu->filter_prev_in = 0.0f;
+    apu->filter_prev_out = 0.0f;
+}
+
+AGNES_INTERNAL void apu_set_sample_rate(apu_t *apu, double sample_rate) {
+    apu->sample_rate = sample_rate;
+    apu->cycles_per_sample = APU_CPU_CLOCK / sample_rate;
+}
+
+AGNES_INTERNAL void apu_set_audio_buffer(apu_t *apu, float *buffer, uint32_t size) {
+    apu->audio_buffer = buffer;
+    apu->audio_buffer_size = size;
+    apu->audio_buffer_index = 0;
+}
+
+AGNES_INTERNAL uint32_t apu_get_audio_samples(apu_t *apu) {
+    return apu->audio_buffer_index;
+}
+
+// Pulse channel sweep target calculation
+static uint16_t apu_pulse_sweep_target(apu_pulse_t *pulse, int channel) {
+    uint16_t delta = pulse->timer_period >> pulse->sweep_shift;
+    if (pulse->sweep_negate) {
+        // Channel 0 uses one's complement, channel 1 uses two's complement
+        if (channel == 0) {
+            return pulse->timer_period - delta - 1;
+        } else {
+            return pulse->timer_period - delta;
+        }
+    } else {
+        return pulse->timer_period + delta;
+    }
+}
+
+static bool apu_pulse_sweep_muting(apu_pulse_t *pulse, int channel) {
+    uint16_t target = apu_pulse_sweep_target(pulse, channel);
+    return pulse->timer_period < 8 || target > 0x7FF;
+}
+
+// Get pulse channel output
+static uint8_t apu_pulse_output(apu_pulse_t *pulse, int channel) {
+    if (!pulse->enabled) return 0;
+    if (pulse->length_counter == 0) return 0;
+    if (apu_duty_table[pulse->duty][pulse->duty_pos] == 0) return 0;
+    if (apu_pulse_sweep_muting(pulse, channel)) return 0;
+    
+    if (pulse->constant_volume) {
+        return pulse->volume;
+    } else {
+        return pulse->envelope_counter;
+    }
+}
+
+// Get triangle channel output
+static uint8_t apu_triangle_output(apu_triangle_t *triangle) {
+    if (!triangle->enabled) return 0;
+    if (triangle->length_counter == 0) return 0;
+    if (triangle->linear_counter == 0) return 0;
+    
+    return apu_triangle_table[triangle->sequence_pos];
+}
+
+// Get noise channel output
+static uint8_t apu_noise_output(apu_noise_t *noise) {
+    if (!noise->enabled) return 0;
+    if (noise->length_counter == 0) return 0;
+    if (noise->shift_register & 1) return 0;
+    
+    if (noise->constant_volume) {
+        return noise->volume;
+    } else {
+        return noise->envelope_counter;
+    }
+}
+
+// Get DMC output
+static uint8_t apu_dmc_output(apu_dmc_t *dmc) {
+    return dmc->output_level;
+}
+
+// Mix all channels using linear approximation
+AGNES_INTERNAL float apu_get_output(apu_t *apu) {
+    uint8_t p1 = apu_pulse_output(&apu->pulse[0], 0);
+    uint8_t p2 = apu_pulse_output(&apu->pulse[1], 1);
+    uint8_t t = apu_triangle_output(&apu->triangle);
+    uint8_t n = apu_noise_output(&apu->noise);
+    uint8_t d = apu_dmc_output(&apu->dmc);
+    
+    // Using linear approximation of the NES mixer
+    float pulse_out = 0.00752f * (float)(p1 + p2);
+    float tnd_out = 0.00851f * (float)t + 0.00494f * (float)n + 0.00335f * (float)d;
+    
+    float raw_out = pulse_out + tnd_out;
+    
+    // Apply high-pass filter to remove DC offset (causes clicks)
+    // y[n] = alpha * (y[n-1] + x[n] - x[n-1])
+    // alpha = 0.995 gives ~90Hz cutoff at 22050Hz sample rate
+    const float alpha = 0.995f;
+    float filtered = alpha * (apu->filter_prev_out + raw_out - apu->filter_prev_in);
+    apu->filter_prev_in = raw_out;
+    apu->filter_prev_out = filtered;
+    
+    return filtered;
+}
+
+// Clock envelope for pulse channel
+static void apu_clock_pulse_envelope(apu_pulse_t *pulse) {
+    if (pulse->envelope_start) {
+        pulse->envelope_start = false;
+        pulse->envelope_counter = 15;
+        pulse->envelope_divider = pulse->volume;
+    } else {
+        if (pulse->envelope_divider > 0) {
+            pulse->envelope_divider--;
+        } else {
+            pulse->envelope_divider = pulse->volume;
+            if (pulse->envelope_counter > 0) {
+                pulse->envelope_counter--;
+            } else if (pulse->loop_envelope) {
+                pulse->envelope_counter = 15;
+            }
+        }
+    }
+}
+
+// Clock envelope for noise channel
+static void apu_clock_noise_envelope(apu_noise_t *noise) {
+    if (noise->envelope_start) {
+        noise->envelope_start = false;
+        noise->envelope_counter = 15;
+        noise->envelope_divider = noise->volume;
+    } else {
+        if (noise->envelope_divider > 0) {
+            noise->envelope_divider--;
+        } else {
+            noise->envelope_divider = noise->volume;
+            if (noise->envelope_counter > 0) {
+                noise->envelope_counter--;
+            } else if (noise->loop_envelope) {
+                noise->envelope_counter = 15;
+            }
+        }
+    }
+}
+
+// Clock linear counter for triangle channel
+static void apu_clock_triangle_linear(apu_triangle_t *triangle) {
+    if (triangle->linear_reload) {
+        triangle->linear_counter = triangle->linear_load;
+    } else if (triangle->linear_counter > 0) {
+        triangle->linear_counter--;
+    }
+    
+    if (!triangle->control_flag) {
+        triangle->linear_reload = false;
+    }
+}
+
+// Clock length counter for pulse channel
+static void apu_clock_pulse_length(apu_pulse_t *pulse) {
+    if (!pulse->loop_envelope && pulse->length_counter > 0) {
+        pulse->length_counter--;
+    }
+}
+
+// Clock length counter for triangle channel
+static void apu_clock_triangle_length(apu_triangle_t *triangle) {
+    if (!triangle->control_flag && triangle->length_counter > 0) {
+        triangle->length_counter--;
+    }
+}
+
+// Clock length counter for noise channel
+static void apu_clock_noise_length(apu_noise_t *noise) {
+    if (!noise->loop_envelope && noise->length_counter > 0) {
+        noise->length_counter--;
+    }
+}
+
+// Clock sweep for pulse channel
+static void apu_clock_pulse_sweep(apu_pulse_t *pulse, int channel) {
+    if (pulse->sweep_divider == 0 && pulse->sweep_enabled && !apu_pulse_sweep_muting(pulse, channel)) {
+        pulse->timer_period = apu_pulse_sweep_target(pulse, channel);
+    }
+    
+    if (pulse->sweep_divider == 0 || pulse->sweep_reload) {
+        pulse->sweep_divider = pulse->sweep_period;
+        pulse->sweep_reload = false;
+    } else {
+        pulse->sweep_divider--;
+    }
+}
+
+// Quarter frame: clock envelopes and triangle linear counter
+static void apu_quarter_frame(apu_t *apu) {
+    apu_clock_pulse_envelope(&apu->pulse[0]);
+    apu_clock_pulse_envelope(&apu->pulse[1]);
+    apu_clock_noise_envelope(&apu->noise);
+    apu_clock_triangle_linear(&apu->triangle);
+}
+
+// Half frame: clock length counters and sweep units
+static void apu_half_frame(apu_t *apu) {
+    apu_clock_pulse_length(&apu->pulse[0]);
+    apu_clock_pulse_length(&apu->pulse[1]);
+    apu_clock_triangle_length(&apu->triangle);
+    apu_clock_noise_length(&apu->noise);
+    
+    apu_clock_pulse_sweep(&apu->pulse[0], 0);
+    apu_clock_pulse_sweep(&apu->pulse[1], 1);
+}
+
+// Clock pulse timer
+static void apu_clock_pulse_timer(apu_pulse_t *pulse) {
+    if (pulse->timer_value == 0) {
+        pulse->timer_value = pulse->timer_period;
+        pulse->duty_pos = (pulse->duty_pos + 1) & 7;
+    } else {
+        pulse->timer_value--;
+    }
+}
+
+// Clock triangle timer
+static void apu_clock_triangle_timer(apu_triangle_t *triangle) {
+    if (triangle->timer_value == 0) {
+        triangle->timer_value = triangle->timer_period;
+        if (triangle->length_counter > 0 && triangle->linear_counter > 0) {
+            triangle->sequence_pos = (triangle->sequence_pos + 1) & 31;
+        }
+    } else {
+        triangle->timer_value--;
+    }
+}
+
+// Clock noise timer
+static void apu_clock_noise_timer(apu_noise_t *noise) {
+    if (noise->timer_value == 0) {
+        noise->timer_value = noise->timer_period;
+        
+        uint8_t bit = noise->mode ? 6 : 1;
+        uint16_t feedback = (noise->shift_register & 1) ^ ((noise->shift_register >> bit) & 1);
+        noise->shift_register = (noise->shift_register >> 1) | (feedback << 14);
+    } else {
+        noise->timer_value--;
+    }
+}
+
+// Clock DMC
+static void apu_clock_dmc(apu_t *apu) {
+    apu_dmc_t *dmc = &apu->dmc;
+    
+    // Memory reader
+    if (dmc->sample_buffer_empty && dmc->bytes_remaining > 0) {
+        // Read sample from memory
+        dmc->sample_buffer = cpu_read8(&apu->agnes->cpu, dmc->current_address);
+        dmc->sample_buffer_empty = false;
+        
+        // Increment address (wrap at 0xFFFF to 0x8000)
+        dmc->current_address++;
+        if (dmc->current_address == 0) {
+            dmc->current_address = 0x8000;
+        }
+        
+        dmc->bytes_remaining--;
+        
+        if (dmc->bytes_remaining == 0) {
+            if (dmc->loop_flag) {
+                dmc->current_address = dmc->sample_address;
+                dmc->bytes_remaining = dmc->sample_length;
+            } else if (dmc->irq_enabled) {
+                dmc->irq_flag = true;
+            }
+        }
+    }
+    
+    // Output unit
+    if (dmc->bits_remaining == 0) {
+        dmc->bits_remaining = 8;
+        if (dmc->sample_buffer_empty) {
+            dmc->silence = true;
+        } else {
+            dmc->silence = false;
+            dmc->shift_register = dmc->sample_buffer;
+            dmc->sample_buffer_empty = true;
+        }
+    }
+    
+    if (!dmc->silence) {
+        if (dmc->shift_register & 1) {
+            if (dmc->output_level <= 125) {
+                dmc->output_level += 2;
+            }
+        } else {
+            if (dmc->output_level >= 2) {
+                dmc->output_level -= 2;
+            }
+        }
+        dmc->shift_register >>= 1;
+    }
+    dmc->bits_remaining--;
+}
+
+// Main APU tick (called once per CPU cycle)
+AGNES_INTERNAL void apu_tick(apu_t *apu) {
+    apu->cycle++;
+    
+    // Triangle clocks at CPU rate
+    apu_clock_triangle_timer(&apu->triangle);
+    
+    // Other channels clock at half CPU rate (APU rate)
+    if ((apu->cycle & 1) == 0) {
+        apu_clock_pulse_timer(&apu->pulse[0]);
+        apu_clock_pulse_timer(&apu->pulse[1]);
+        apu_clock_noise_timer(&apu->noise);
+        
+        // DMC timer
+        if (apu->dmc.enabled) {
+            if (apu->dmc.rate > 0) {
+                apu->dmc.rate--;
+            } else {
+                apu->dmc.rate = apu_dmc_table[0];  // Reset to current rate
+                apu_clock_dmc(apu);
+            }
+        }
+    }
+    
+    // Frame counter
+    apu->frame_divider++;
+    if (apu->frame_divider >= FRAME_COUNTER_RATE) {
+        apu->frame_divider = 0;
+        
+        if (apu->frame_counter_mode == 0) {
+            // 4-step mode
+            switch (apu->frame_step) {
+                case 0:
+                    apu_quarter_frame(apu);
+                    break;
+                case 1:
+                    apu_quarter_frame(apu);
+                    apu_half_frame(apu);
+                    break;
+                case 2:
+                    apu_quarter_frame(apu);
+                    break;
+                case 3:
+                    apu_quarter_frame(apu);
+                    apu_half_frame(apu);
+                    if (!apu->frame_irq_inhibit) {
+                        apu->frame_irq_flag = true;
+                    }
+                    break;
+            }
+            apu->frame_step = (apu->frame_step + 1) & 3;
+        } else {
+            // 5-step mode
+            switch (apu->frame_step) {
+                case 0:
+                    apu_quarter_frame(apu);
+                    break;
+                case 1:
+                    apu_quarter_frame(apu);
+                    apu_half_frame(apu);
+                    break;
+                case 2:
+                    apu_quarter_frame(apu);
+                    break;
+                case 3:
+                    break;  // Do nothing
+                case 4:
+                    apu_quarter_frame(apu);
+                    apu_half_frame(apu);
+                    break;
+            }
+            apu->frame_step++;
+            if (apu->frame_step > 4) {
+                apu->frame_step = 0;
+            }
+        }
+    }
+    
+    // Generate audio samples
+    apu->sample_accumulator += 1.0;
+    if (apu->sample_accumulator >= apu->cycles_per_sample) {
+        apu->sample_accumulator -= apu->cycles_per_sample;
+        
+        if (apu->audio_buffer && apu->audio_buffer_index < apu->audio_buffer_size) {
+            apu->audio_buffer[apu->audio_buffer_index++] = apu_get_output(apu);
+        }
+    }
+    
+    // Note: IRQ handling is done by reading the status register ($4015)
+    // The CPU will poll the status register to check for IRQs
+    // We don't continuously trigger IRQ here to avoid infinite loops
+}
+
+// APU register write
+AGNES_INTERNAL void apu_write_register(apu_t *apu, uint16_t addr, uint8_t val) {
+    switch (addr) {
+        // Pulse 1 registers
+        case 0x4000:
+            apu->pulse[0].duty = (val >> 6) & 3;
+            apu->pulse[0].loop_envelope = (val >> 5) & 1;
+            apu->pulse[0].constant_volume = (val >> 4) & 1;
+            apu->pulse[0].volume = val & 0x0F;
+            break;
+        case 0x4001:
+            apu->pulse[0].sweep_enabled = (val >> 7) & 1;
+            apu->pulse[0].sweep_period = (val >> 4) & 7;
+            apu->pulse[0].sweep_negate = (val >> 3) & 1;
+            apu->pulse[0].sweep_shift = val & 7;
+            apu->pulse[0].sweep_reload = true;
+            break;
+        case 0x4002:
+            apu->pulse[0].timer_period = (apu->pulse[0].timer_period & 0x700) | val;
+            break;
+        case 0x4003:
+            apu->pulse[0].timer_period = (apu->pulse[0].timer_period & 0x0FF) | ((val & 7) << 8);
+            if (apu->pulse[0].enabled) {
+                apu->pulse[0].length_counter = apu_length_table[val >> 3];
+            }
+            apu->pulse[0].duty_pos = 0;
+            apu->pulse[0].envelope_start = true;
+            break;
+            
+        // Pulse 2 registers
+        case 0x4004:
+            apu->pulse[1].duty = (val >> 6) & 3;
+            apu->pulse[1].loop_envelope = (val >> 5) & 1;
+            apu->pulse[1].constant_volume = (val >> 4) & 1;
+            apu->pulse[1].volume = val & 0x0F;
+            break;
+        case 0x4005:
+            apu->pulse[1].sweep_enabled = (val >> 7) & 1;
+            apu->pulse[1].sweep_period = (val >> 4) & 7;
+            apu->pulse[1].sweep_negate = (val >> 3) & 1;
+            apu->pulse[1].sweep_shift = val & 7;
+            apu->pulse[1].sweep_reload = true;
+            break;
+        case 0x4006:
+            apu->pulse[1].timer_period = (apu->pulse[1].timer_period & 0x700) | val;
+            break;
+        case 0x4007:
+            apu->pulse[1].timer_period = (apu->pulse[1].timer_period & 0x0FF) | ((val & 7) << 8);
+            if (apu->pulse[1].enabled) {
+                apu->pulse[1].length_counter = apu_length_table[val >> 3];
+            }
+            apu->pulse[1].duty_pos = 0;
+            apu->pulse[1].envelope_start = true;
+            break;
+            
+        // Triangle registers
+        case 0x4008:
+            apu->triangle.control_flag = (val >> 7) & 1;
+            apu->triangle.linear_load = val & 0x7F;
+            break;
+        case 0x400A:
+            apu->triangle.timer_period = (apu->triangle.timer_period & 0x700) | val;
+            break;
+        case 0x400B:
+            apu->triangle.timer_period = (apu->triangle.timer_period & 0x0FF) | ((val & 7) << 8);
+            if (apu->triangle.enabled) {
+                apu->triangle.length_counter = apu_length_table[val >> 3];
+            }
+            apu->triangle.linear_reload = true;
+            break;
+            
+        // Noise registers
+        case 0x400C:
+            apu->noise.loop_envelope = (val >> 5) & 1;
+            apu->noise.constant_volume = (val >> 4) & 1;
+            apu->noise.volume = val & 0x0F;
+            break;
+        case 0x400E:
+            apu->noise.mode = (val >> 7) & 1;
+            apu->noise.timer_period = apu_noise_table[val & 0x0F];
+            break;
+        case 0x400F:
+            if (apu->noise.enabled) {
+                apu->noise.length_counter = apu_length_table[val >> 3];
+            }
+            apu->noise.envelope_start = true;
+            break;
+            
+        // DMC registers
+        case 0x4010:
+            apu->dmc.irq_enabled = (val >> 7) & 1;
+            apu->dmc.loop_flag = (val >> 6) & 1;
+            apu->dmc.rate = apu_dmc_table[val & 0x0F];
+            if (!apu->dmc.irq_enabled) {
+                apu->dmc.irq_flag = false;
+            }
+            break;
+        case 0x4011:
+            apu->dmc.output_level = val & 0x7F;
+            break;
+        case 0x4012:
+            apu->dmc.sample_address = 0xC000 | ((uint16_t)val << 6);
+            break;
+        case 0x4013:
+            apu->dmc.sample_length = ((uint16_t)val << 4) | 1;
+            break;
+            
+        // Control register
+        case 0x4015:
+            apu->pulse[0].enabled = val & 1;
+            apu->pulse[1].enabled = (val >> 1) & 1;
+            apu->triangle.enabled = (val >> 2) & 1;
+            apu->noise.enabled = (val >> 3) & 1;
+            apu->dmc.enabled = (val >> 4) & 1;
+            
+            if (!apu->pulse[0].enabled) apu->pulse[0].length_counter = 0;
+            if (!apu->pulse[1].enabled) apu->pulse[1].length_counter = 0;
+            if (!apu->triangle.enabled) apu->triangle.length_counter = 0;
+            if (!apu->noise.enabled) apu->noise.length_counter = 0;
+            
+            if (!apu->dmc.enabled) {
+                apu->dmc.bytes_remaining = 0;
+            } else if (apu->dmc.bytes_remaining == 0) {
+                apu->dmc.current_address = apu->dmc.sample_address;
+                apu->dmc.bytes_remaining = apu->dmc.sample_length;
+            }
+            
+            apu->dmc.irq_flag = false;
+            break;
+            
+        // Frame counter
+        case 0x4017:
+            apu->frame_counter_mode = (val >> 7) & 1;
+            apu->frame_irq_inhibit = (val >> 6) & 1;
+            if (apu->frame_irq_inhibit) {
+                apu->frame_irq_flag = false;
+            }
+            apu->frame_step = 0;
+            apu->frame_divider = 0;
+            if (apu->frame_counter_mode == 1) {
+                // Immediately clock all units
+                apu_quarter_frame(apu);
+                apu_half_frame(apu);
+            }
+            break;
+    }
+}
+
+// APU register read
+AGNES_INTERNAL uint8_t apu_read_register(apu_t *apu, uint16_t addr) {
+    if (addr == 0x4015) {
+        uint8_t status = 0;
+        if (apu->pulse[0].length_counter > 0) status |= 0x01;
+        if (apu->pulse[1].length_counter > 0) status |= 0x02;
+        if (apu->triangle.length_counter > 0) status |= 0x04;
+        if (apu->noise.length_counter > 0) status |= 0x08;
+        if (apu->dmc.bytes_remaining > 0) status |= 0x10;
+        if (apu->frame_irq_flag) status |= 0x40;
+        if (apu->dmc.irq_flag) status |= 0x80;
+        
+        apu->frame_irq_flag = false;
+        return status;
+    }
+    return 0;
+}
+
 //FILE_END
 //FILE_START:ppu.c
 #include <stdlib.h>

@@ -14,6 +14,7 @@
 #include "platform.h"
 #include "vpu.h"
 #include "vcp.h"
+#include "apu.h"
 
 static agnes_input_t s_input;
 static agnes_t *s_agnes;
@@ -34,9 +35,28 @@ static void restore_terminal(void) {
 #define VIDEO_COLOR		ECM_8bit_Indexed
 #define VIDEO_HEIGHT	240
 
+// Audio configuration
+// NES APU generates audio at 22050 Hz sample rate
+// Buffer size for 1 frame at 60fps = 22050/60 = ~368 samples
+// Use 512 samples (2048 bytes) buffer - close to frame output
+#define AUDIO_SAMPLE_RATE 22050.0
+#define AUDIO_BUFFER_SAMPLES 512
+#define AUDIO_BUFFER_BYTES (AUDIO_BUFFER_SAMPLES * sizeof(short) * 2)  // Stereo 16-bit
+
+// Set to 1 to generate a test tone instead of NES audio (for debugging)
+#define AUDIO_TEST_TONE 0
+
 static struct SPPlatform* s_platform = NULL;
 struct SPSizeAlloc frameBufferA;
 struct SPSizeAlloc frameBufferB;
+struct SPSizeAlloc audioBuffer;
+
+// Float buffer for accumulating NES audio samples
+static float s_nesAudioBuffer[AUDIO_BUFFER_SAMPLES * 2];  // Extra space for accumulation
+
+// Audio accumulation buffer for continuous playback
+static float s_audioAccumBuffer[AUDIO_BUFFER_SAMPLES * 4];
+static uint32_t s_audioAccumIndex = 0;
 
 static void* read_file(const char *filename, size_t *out_len);
 
@@ -107,6 +127,21 @@ int main(int argc, char** argv)
 	SPAllocateBuffer(s_platform, &frameBufferA);
 	SPAllocateBuffer(s_platform, &frameBufferB);
 
+	// Initialize audio
+	audioBuffer.size = AUDIO_BUFFER_BYTES;
+	SPAllocateBuffer(s_platform, &audioBuffer);
+	memset(audioBuffer.cpuAddress, 0, AUDIO_BUFFER_BYTES);
+
+	// Configure the platform APU
+	APUSetBufferSize(s_platform->ac, ABS_2048Bytes);  // 512 stereo samples
+	APUSetSampleRate(s_platform->ac, ASR_22_050_Hz);
+
+	// Configure NES APU audio output - use larger buffer for frame samples
+	agnes_set_audio_sample_rate(s_agnes, AUDIO_SAMPLE_RATE);
+	agnes_set_audio_buffer(s_agnes, s_nesAudioBuffer, AUDIO_BUFFER_SAMPLES * 2);
+
+	fprintf(stderr, "Audio initialized at %.0f Hz\n", AUDIO_SAMPLE_RATE);
+
 	for (int y = 0; y < VIDEO_HEIGHT; y++)
 	{
 		for (int x = 0; x < stride/4; x++)
@@ -157,6 +192,64 @@ int main(int argc, char** argv)
 
 		agnes_set_input(s_agnes, &s_input, NULL);
 		s_alive = agnes_next_frame(s_agnes);
+
+		// Process audio: accumulate samples and send when buffer is full
+		short* audioDest = (short*)audioBuffer.cpuAddress;
+		
+#if AUDIO_TEST_TONE
+		// Generate a simple 440 Hz test tone
+		static uint32_t testPhase = 0;
+		for (uint32_t i = 0; i < AUDIO_BUFFER_SAMPLES; i++)
+		{
+			// 440 Hz square wave at 22050 Hz sample rate
+			// Period = 22050/440 = ~50 samples
+			int16_t sample = (testPhase % 50 < 25) ? 8000 : -8000;
+			audioDest[i * 2 + 0] = sample;
+			audioDest[i * 2 + 1] = sample;
+			testPhase++;
+		}
+		
+		// Send audio to APU DMA
+		APUStartDMA(s_platform->ac, (uint32_t)audioBuffer.dmaAddress);
+		APUWaitSync(s_platform->ac);
+#else
+		// Get samples generated this frame
+		uint32_t samples = agnes_get_audio_samples(s_agnes);
+		
+		// Accumulate samples from NES APU
+		for (uint32_t i = 0; i < samples && s_audioAccumIndex < AUDIO_BUFFER_SAMPLES * 4; i++)
+		{
+			s_audioAccumBuffer[s_audioAccumIndex++] = s_nesAudioBuffer[i];
+		}
+		
+		// When we have enough samples, send a buffer
+		if (s_audioAccumIndex >= AUDIO_BUFFER_SAMPLES)
+		{
+			// Convert float mono to 16-bit stereo
+			// APU already applies high-pass filter for click reduction
+			for (uint32_t i = 0; i < AUDIO_BUFFER_SAMPLES; i++)
+			{
+				int16_t sample = (int16_t)(s_audioAccumBuffer[i] * 28000.0f);
+				audioDest[i * 2 + 0] = sample;  // Left channel
+				audioDest[i * 2 + 1] = sample;  // Right channel
+			}
+
+			// Send audio to APU DMA
+			APUStartDMA(s_platform->ac, (uint32_t)audioBuffer.dmaAddress);
+			APUWaitSync(s_platform->ac);
+			
+			// Shift remaining samples to front of accumulator using memmove
+			uint32_t remaining = s_audioAccumIndex - AUDIO_BUFFER_SAMPLES;
+			if (remaining > 0)
+			{
+				memmove(s_audioAccumBuffer, &s_audioAccumBuffer[AUDIO_BUFFER_SAMPLES], remaining * sizeof(float));
+			}
+			s_audioAccumIndex = remaining;
+		}
+		
+		// Reset the NES audio buffer for next frame
+		agnes_reset_audio_buffer(s_agnes);
+#endif
 
 		// Vsync barrier
 		// Wait for previous frame (if any) to consume swap command + barrier, then swap buffers
