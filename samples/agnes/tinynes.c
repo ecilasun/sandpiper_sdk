@@ -165,7 +165,7 @@ int main(int argc, char** argv)
 	{
 		if (havekeyboard)
 		{
-			int ret = poll(fds, 1, 10);
+			int ret = poll(fds, 1, 0);
 			if (ret > 0)
 			{
 				struct input_event ev;
