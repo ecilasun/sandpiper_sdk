@@ -294,10 +294,17 @@ typedef struct apu {
     double cycles_per_sample;
     double sample_accumulator;
     
+    // Integer accumulator for fast sample generation
+    uint32_t sample_rate_int;
+    uint32_t sample_accumulator_int;
+    
     // High-pass filter state for DC removal
     float filter_prev_in;
     float filter_prev_out;
 } apu_t;
+
+// Integer version of CPU clock for fast sample accumulation
+#define APU_CPU_CLOCK_INT 1789773
 
 /********************************** MAPPERS **********************************/
 
@@ -481,6 +488,7 @@ typedef struct {
     const char *name;
     uint8_t opcode;
     uint8_t cycles;
+    uint8_t size;           // Pre-computed instruction size
     bool page_cross_cycle;
     addr_mode_t mode;
     instruction_op_fn operation;
@@ -772,14 +780,49 @@ bool agnes_tick(agnes_t *agnes, bool *out_new_frame) {
         return false;
     }
 
-    // APU runs at CPU rate
-    for (int i = 0; i < cpu_cycles; i++) {
-        apu_tick(&agnes->apu);
+    // Cache pointers to avoid repeated dereferencing
+    apu_t *apu = &agnes->apu;
+    ppu_t *ppu = &agnes->ppu;
+
+    // APU runs at CPU rate - unroll for common cycle counts
+    switch (cpu_cycles) {
+        case 7: apu_tick(apu); // fall through
+        case 6: apu_tick(apu); // fall through
+        case 5: apu_tick(apu); // fall through
+        case 4: apu_tick(apu); // fall through
+        case 3: apu_tick(apu); // fall through
+        case 2: apu_tick(apu); // fall through
+        case 1: apu_tick(apu); break;
+        default:
+            for (int i = 0; i < cpu_cycles; i++) {
+                apu_tick(apu);
+            }
+            break;
     }
 
+    // PPU runs at 3x CPU rate - unroll for common cycle counts
     int ppu_cycles = cpu_cycles * 3;
-    for (int i = 0; i < ppu_cycles; i++) {
-        ppu_tick(&agnes->ppu, out_new_frame);
+    switch (ppu_cycles) {
+        case 21: ppu_tick(ppu, out_new_frame); // fall through
+        case 20: ppu_tick(ppu, out_new_frame); // fall through
+        case 19: ppu_tick(ppu, out_new_frame); // fall through
+        case 18: ppu_tick(ppu, out_new_frame); // fall through
+        case 17: ppu_tick(ppu, out_new_frame); // fall through
+        case 16: ppu_tick(ppu, out_new_frame); // fall through
+        case 15: ppu_tick(ppu, out_new_frame); // fall through
+        case 14: ppu_tick(ppu, out_new_frame); // fall through
+        case 13: ppu_tick(ppu, out_new_frame); // fall through
+        case 12: ppu_tick(ppu, out_new_frame); // fall through
+        case 11: ppu_tick(ppu, out_new_frame); // fall through
+        case 10: ppu_tick(ppu, out_new_frame); // fall through
+        case 9: ppu_tick(ppu, out_new_frame); // fall through
+        case 8: ppu_tick(ppu, out_new_frame); // fall through
+        case 7: ppu_tick(ppu, out_new_frame); // fall through
+        case 6: ppu_tick(ppu, out_new_frame); // fall through
+        case 5: ppu_tick(ppu, out_new_frame); // fall through
+        case 4: ppu_tick(ppu, out_new_frame); // fall through
+        case 3: ppu_tick(ppu, out_new_frame); // fall through  
+        default: break;
     }
     
     return true;
@@ -867,10 +910,13 @@ static uint8_t get_input_byte(const agnes_input_t* input) {
 #include "mapper.h"
 #endif
 
-static uint16_t cpu_read16_indirect_bug(cpu_t *cpu, uint16_t addr);
-static uint16_t get_instruction_operand(cpu_t *cpu, addr_mode_t mode, bool *out_pages_differ);
+// Forward declarations for inlined functions
+static inline uint16_t cpu_read16(cpu_t *cpu, uint16_t addr);
+static inline uint16_t cpu_read16_indirect_bug(cpu_t *cpu, uint16_t addr);
+static inline bool check_pages_differ(uint16_t a, uint16_t b);
+static inline uint16_t get_instruction_operand(cpu_t *cpu, addr_mode_t mode, bool *out_pages_differ);
 static int handle_interrupt(cpu_t *cpu);
-static bool check_pages_differ(uint16_t a, uint16_t b);
+static inline instruction_t* instruction_get(uint8_t opc);
 
 void cpu_init(cpu_t *cpu, agnes_t *agnes) {
     memset(cpu, 0, sizeof(cpu_t));
@@ -880,70 +926,84 @@ void cpu_init(cpu_t *cpu, agnes_t *agnes) {
     cpu_restore_flags(cpu, 0x24);
 }
 
+// Mark hot functions for better optimization
+__attribute__((hot))
 int cpu_tick(cpu_t *cpu) {
-    if (cpu->stall > 0) {
+    // Stall check - use likely/unlikely hints
+    if (__builtin_expect(cpu->stall > 0, 0)) {
         cpu->stall--;
         return 1;
     }
 
     int cycles = 0;
 
-    if (cpu->interrupt != INTERRPUT_NONE) {
+    // Interrupts are rare
+    if (__builtin_expect(cpu->interrupt != INTERRPUT_NONE, 0)) {
         cycles += handle_interrupt(cpu);
     }
 
-    uint8_t opcode = cpu_read8(cpu, cpu->pc);
+    // Fetch opcode and instruction in parallel with PC calculation
+    uint16_t pc = cpu->pc;
+    uint8_t opcode = cpu_read8(cpu, pc);
     instruction_t *ins = instruction_get(opcode);
-    if (ins->operation == NULL) {
+    
+    // Check for illegal opcode
+    instruction_op_fn operation = ins->operation;
+    if (operation == NULL) {
         return 0;
     }
     
-    uint8_t ins_size = instruction_get_size(ins->mode);
+    // Load all instruction fields we need in parallel (cache line fetch)
+    uint8_t ins_cycles = ins->cycles;
+    uint8_t ins_size = ins->size;
+    addr_mode_t mode = ins->mode;
+    bool page_cross_cycle = ins->page_cross_cycle;
+    
+    // Compute operand address
     bool page_crossed = false;
-    uint16_t addr = get_instruction_operand(cpu, ins->mode, &page_crossed);
+    uint16_t addr = get_instruction_operand(cpu, mode, &page_crossed);
 
-    cpu->pc += ins_size;
+    // Update PC early to break dependency chain
+    cpu->pc = pc + ins_size;
 
-    cycles += ins->cycles;
-    cycles += ins->operation(cpu, addr, ins->mode);
+    // Execute instruction
+    cycles += ins_cycles;
+    cycles += operation(cpu, addr, mode);
 
-    if (page_crossed && ins->page_cross_cycle) {
-        cycles += 1;
-    }
+    // Add page cross penalty if needed
+    cycles += (page_crossed & page_cross_cycle);
 
     cpu->cycles += cycles;
 
     return cycles;
 }
 
-void cpu_update_zn_flags(cpu_t *cpu, uint8_t val) {
+static inline void cpu_update_zn_flags(cpu_t *cpu, uint8_t val) {
     cpu->flag_zero = val == 0;
-    cpu->flag_negative = AGNES_GET_BIT(val, 7);
+    cpu->flag_negative = val >> 7;  // Faster than AGNES_GET_BIT macro
 }
 
-void cpu_stack_push8(cpu_t *cpu, uint8_t val) {
-    uint16_t addr = 0x0100 + (uint16_t)(cpu->sp);
-    cpu_write8(cpu, addr, val);
+static inline void cpu_stack_push8(cpu_t *cpu, uint8_t val) {
+    // Stack is always in RAM at 0x0100-0x01FF, write directly
+    cpu->agnes->ram[0x100 + cpu->sp] = val;
     cpu->sp--;
 }
 
-void cpu_stack_push16(cpu_t *cpu, uint16_t val) {
+static inline void cpu_stack_push16(cpu_t *cpu, uint16_t val) {
     cpu_stack_push8(cpu, val >> 8);
     cpu_stack_push8(cpu, val);
 }
 
-uint8_t cpu_stack_pop8(cpu_t *cpu) {
+static inline uint8_t cpu_stack_pop8(cpu_t *cpu) {
     cpu->sp++;
-    uint16_t addr = 0x0100 + (uint16_t)(cpu->sp);
-    uint8_t res = cpu_read8(cpu, addr);
-    return res;
+    // Stack is always in RAM at 0x0100-0x01FF, read directly
+    return cpu->agnes->ram[0x100 + cpu->sp];
 }
 
-uint16_t cpu_stack_pop16(cpu_t *cpu) {
+static inline uint16_t cpu_stack_pop16(cpu_t *cpu) {
     uint16_t lo = cpu_stack_pop8(cpu);
     uint16_t hi = cpu_stack_pop8(cpu);
-    uint16_t res = (hi << 8) | lo;
-    return res;
+    return (hi << 8) | lo;
 }
 
 uint8_t cpu_get_flags(const cpu_t *cpu) {
@@ -980,64 +1040,70 @@ void cpu_set_dma_stall(cpu_t *cpu) {
     cpu->stall = (cpu->cycles & 0x1) ? 514 : 513;
 }
 
-void cpu_write8(cpu_t *cpu, uint16_t addr, uint8_t val) {
+// Optimized cpu_write8 - inlined, most common paths first
+static inline void cpu_write8(cpu_t *cpu, uint16_t addr, uint8_t val) {
     agnes_t *agnes = cpu->agnes;
 
+    // Most common: RAM access (zero page, stack, general RAM)
     if (addr < 0x2000) {
         agnes->ram[addr & 0x7ff] = val;
-    } else if (addr < 0x4000) {
+        return;
+    }
+    // Second most common: mapper/cartridge writes
+    if (addr >= 0x4020) {
+        mapper_write(agnes, addr, val);
+        return;
+    }
+    // PPU registers
+    if (addr < 0x4000) {
         ppu_write_register(&agnes->ppu, 0x2000 | (addr & 0x7), val);
-    } else if (addr == 0x4014) {
-        // OAM DMA
+        return;
+    }
+    // APU and I/O
+    if (addr == 0x4014) {
         ppu_write_register(&agnes->ppu, 0x4014, val);
     } else if (addr == 0x4016) {
-        // Controller strobe
         agnes->controllers_latch = val & 0x1;
         if (agnes->controllers_latch) {
             agnes->controllers[0].shift = agnes->controllers[0].state;
             agnes->controllers[1].shift = agnes->controllers[1].state;
         }
-    } else if (addr >= 0x4000 && addr <= 0x4013) {
-        // APU registers $4000-$4013
+    } else if (addr <= 0x4013 || addr == 0x4015 || addr == 0x4017) {
         apu_write_register(&agnes->apu, addr, val);
-    } else if (addr == 0x4015) {
-        // APU control register
-        apu_write_register(&agnes->apu, addr, val);
-    } else if (addr == 0x4017) {
-        // APU frame counter
-        apu_write_register(&agnes->apu, addr, val);
-    } else if (addr < 0x4020) {
-        // disabled ($4018-$401F)
-    } else {
-        mapper_write(agnes, addr, val);
     }
 }
 
-uint8_t cpu_read8(cpu_t *cpu, uint16_t addr) {
+// Optimized cpu_read8 - inlined, most common paths first
+static inline uint8_t cpu_read8(cpu_t *cpu, uint16_t addr) {
     agnes_t *agnes = cpu->agnes;
 
-    uint8_t res = 0;
-    if (addr >= 0x4020) { // moved to top because it's the most common case
-        res = mapper_read(agnes, addr);
-    } else if (addr < 0x2000) {
-        res = agnes->ram[addr & 0x7ff];
-    } else if (addr < 0x4000) {
-        res = ppu_read_register(&agnes->ppu, 0x2000 | (addr & 0x7));
-    } else if (addr == 0x4015) {
-        // APU status register
-        res = apu_read_register(&agnes->apu, addr);
-    } else if (addr < 0x4016) {
-        // Other APU registers (write-only, return 0)
-        res = 0;
-    } else if (addr < 0x4018) {
-        int controller = addr & 0x1; // 0: 0x4016, 1: 0x4017
+    // Most common: mapper/cartridge reads (PRG ROM)
+    if (addr >= 0x4020) {
+        return mapper_read(agnes, addr);
+    }
+    // Second most common: RAM reads (zero page, stack)
+    if (addr < 0x2000) {
+        return agnes->ram[addr & 0x7ff];
+    }
+    // PPU registers
+    if (addr < 0x4000) {
+        return ppu_read_register(&agnes->ppu, 0x2000 | (addr & 0x7));
+    }
+    // APU status
+    if (addr == 0x4015) {
+        return apu_read_register(&agnes->apu, addr);
+    }
+    // Controllers
+    if (addr >= 0x4016 && addr < 0x4018) {
+        int controller = addr & 0x1;
         if (agnes->controllers_latch) {
             agnes->controllers[controller].shift = agnes->controllers[controller].state;
         }
-        res = agnes->controllers[controller].shift & 0x1;
+        uint8_t res = agnes->controllers[controller].shift & 0x1;
         agnes->controllers[controller].shift >>= 1;
+        return res;
     }
-    return res;
+    return 0;
 }
 
 uint16_t cpu_read16(cpu_t *cpu, uint16_t addr) {
@@ -1046,13 +1112,17 @@ uint16_t cpu_read16(cpu_t *cpu, uint16_t addr) {
     return (hi << 8) | lo;
 }
 
-static uint16_t cpu_read16_indirect_bug(cpu_t *cpu, uint16_t addr) {
+static inline uint16_t cpu_read16_indirect_bug(cpu_t *cpu, uint16_t addr) {
     uint8_t lo = cpu_read8(cpu, addr);
     uint8_t hi = cpu_read8(cpu, (addr & 0xff00) | ((addr + 1) & 0x00ff));
     return (hi << 8) | lo;
 }
 
-static uint16_t get_instruction_operand(cpu_t *cpu, addr_mode_t mode, bool *out_pages_differ) {
+static inline bool check_pages_differ(uint16_t a, uint16_t b) {
+    return (a & 0xff00) != (b & 0xff00);
+}
+
+static inline uint16_t get_instruction_operand(cpu_t *cpu, addr_mode_t mode, bool *out_pages_differ) {
     *out_pages_differ = false;
     switch (mode) {
         case ADDR_MODE_ABSOLUTE: {
@@ -1061,13 +1131,13 @@ static uint16_t get_instruction_operand(cpu_t *cpu, addr_mode_t mode, bool *out_
         case ADDR_MODE_ABSOLUTE_X: {
             uint16_t addr = cpu_read16(cpu, cpu->pc + 1);
             uint16_t res = addr + cpu->x;
-            *out_pages_differ = check_pages_differ(addr, res);
+            *out_pages_differ = (addr & 0xff00) != (res & 0xff00);
             return res;
         }
         case ADDR_MODE_ABSOLUTE_Y: {
             uint16_t addr = cpu_read16(cpu, cpu->pc + 1);
             uint16_t res = addr + cpu->y;
-            *out_pages_differ = check_pages_differ(addr, res);
+            *out_pages_differ = (addr & 0xff00) != (res & 0xff00);
             return res;
         }
         case ADDR_MODE_IMMEDIATE: {
@@ -1129,9 +1199,6 @@ static int handle_interrupt(cpu_t *cpu) {
     return 7;
 }
 
-static bool check_pages_differ(uint16_t a, uint16_t b) {
-    return (0xff00 & a) != (0xff00 & b);
-}
 //FILE_END
 //FILE_START:apu.c
 #include <stdlib.h>
@@ -1174,6 +1241,8 @@ AGNES_INTERNAL void apu_init(apu_t *apu, agnes_t *agnes) {
 AGNES_INTERNAL void apu_set_sample_rate(apu_t *apu, double sample_rate) {
     apu->sample_rate = sample_rate;
     apu->cycles_per_sample = APU_CPU_CLOCK / sample_rate;
+    apu->sample_rate_int = (uint32_t)sample_rate;
+    apu->sample_accumulator_int = 0;
 }
 
 AGNES_INTERNAL void apu_set_audio_buffer(apu_t *apu, float *buffer, uint32_t size) {
@@ -1206,8 +1275,8 @@ static bool apu_pulse_sweep_muting(apu_pulse_t *pulse, int channel) {
     return pulse->timer_period < 8 || target > 0x7FF;
 }
 
-// Get pulse channel output
-static uint8_t apu_pulse_output(apu_pulse_t *pulse, int channel) {
+// Get pulse channel output - inlined for performance
+static inline uint8_t apu_pulse_output(apu_pulse_t *pulse, int channel) {
     if (!pulse->enabled) return 0;
     if (pulse->length_counter == 0) return 0;
     if (apu_duty_table[pulse->duty][pulse->duty_pos] == 0) return 0;
@@ -1220,8 +1289,8 @@ static uint8_t apu_pulse_output(apu_pulse_t *pulse, int channel) {
     }
 }
 
-// Get triangle channel output
-static uint8_t apu_triangle_output(apu_triangle_t *triangle) {
+// Get triangle channel output - inlined for performance
+static inline uint8_t apu_triangle_output(apu_triangle_t *triangle) {
     if (!triangle->enabled) return 0;
     if (triangle->length_counter == 0) return 0;
     if (triangle->linear_counter == 0) return 0;
@@ -1229,8 +1298,8 @@ static uint8_t apu_triangle_output(apu_triangle_t *triangle) {
     return apu_triangle_table[triangle->sequence_pos];
 }
 
-// Get noise channel output
-static uint8_t apu_noise_output(apu_noise_t *noise) {
+// Get noise channel output - inlined for performance
+static inline uint8_t apu_noise_output(apu_noise_t *noise) {
     if (!noise->enabled) return 0;
     if (noise->length_counter == 0) return 0;
     if (noise->shift_register & 1) return 0;
@@ -1242,13 +1311,13 @@ static uint8_t apu_noise_output(apu_noise_t *noise) {
     }
 }
 
-// Get DMC output
-static uint8_t apu_dmc_output(apu_dmc_t *dmc) {
+// Get DMC output - inlined for performance
+static inline uint8_t apu_dmc_output(apu_dmc_t *dmc) {
     return dmc->output_level;
 }
 
-// Mix all channels using linear approximation
-AGNES_INTERNAL float apu_get_output(apu_t *apu) {
+// Mix all channels using linear approximation - inlined for performance
+static inline float apu_get_output(apu_t *apu) {
     uint8_t p1 = apu_pulse_output(&apu->pulse[0], 0);
     uint8_t p2 = apu_pulse_output(&apu->pulse[1], 1);
     uint8_t t = apu_triangle_output(&apu->triangle);
@@ -1379,8 +1448,8 @@ static void apu_half_frame(apu_t *apu) {
     apu_clock_pulse_sweep(&apu->pulse[1], 1);
 }
 
-// Clock pulse timer
-static void apu_clock_pulse_timer(apu_pulse_t *pulse) {
+// Clock pulse timer - inlined for performance
+static inline void apu_clock_pulse_timer(apu_pulse_t *pulse) {
     if (pulse->timer_value == 0) {
         pulse->timer_value = pulse->timer_period;
         pulse->duty_pos = (pulse->duty_pos + 1) & 7;
@@ -1389,8 +1458,8 @@ static void apu_clock_pulse_timer(apu_pulse_t *pulse) {
     }
 }
 
-// Clock triangle timer
-static void apu_clock_triangle_timer(apu_triangle_t *triangle) {
+// Clock triangle timer - inlined for performance
+static inline void apu_clock_triangle_timer(apu_triangle_t *triangle) {
     if (triangle->timer_value == 0) {
         triangle->timer_value = triangle->timer_period;
         if (triangle->length_counter > 0 && triangle->linear_counter > 0) {
@@ -1401,8 +1470,8 @@ static void apu_clock_triangle_timer(apu_triangle_t *triangle) {
     }
 }
 
-// Clock noise timer
-static void apu_clock_noise_timer(apu_noise_t *noise) {
+// Clock noise timer - inlined for performance
+static inline void apu_clock_noise_timer(apu_noise_t *noise) {
     if (noise->timer_value == 0) {
         noise->timer_value = noise->timer_period;
         
@@ -1469,8 +1538,8 @@ static void apu_clock_dmc(apu_t *apu) {
     dmc->bits_remaining--;
 }
 
-// Main APU tick (called once per CPU cycle)
-AGNES_INTERNAL void apu_tick(apu_t *apu) {
+// Main APU tick (called once per CPU cycle) - inlined for performance
+static inline void apu_tick(apu_t *apu) {
     apu->cycle++;
     
     // Triangle clocks at CPU rate
@@ -1547,10 +1616,10 @@ AGNES_INTERNAL void apu_tick(apu_t *apu) {
         }
     }
     
-    // Generate audio samples
-    apu->sample_accumulator += 1.0;
-    if (apu->sample_accumulator >= apu->cycles_per_sample) {
-        apu->sample_accumulator -= apu->cycles_per_sample;
+    // Generate audio samples using integer accumulator for speed
+    apu->sample_accumulator_int += apu->sample_rate_int;
+    if (apu->sample_accumulator_int >= APU_CPU_CLOCK_INT) {
+        apu->sample_accumulator_int -= APU_CPU_CLOCK_INT;
         
         if (apu->audio_buffer && apu->audio_buffer_index < apu->audio_buffer_size) {
             apu->audio_buffer[apu->audio_buffer_index++] = apu_get_output(apu);
@@ -1767,35 +1836,40 @@ void ppu_init(ppu_t *ppu, agnes_t *agnes) {
     ppu_write_register(ppu, 0x2001, 0);
 }
 
+__attribute__((hot))
 void ppu_tick(ppu_t *ppu, bool *out_new_frame) {
+    // Cache frequently accessed values
+    int dot = ppu->dot;
+    int scanline = ppu->scanline;
     bool rendering_enabled = ppu->masks.show_background || ppu->masks.show_sprites;
 
     // https://wiki.nesdev.com/w/index.php/PPU_frame_timing#Even.2FOdd_Frames
-    if (rendering_enabled && ppu->is_odd_frame && ppu->dot == 339 && ppu->scanline == 261) {
+    if (__builtin_expect(rendering_enabled && ppu->is_odd_frame && dot == 339 && scanline == 261, 0)) {
         ppu->dot = 0;
         ppu->scanline = 0;
         ppu->is_odd_frame = !ppu->is_odd_frame;
-    } else {
-        ppu->dot++;
-
-        if (ppu->dot > 340){
-            ppu->dot = 0;
-            ppu->scanline++;
-        }
-
-        if (ppu->scanline > 261) {
-            ppu->scanline = 0;
+        return;  // Early exit for this special case
+    }
+    
+    dot++;
+    if (__builtin_expect(dot > 340, 0)) {
+        dot = 0;
+        scanline++;
+        if (__builtin_expect(scanline > 261, 0)) {
+            scanline = 0;
             ppu->is_odd_frame = !ppu->is_odd_frame;
         }
+        ppu->scanline = scanline;
     }
+    ppu->dot = dot;
 
-    if (ppu->dot == 0) {
+    if (__builtin_expect(dot == 0, 0)) {
         return;
     }
 
-    bool scanline_visible = ppu->scanline >= 0 && ppu->scanline < 240;
-    bool scanline_pre = ppu->scanline == 261;
-    bool scanline_post = ppu->scanline == 241;
+    bool scanline_visible = (unsigned)scanline < 240;  // Unsigned comparison is faster
+    bool scanline_pre = scanline == 261;
+    bool scanline_post = scanline == 241;
 
     if (rendering_enabled && (scanline_visible || scanline_pre)) {
         scanline_visible_pre(ppu, out_new_frame);
@@ -2315,8 +2389,25 @@ static int op_tya(cpu_t *cpu, uint16_t addr, addr_mode_t mode);
 
 static int take_branch(cpu_t *cpu, uint16_t addr);
 
-#define INS(OPC, NAME, CYCLES, PCC, OP, MODE) { NAME, OPC, CYCLES, PCC, MODE, OP }
-#define INE(OPC) { "ILL", OPC, 1, false, ADDR_MODE_IMPLIED, NULL }
+// Compile-time size computation for each addressing mode
+#define MODE_SIZE_ADDR_MODE_NONE 0
+#define MODE_SIZE_ADDR_MODE_ABSOLUTE 3
+#define MODE_SIZE_ADDR_MODE_ABSOLUTE_X 3
+#define MODE_SIZE_ADDR_MODE_ABSOLUTE_Y 3
+#define MODE_SIZE_ADDR_MODE_ACCUMULATOR 1
+#define MODE_SIZE_ADDR_MODE_IMMEDIATE 2
+#define MODE_SIZE_ADDR_MODE_IMPLIED 1
+#define MODE_SIZE_ADDR_MODE_IMPLIED_BRK 2
+#define MODE_SIZE_ADDR_MODE_INDIRECT 3
+#define MODE_SIZE_ADDR_MODE_INDIRECT_X 2
+#define MODE_SIZE_ADDR_MODE_INDIRECT_Y 2
+#define MODE_SIZE_ADDR_MODE_RELATIVE 2
+#define MODE_SIZE_ADDR_MODE_ZERO_PAGE 2
+#define MODE_SIZE_ADDR_MODE_ZERO_PAGE_X 2
+#define MODE_SIZE_ADDR_MODE_ZERO_PAGE_Y 2
+
+#define INS(OPC, NAME, CYCLES, PCC, OP, MODE) { NAME, OPC, CYCLES, MODE_SIZE_##MODE, PCC, MODE, OP }
+#define INE(OPC) { "ILL", OPC, 1, 1, false, ADDR_MODE_IMPLIED, NULL }
 
 static instruction_t instructions[256] = {
     INS(0x00, "BRK", 7, false, op_brk, ADDR_MODE_IMPLIED_BRK),
@@ -2580,29 +2671,32 @@ static instruction_t instructions[256] = {
 #undef INE
 #undef INS
 
-instruction_t* instruction_get(uint8_t opc) {
+// Instruction size lookup table - indexed by addr_mode_t
+static const uint8_t instruction_size_table[16] = {
+    0, // ADDR_MODE_NONE
+    3, // ADDR_MODE_ABSOLUTE
+    3, // ADDR_MODE_ABSOLUTE_X
+    3, // ADDR_MODE_ABSOLUTE_Y
+    1, // ADDR_MODE_ACCUMULATOR
+    2, // ADDR_MODE_IMMEDIATE
+    1, // ADDR_MODE_IMPLIED
+    2, // ADDR_MODE_IMPLIED_BRK
+    3, // ADDR_MODE_INDIRECT
+    2, // ADDR_MODE_INDIRECT_X
+    2, // ADDR_MODE_INDIRECT_Y
+    2, // ADDR_MODE_RELATIVE
+    2, // ADDR_MODE_ZERO_PAGE
+    2, // ADDR_MODE_ZERO_PAGE_X
+    2, // ADDR_MODE_ZERO_PAGE_Y
+    0  // padding
+};
+
+static inline instruction_t* instruction_get(uint8_t opc) {
     return &instructions[opc];
 }
 
-uint8_t instruction_get_size(addr_mode_t mode) {
-    switch (mode) {
-        case ADDR_MODE_NONE:        return 0;
-        case ADDR_MODE_ABSOLUTE:    return 3;
-        case ADDR_MODE_ABSOLUTE_X:  return 3;
-        case ADDR_MODE_ABSOLUTE_Y:  return 3;
-        case ADDR_MODE_ACCUMULATOR: return 1;
-        case ADDR_MODE_IMMEDIATE:   return 2;
-        case ADDR_MODE_IMPLIED:     return 1;
-        case ADDR_MODE_IMPLIED_BRK: return 2;
-        case ADDR_MODE_INDIRECT:    return 3;
-        case ADDR_MODE_INDIRECT_X:  return 2;
-        case ADDR_MODE_INDIRECT_Y:  return 2;
-        case ADDR_MODE_RELATIVE:    return 2;
-        case ADDR_MODE_ZERO_PAGE:   return 2;
-        case ADDR_MODE_ZERO_PAGE_X: return 2;
-        case ADDR_MODE_ZERO_PAGE_Y: return 2;
-        default: return 0;
-    }
+static inline uint8_t instruction_get_size(addr_mode_t mode) {
+    return instruction_size_table[mode];
 }
 
 static int op_adc(cpu_t *cpu, uint16_t addr, addr_mode_t mode) {

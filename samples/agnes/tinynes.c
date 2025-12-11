@@ -160,12 +160,19 @@ int main(int argc, char** argv)
 	s_platform->sc->framebufferA = &frameBufferA;
 	s_platform->sc->framebufferB = &frameBufferB;
 
+	// Load the NES palette once at startup
+	agnes_color_t *palette = agnes_get_palette(s_agnes);
+	for (uint32_t i = 0; i < 256; ++i)
+		VPUSetPal(s_platform->vx, i, palette[i].r, palette[i].g, palette[i].b);
+
     memset(&s_input, 0, sizeof(agnes_input_t));
 	do
 	{
 		if (havekeyboard)
 		{
-			int ret = poll(fds, 1, 10);
+			// Non-blocking poll - don't use timeout as frame limiter
+			// Frame timing is handled by vsync and audio DMA
+			int ret = poll(fds, 1, 0);
 			if (ret > 0)
 			{
 				struct input_event ev;
@@ -256,18 +263,17 @@ int main(int argc, char** argv)
 		while(VPUGetFIFONotEmpty(s_platform->vx)) { }
 		VPUSwapPages(s_platform->vx, s_platform->sc);
 
-		agnes_color_t *palette = agnes_get_palette(s_agnes);
-		for (uint32_t i = 0; i < 256; ++i)
-			VPUSetPal(s_platform->vx, i, palette[i].r, palette[i].g, palette[i].b);
-
 		uint8_t *source = agnes_get_raw_screen_buffer(s_agnes);
 		uint8_t *dest = (uint8_t*)s_platform->sc->writepage;
-		for (uint32_t y = 0; y<AGNES_SCREEN_HEIGHT; ++y)
+		// Copy framebuffer - copy 4 pixels at a time where possible
+		// AGNES_SCREEN_WIDTH is 256 which is divisible by 4
+		for (uint32_t y = 0; y < AGNES_SCREEN_HEIGHT; ++y)
 		{
-			for (uint32_t x = 0; x<AGNES_SCREEN_WIDTH; ++x)
+			uint32_t *src32 = (uint32_t*)(source + AGNES_SCREEN_WIDTH * y);
+			uint32_t *dst32 = (uint32_t*)(dest + 32 + stride * y);
+			for (uint32_t x = 0; x < AGNES_SCREEN_WIDTH / 4; ++x)
 			{
-				uint32_t color = source[x+AGNES_SCREEN_WIDTH*y];
-				dest[32 + x+y*stride] = color;
+				dst32[x] = src32[x];
 			}
 		}
 
