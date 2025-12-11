@@ -1742,7 +1742,7 @@ AGNES_INTERNAL uint8_t apu_read_register(apu_t *apu, uint16_t addr) {
 #include "mapper.h"
 #endif
 
-static void scanline_visible_pre(ppu_t *ppu, bool *out_new_frame);
+static void scanline_visible_pre(ppu_t *ppu, bool scanline_visible, bool scanline_pre);
 static void inc_hori_v(ppu_t *ppu);
 static void inc_vert_v(ppu_t *ppu);
 static void emit_pixel(ppu_t *ppu);
@@ -1768,45 +1768,58 @@ void ppu_init(ppu_t *ppu, agnes_t *agnes) {
 }
 
 void ppu_tick(ppu_t *ppu, bool *out_new_frame) {
-    bool rendering_enabled = ppu->masks.show_background || ppu->masks.show_sprites;
+    // Cache frequently accessed values
+    unsigned dot = ppu->dot;
+    unsigned scanline = ppu->scanline;
+    bool rendering_enabled = ppu->masks.show_background | ppu->masks.show_sprites;
 
     // https://wiki.nesdev.com/w/index.php/PPU_frame_timing#Even.2FOdd_Frames
-    if (rendering_enabled && ppu->is_odd_frame && ppu->dot == 339 && ppu->scanline == 261) {
+    // Odd frame skip: skip cycle 0 of scanline 0 on odd frames when rendering
+    if (rendering_enabled & ppu->is_odd_frame & (dot == 339) & (scanline == 261)) {
         ppu->dot = 0;
         ppu->scanline = 0;
-        ppu->is_odd_frame = !ppu->is_odd_frame;
-    } else {
-        ppu->dot++;
-
-        if (ppu->dot > 340){
-            ppu->dot = 0;
-            ppu->scanline++;
-        }
-
-        if (ppu->scanline > 261) {
-            ppu->scanline = 0;
-            ppu->is_odd_frame = !ppu->is_odd_frame;
-        }
+        ppu->is_odd_frame ^= 1;
+        return; // dot 0, nothing to do
     }
 
-    if (ppu->dot == 0) {
+    // Advance dot counter
+    dot++;
+    
+    // Branchless wrap: dot goes 0-340, scanline goes 0-261
+    unsigned dot_wrap = (dot > 340);
+    dot = dot_wrap ? 0 : dot;
+    scanline += dot_wrap;
+    
+    unsigned scanline_wrap = (scanline > 261);
+    scanline = scanline_wrap ? 0 : scanline;
+    ppu->is_odd_frame ^= scanline_wrap;
+    
+    ppu->dot = dot;
+    ppu->scanline = scanline;
+
+    // Early exit for dot 0 - no rendering work
+    if (dot == 0) {
         return;
     }
 
-    bool scanline_visible = ppu->scanline >= 0 && ppu->scanline < 240;
-    bool scanline_pre = ppu->scanline == 261;
-    bool scanline_post = ppu->scanline == 241;
+    // Precompute scanline type flags (using unsigned comparisons)
+    bool scanline_visible = (scanline < 240);
+    bool scanline_pre = (scanline == 261);
 
-    if (rendering_enabled && (scanline_visible || scanline_pre)) {
-        scanline_visible_pre(ppu, out_new_frame);
+    // Process visible and pre-render scanlines when rendering enabled
+    if (rendering_enabled & (scanline_visible | scanline_pre)) {
+        scanline_visible_pre(ppu, scanline_visible, scanline_pre);
     }
 
-    if (ppu->dot == 1) {
+    // Handle dot 1 special cases (VBlank start/end)
+    if (dot == 1) {
         if (scanline_pre) {
+            // Clear flags at start of pre-render scanline
             ppu->status.sprite_overflow = false;
             ppu->status.sprite_zero_hit = false;
             ppu->status.in_vblank = false;
-        } else if (scanline_post) {
+        } else if (scanline == 241) {
+            // VBlank start
             ppu->status.in_vblank = true;
             *out_new_frame = true;
             if (ppu->ctrl.nmi_enabled) {
@@ -1816,73 +1829,69 @@ void ppu_tick(ppu_t *ppu, bool *out_new_frame) {
     }
 }
 
-static void scanline_visible_pre(ppu_t *ppu, bool *out_new_frame) {
-    bool scanline_visible = ppu->scanline >= 0 && ppu->scanline < 240;
-    bool scanline_pre = ppu->scanline == 261;
-    bool dot_visible = ppu->dot > 0 && ppu->dot <= 256;
-    bool dot_fetch = ppu->dot <= 256 || (ppu->dot >= 321 && ppu->dot < 337);
-
-    if (scanline_visible && dot_visible) {
+static void scanline_visible_pre(ppu_t *ppu, bool scanline_visible, bool scanline_pre) {
+    const unsigned dot = ppu->dot;
+    
+    // Emit pixel during visible dots (1-256) on visible scanlines
+    // Using unsigned comparison: dot-1 < 256 is equivalent to dot > 0 && dot <= 256
+    if (scanline_visible & ((dot - 1) < 256)) {
         emit_pixel(ppu);
     }
 
+    // Fetch cycles: dots 1-256 and 321-336
+    // Optimized check: (dot <= 256) || (dot >= 321 && dot < 337)
+    const bool dot_fetch = (dot <= 256) | ((dot - 321) < 16);
+
     if (dot_fetch) {
+        // Shift registers - always done during fetch cycles
         ppu->bg_lo_shift <<= 1;
         ppu->bg_hi_shift <<= 1;
         ppu->at_shift = (ppu->at_shift << 2) | (ppu->at_latch & 0x3);
 
-        switch (ppu->dot & 0x7) {
-            case 1: {
-                uint16_t addr = 0x2000 | (ppu->regs.v & 0x0fff);
-                ppu->nt = ppu_read8(ppu, addr);
-                break;
+        // Use computed index to reduce branching in hot path
+        const unsigned dot_phase = dot & 0x7;
+        const uint16_t v = ppu->regs.v;
+        
+        // Optimize the switch with early computation of common values
+        if (dot_phase == 1) {
+            // Nametable byte fetch
+            ppu->nt = ppu_read8(ppu, 0x2000 | (v & 0x0fff));
+        } else if (dot_phase == 3) {
+            // Attribute byte fetch with branchless shift calculation
+            uint16_t addr = 0x23C0 | (v & 0x0C00) | ((v >> 4) & 0x38) | ((v >> 2) & 0x07);
+            uint8_t at = ppu_read8(ppu, addr);
+            // Branchless attribute shift: shift by 4 if bit 6 set, shift by 2 if bit 1 set
+            // bit 6 (0x40) contributes 4, bit 1 (0x02) contributes 2
+            unsigned shift = ((v >> 4) & 0x04) | (v & 0x02);
+            ppu->at = at >> shift;
+        } else if (dot_phase == 5) {
+            // Low tile byte fetch
+            uint8_t fine_y = (v >> 12) & 0x7;
+            ppu->bg_lo = ppu_read8(ppu, ppu->ctrl.bg_table_addr + (ppu->nt << 4) + fine_y);
+        } else if (dot_phase == 7) {
+            // High tile byte fetch
+            uint8_t fine_y = (v >> 12) & 0x7;
+            ppu->bg_hi = ppu_read8(ppu, ppu->ctrl.bg_table_addr + (ppu->nt << 4) + fine_y + 8);
+        } else if (dot_phase == 0) {
+            // Load shift registers and increment scroll
+            ppu->bg_lo_shift = (ppu->bg_lo_shift & 0xff00) | ppu->bg_lo;
+            ppu->bg_hi_shift = (ppu->bg_hi_shift & 0xff00) | ppu->bg_hi;
+            ppu->at_latch = ppu->at & 0x3;
+            
+            // Branchless selection: inc_vert_v at dot 256, inc_hori_v otherwise
+            if (dot == 256) {
+                inc_vert_v(ppu);
+            } else {
+                inc_hori_v(ppu);
             }
-            case 3: {
-                uint16_t v = ppu->regs.v;
-                uint16_t addr = 0x23C0 | (v & 0x0C00) | ((v >> 4) & 0x38) | ((v >> 2) & 0x07);
-                ppu->at = ppu_read8(ppu, addr);
-                if (ppu->regs.v & 0x40) {
-                    ppu->at = ppu->at >> 4;
-                }
-                if (ppu->regs.v & 0x02) {
-                    ppu->at = ppu->at >> 2;
-                }
-                break;
-            }
-            case 5: {
-                uint8_t fine_y = ((ppu->regs.v) >> 12) & 0x7;
-                uint16_t addr = ppu->ctrl.bg_table_addr + (ppu->nt << 4) + fine_y;
-                ppu->bg_lo = ppu_read8(ppu, addr);
-                break;
-            }
-            case 7: {
-                uint8_t fine_y = ((ppu->regs.v) >> 12) & 0x7;
-                uint16_t addr = ppu->ctrl.bg_table_addr + (ppu->nt << 4) + fine_y + 8;
-                ppu->bg_hi = ppu_read8(ppu, addr);
-                break;
-            }
-            case 0: {
-                ppu->bg_lo_shift = (ppu->bg_lo_shift & 0xff00) | ppu->bg_lo;
-                ppu->bg_hi_shift = (ppu->bg_hi_shift & 0xff00) | ppu->bg_hi;
-
-                ppu->at_latch = ppu->at & 0x3;
-
-                if (ppu->dot == 256) {
-                    inc_vert_v(ppu);
-                } else {
-                    inc_hori_v(ppu);
-                }
-                break;
-            }
-            default:
-                break;
         }
+        // dot_phase 2, 4, 6: no action needed (implicit default case eliminated)
     }
 
-    if (ppu->dot == 257) {
-        // v: |_...|.F..| |...E|DCBA| = t: |_...|.F..| |...E|DCBA|
-        ppu->regs.v = (ppu->regs.v & 0xfbe0) | (ppu->regs.t & ~(0xfbe0));
-
+    // Dot 257: copy horizontal scroll bits from t to v
+    if (dot == 257) {
+        ppu->regs.v = (ppu->regs.v & 0xfbe0) | (ppu->regs.t & 0x041f);
+        // Evaluate sprites for next scanline (branchless count reset)
         if (scanline_visible) {
             eval_sprites(ppu);
         } else {
@@ -1890,19 +1899,17 @@ static void scanline_visible_pre(ppu_t *ppu, bool *out_new_frame) {
         }
     }
 
-    if (scanline_pre && ppu->dot >= 280 && ppu->dot <= 304) {
-        // v: |_IHG|F.ED| |CBA.|....| = t: |_IHG|F.ED| |CBA.|....|
-        ppu->regs.v = (ppu->regs.v & 0x841f) | (ppu->regs.t & ~(0x841f));
+    // Pre-render scanline: copy vertical scroll bits from t to v (dots 280-304)
+    if (scanline_pre & ((dot - 280) <= 24)) {
+        ppu->regs.v = (ppu->regs.v & 0x841f) | (ppu->regs.t & 0x7be0);
     }
 
-    if (ppu->masks.show_background && ppu->masks.show_sprites) {
-        if ((ppu->ctrl.bg_table_addr == 0x0000 && ppu->dot == 270) // Should be 260 but it caused glitches in Kirby
-         || (ppu->ctrl.bg_table_addr == 0x1000 && ppu->dot == 324)) { // Not tested so far.
-            // https://wiki.nesdev.com/w/index.php/MMC3#IRQ_Specifics
-            // PA12 is 12th bit of PPU address bus that's toggled when switching between
-            // background and sprite pattern tables (should happen once per scanline).
-            // This might not work correctly with games using 8x16 sprites
-            // or games writing to CHR RAM.
+    // MMC3 IRQ: PA12 rising edge detection
+    if (ppu->masks.show_background & ppu->masks.show_sprites) {
+        // Combine conditions: (bg_table==0 && dot==270) || (bg_table==0x1000 && dot==324)
+        const bool irq_trigger = ((ppu->ctrl.bg_table_addr == 0x0000) & (dot == 270)) |
+                                  ((ppu->ctrl.bg_table_addr == 0x1000) & (dot == 324));
+        if (irq_trigger) {
             mapper_pa12_rising_edge(ppu->agnes);
         }
     }
