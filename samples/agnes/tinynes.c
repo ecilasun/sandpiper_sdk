@@ -231,7 +231,9 @@ int main(int argc, char** argv)
 		}
 
 		agnes_set_input(s_agnes, &s_input, NULL);
-		s_alive = agnes_next_frame(s_agnes);
+		// Use catch-up synchronization for better performance
+		// PPU runs lazily and catches up on register access
+		s_alive = agnes_next_frame_catchup(s_agnes);
 
 		// Process audio: accumulate samples and send when buffer is full
 		short* audioDest = (short*)audioBuffer.cpuAddress;

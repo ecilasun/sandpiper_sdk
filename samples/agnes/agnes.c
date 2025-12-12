@@ -396,7 +396,15 @@ typedef struct agnes {
     } mapper;
 
     mirroring_mode_t mirroring_mode;
+    
+    // Catch-up PPU synchronization state
+    uint64_t master_clock;      // Master clock in PPU cycles (CPU cycles * 3)
+    uint64_t ppu_clock;         // PPU cycles executed so far
+    bool frame_ready;           // Set when PPU reaches vblank
 } agnes_t;
+
+// Forward declaration for catch-up function
+static void ppu_catchup(agnes_t *agnes);
 
 #endif /* agnes_types_h */
 //FILE_END
@@ -766,6 +774,20 @@ bool agnes_restore_state(agnes_t *agnes, const agnes_state_t *state) {
     return true;
 }
 
+// Catch-up PPU to the current master clock
+// This is called before any PPU register access to ensure PPU state is current
+static void ppu_catchup(agnes_t *agnes) {
+    while (agnes->ppu_clock < agnes->master_clock) {
+        bool frame_flag = false;
+        ppu_tick(&agnes->ppu, &frame_flag);
+        agnes->ppu_clock++;
+        if (frame_flag) {
+            agnes->frame_ready = true;
+        }
+    }
+}
+
+// Original cycle-accurate tick (for compatibility)
 bool agnes_tick(agnes_t *agnes, bool *out_new_frame) {
     int cpu_cycles = cpu_tick(&agnes->cpu);
     if (cpu_cycles == 0) {
@@ -785,6 +807,36 @@ bool agnes_tick(agnes_t *agnes, bool *out_new_frame) {
     return true;
 }
 
+// Catch-up based tick: CPU runs ahead, PPU catches up on register access
+// PPU register reads/writes will call ppu_catchup() before accessing state
+bool agnes_tick_catchup(agnes_t *agnes, bool *out_new_frame) {
+    *out_new_frame = false;
+    
+    int cpu_cycles = cpu_tick(&agnes->cpu);
+    if (cpu_cycles == 0) {
+        return false;
+    }
+
+    // APU runs at CPU rate - process immediately (APU doesn't need catch-up)
+    for (int i = 0; i < cpu_cycles; i++) {
+        apu_tick(&agnes->apu);
+    }
+
+    // Advance master clock by PPU cycles equivalent (3 PPU per CPU)
+    agnes->master_clock += cpu_cycles * 3;
+    
+    // Check if we've crossed a frame boundary by catching up
+    // This ensures NMI fires at the right time
+    ppu_catchup(agnes);
+    
+    if (agnes->frame_ready) {
+        agnes->frame_ready = false;
+        *out_new_frame = true;
+    }
+    
+    return true;
+}
+
 bool agnes_next_frame(agnes_t *agnes) {
     while (true) {
         bool new_frame = false;
@@ -797,6 +849,52 @@ bool agnes_next_frame(agnes_t *agnes) {
         }
     }
     return true;
+}
+
+// Frame function using catch-up synchronization
+bool agnes_next_frame_catchup(agnes_t *agnes) {
+    while (true) {
+        bool new_frame = false;
+        bool ok = agnes_tick_catchup(agnes, &new_frame);
+        if (!ok) {
+            return false;
+        }
+        if (new_frame) {
+            break;
+        }
+    }
+    return true;
+}
+
+// PPU dots per scanline
+#define AGNES_PPU_DOTS_PER_SCANLINE 341
+
+// Run emulation until the current scanline completes (catch-up version)
+bool agnes_next_scanline(agnes_t *agnes, bool *out_new_frame) {
+    int start_scanline = agnes->ppu.scanline;
+    *out_new_frame = false;
+    
+    while (agnes->ppu.scanline == start_scanline) {
+        bool frame_flag = false;
+        if (!agnes_tick_catchup(agnes, &frame_flag)) {
+            return false;
+        }
+        if (frame_flag) {
+            *out_new_frame = true;
+        }
+    }
+    
+    return true;
+}
+
+// Get current PPU scanline (0-261)
+int agnes_get_scanline(const agnes_t *agnes) {
+    return agnes->ppu.scanline;
+}
+
+// Reset catch-up state (ensures PPU is fully caught up)
+void agnes_reset_batch_state(agnes_t *agnes) {
+    ppu_catchup(agnes);
 }
 
 agnes_color_t* agnes_get_palette(agnes_t *agnes)
@@ -2095,6 +2193,9 @@ static uint16_t get_sprite_color_addr(ppu_t *ppu, int *out_sprite_ix, bool *out_
 }
 
 uint8_t ppu_read_register(ppu_t *ppu, uint16_t addr) {
+    // Catch up PPU to current cycle before reading state
+    ppu_catchup(ppu->agnes);
+    
     switch (addr) {
         case 0x2002: { // PPUSTATUS
             uint8_t res = 0;
@@ -2128,6 +2229,9 @@ uint8_t ppu_read_register(ppu_t *ppu, uint16_t addr) {
 }
 
 void ppu_write_register(ppu_t *ppu, uint16_t addr, uint8_t val) {
+    // Catch up PPU to current cycle before modifying state
+    ppu_catchup(ppu->agnes);
+    
     ppu->last_reg_write = val;
     switch (addr) {
         case 0x2000: { // PPUCTRL
