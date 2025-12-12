@@ -598,6 +598,7 @@ typedef struct agnes agnes_t;
 
 AGNES_INTERNAL void apu_init(apu_t *apu, agnes_t *agnes);
 AGNES_INTERNAL void apu_tick(apu_t *apu);
+AGNES_INTERNAL void apu_tick_batch(apu_t *apu, int cycles);
 AGNES_INTERNAL uint8_t apu_read_register(apu_t *apu, uint16_t addr);
 AGNES_INTERNAL void apu_write_register(apu_t *apu, uint16_t addr, uint8_t val);
 AGNES_INTERNAL float apu_get_output(apu_t *apu);
@@ -607,7 +608,6 @@ AGNES_INTERNAL uint32_t apu_get_audio_samples(apu_t *apu);
 
 #endif /* apu_nes_h */
 //FILE_END
-
 //-----------------------------------------------------------------------------
 // C files
 //-----------------------------------------------------------------------------
@@ -787,6 +787,13 @@ static void ppu_catchup(agnes_t *agnes) {
     }
 }
 
+// NMI timing constants (NTSC)
+#define PPU_DOTS_PER_SCANLINE 341
+#define PPU_SCANLINES_PER_FRAME 262
+#define PPU_VBLANK_SCANLINE 241
+#define PPU_CYCLES_PER_FRAME (PPU_DOTS_PER_SCANLINE * PPU_SCANLINES_PER_FRAME)
+#define PPU_VBLANK_CYCLE (PPU_VBLANK_SCANLINE * PPU_DOTS_PER_SCANLINE + 1)
+
 // Original cycle-accurate tick (for compatibility)
 bool agnes_tick(agnes_t *agnes, bool *out_new_frame) {
     int cpu_cycles = cpu_tick(&agnes->cpu);
@@ -794,10 +801,8 @@ bool agnes_tick(agnes_t *agnes, bool *out_new_frame) {
         return false;
     }
 
-    // APU runs at CPU rate
-    for (int i = 0; i < cpu_cycles; i++) {
-        apu_tick(&agnes->apu);
-    }
+    // APU runs at CPU rate - use batched version for better performance
+    apu_tick_batch(&agnes->apu, cpu_cycles);
 
     int ppu_cycles = cpu_cycles * 3;
     for (int i = 0; i < ppu_cycles; i++) {
@@ -825,9 +830,15 @@ bool agnes_tick_catchup(agnes_t *agnes, bool *out_new_frame) {
     // Advance master clock by PPU cycles equivalent (3 PPU per CPU)
     agnes->master_clock += cpu_cycles * 3;
     
-    // Check if we've crossed a frame boundary by catching up
-    // This ensures NMI fires at the right time
-    ppu_catchup(agnes);
+    // Only catch up at VBlank boundary to trigger NMI at the right time
+    // For most of the frame, PPU stays lazy and catches up on register access
+    uint64_t frame_cycle = agnes->master_clock % PPU_CYCLES_PER_FRAME;
+    uint64_t ppu_frame_cycle = agnes->ppu_clock % PPU_CYCLES_PER_FRAME;
+    
+    // If we crossed the VBlank boundary, catch up to trigger NMI
+    if (ppu_frame_cycle < PPU_VBLANK_CYCLE && frame_cycle >= PPU_VBLANK_CYCLE) {
+        ppu_catchup(agnes);
+    }
     
     if (agnes->frame_ready) {
         agnes->frame_ready = false;
@@ -860,17 +871,17 @@ bool agnes_next_frame_catchup(agnes_t *agnes) {
             return false;
         }
         if (new_frame) {
+            // Ensure PPU is fully caught up for rendering
+            ppu_catchup(agnes);
             break;
         }
     }
     return true;
 }
 
-// PPU dots per scanline
-#define AGNES_PPU_DOTS_PER_SCANLINE 341
-
 // Run emulation until the current scanline completes (catch-up version)
 bool agnes_next_scanline(agnes_t *agnes, bool *out_new_frame) {
+    ppu_catchup(agnes);  // Ensure we have current scanline
     int start_scanline = agnes->ppu.scanline;
     *out_new_frame = false;
     
@@ -1571,7 +1582,7 @@ static void apu_clock_dmc(apu_t *apu) {
 AGNES_INTERNAL void apu_tick(apu_t *apu) {
     apu->cycle++;
     
-    // Triangle clocks at CPU rate
+    // Triangle clocks at CPU rate - but only update timer, not the full logic
     apu_clock_triangle_timer(&apu->triangle);
     
     // Other channels clock at half CPU rate (APU rate)
@@ -1591,7 +1602,7 @@ AGNES_INTERNAL void apu_tick(apu_t *apu) {
         }
     }
     
-    // Frame counter
+    // Frame counter - only check when divider would overflow
     apu->frame_divider++;
     if (apu->frame_divider >= FRAME_COUNTER_RATE) {
         apu->frame_divider = 0;
@@ -1645,7 +1656,7 @@ AGNES_INTERNAL void apu_tick(apu_t *apu) {
         }
     }
     
-    // Generate audio samples
+    // Generate audio samples - only when accumulator crosses threshold
     apu->sample_accumulator += 1.0;
     if (apu->sample_accumulator >= apu->cycles_per_sample) {
         apu->sample_accumulator -= apu->cycles_per_sample;
@@ -1658,6 +1669,89 @@ AGNES_INTERNAL void apu_tick(apu_t *apu) {
     // Note: IRQ handling is done by reading the status register ($4015)
     // The CPU will poll the status register to check for IRQs
     // We don't continuously trigger IRQ here to avoid infinite loops
+}
+
+// Batched APU tick - run multiple cycles at once
+// This is more efficient when we know no register access will occur
+AGNES_INTERNAL void apu_tick_batch(apu_t *apu, int cycles) {
+    for (int i = 0; i < cycles; i++) {
+        apu->cycle++;
+        
+        // Triangle timer only - fastest path
+        if (apu->triangle.timer_value == 0) {
+            apu->triangle.timer_value = apu->triangle.timer_period;
+            if (apu->triangle.length_counter > 0 && apu->triangle.linear_counter > 0) {
+                apu->triangle.sequence_pos = (apu->triangle.sequence_pos + 1) & 31;
+            }
+        } else {
+            apu->triangle.timer_value--;
+        }
+        
+        // Half-rate channels
+        if ((apu->cycle & 1) == 0) {
+            // Pulse timers - inline the hot path
+            for (int p = 0; p < 2; p++) {
+                apu_pulse_t *pulse = &apu->pulse[p];
+                if (pulse->timer_value == 0) {
+                    pulse->timer_value = pulse->timer_period;
+                    pulse->duty_pos = (pulse->duty_pos + 1) & 7;
+                } else {
+                    pulse->timer_value--;
+                }
+            }
+            
+            // Noise timer
+            apu_noise_t *noise = &apu->noise;
+            if (noise->timer_value == 0) {
+                noise->timer_value = noise->timer_period;
+                uint8_t bit = noise->mode ? 6 : 1;
+                uint16_t feedback = (noise->shift_register & 1) ^ ((noise->shift_register >> bit) & 1);
+                noise->shift_register = (noise->shift_register >> 1) | (feedback << 14);
+            } else {
+                noise->timer_value--;
+            }
+            
+            // DMC - rarely active
+            if (apu->dmc.enabled && apu->dmc.rate == 0) {
+                apu->dmc.rate = apu_dmc_table[0];
+                apu_clock_dmc(apu);
+            } else if (apu->dmc.enabled) {
+                apu->dmc.rate--;
+            }
+        }
+        
+        // Frame counter - only on overflow
+        if (++apu->frame_divider >= FRAME_COUNTER_RATE) {
+            apu->frame_divider = 0;
+            
+            // Simplified frame counter - quarter/half frame calls
+            bool quarter = true;
+            bool half = (apu->frame_step == 1) || (apu->frame_step == 3) || 
+                       (apu->frame_counter_mode && apu->frame_step == 4);
+            
+            if (quarter) apu_quarter_frame(apu);
+            if (half) apu_half_frame(apu);
+            
+            if (apu->frame_counter_mode == 0) {
+                if (apu->frame_step == 3 && !apu->frame_irq_inhibit) {
+                    apu->frame_irq_flag = true;
+                }
+                apu->frame_step = (apu->frame_step + 1) & 3;
+            } else {
+                apu->frame_step++;
+                if (apu->frame_step > 4) apu->frame_step = 0;
+            }
+        }
+        
+        // Sample generation
+        apu->sample_accumulator += 1.0;
+        if (apu->sample_accumulator >= apu->cycles_per_sample) {
+            apu->sample_accumulator -= apu->cycles_per_sample;
+            if (apu->audio_buffer && apu->audio_buffer_index < apu->audio_buffer_size) {
+                apu->audio_buffer[apu->audio_buffer_index++] = apu_get_output(apu);
+            }
+        }
+    }
 }
 
 // APU register write

@@ -8,6 +8,8 @@
 #include <unistd.h>
 #include <termios.h>
 #include <linux/input.h>
+#include <arm_neon.h>
+#include <pthread.h>
 
 #include "agnes.h"
 
@@ -58,11 +60,15 @@ struct SPSizeAlloc audioBuffer;
 static float s_nesAudioBuffer[AUDIO_BUFFER_SAMPLES * 2];  // Extra space for accumulation
 
 // Audio accumulation ring buffer for continuous playback
+// Make it larger to handle timing variations
 static float s_audioAccumBuffer[AUDIO_ACCUM_SAMPLES];
-static uint32_t s_audioWriteIndex = 0;
-static uint32_t s_audioReadIndex = 0;
-static uint32_t s_audioFrame = 0;
-static bool s_dmaQueued = false;
+static volatile uint32_t s_audioWriteIndex = 0;
+static volatile uint32_t s_audioReadIndex = 0;
+
+// Audio thread state
+static pthread_t s_audioThread;
+static volatile bool s_audioRunning = false;
+static pthread_mutex_t s_audioMutex = PTHREAD_MUTEX_INITIALIZER;
 
 static inline uint32_t audio_available(void)
 {
@@ -77,12 +83,14 @@ static inline void audio_push_sample(float sample)
 		return; // Drop if full to avoid blocking; rare with current sizing
 	}
 	s_audioAccumBuffer[s_audioWriteIndex] = sample;
+	__sync_synchronize();  // Memory barrier
 	s_audioWriteIndex = next;
 }
 
 static inline float audio_pop_sample(void)
 {
 	float v = s_audioAccumBuffer[s_audioReadIndex];
+	__sync_synchronize();  // Memory barrier
 	s_audioReadIndex = (s_audioReadIndex + 1) & (AUDIO_ACCUM_SAMPLES - 1);
 	return v;
 }
@@ -95,6 +103,47 @@ static inline int16_t float_to_i16(float sample)
 }
 
 static_assert((AUDIO_ACCUM_SAMPLES & (AUDIO_ACCUM_SAMPLES - 1)) == 0, "AUDIO_ACCUM_SAMPLES must be power of two");
+
+// Audio thread function - runs independently and submits audio at steady rate
+static void* audio_thread_func(void* arg)
+{
+	(void)arg;
+	short* audioDest = (short*)audioBuffer.cpuAddress;
+	uint32_t audioFrame = APUFrame(s_platform->ac);
+	bool dmaQueued = false;
+	
+	while (s_audioRunning)
+	{
+		// Check if hardware is ready for new buffer
+		uint32_t currentFrame = APUFrame(s_platform->ac);
+		if (dmaQueued && currentFrame != audioFrame)
+		{
+			audioFrame = currentFrame;
+			dmaQueued = false;
+		}
+		
+		// When not queued and we have enough samples, submit a buffer
+		if (!dmaQueued && audio_available() >= AUDIO_BUFFER_SAMPLES)
+		{
+			for (uint32_t i = 0; i < AUDIO_BUFFER_SAMPLES; i++)
+			{
+				int16_t sample = float_to_i16(audio_pop_sample());
+				audioDest[i * 2 + 0] = sample;  // Left channel
+				audioDest[i * 2 + 1] = sample;  // Right channel
+			}
+			
+			APUStartDMA(s_platform->ac, (uint32_t)audioBuffer.dmaAddress);
+			dmaQueued = true;
+		}
+		else
+		{
+			// Small sleep to avoid burning CPU when waiting
+			usleep(500);  // 0.5ms - fine grained for audio timing
+		}
+	}
+	
+	return NULL;
+}
 
 static void* read_file(const char *filename, size_t *out_len);
 
@@ -173,14 +222,16 @@ int main(int argc, char** argv)
 	// Configure the platform APU
 	APUSetBufferSize(s_platform->ac, ABS_2048Bytes);  // 512 stereo samples
 	APUSetSampleRate(s_platform->ac, ASR_22_050_Hz);
-	s_audioFrame = APUFrame(s_platform->ac);
-	s_dmaQueued = false;
 
 	// Configure NES APU audio output - use larger buffer for frame samples
 	agnes_set_audio_sample_rate(s_agnes, AUDIO_SAMPLE_RATE);
 	agnes_set_audio_buffer(s_agnes, s_nesAudioBuffer, AUDIO_BUFFER_SAMPLES * 2);
 
-	fprintf(stderr, "Audio initialized at %.0f Hz\n", AUDIO_SAMPLE_RATE);
+	// Start audio thread
+	s_audioRunning = true;
+	pthread_create(&s_audioThread, NULL, audio_thread_func, NULL);
+
+	fprintf(stderr, "Audio initialized at %.0f Hz (threaded)\n", AUDIO_SAMPLE_RATE);
 
 	for (int y = 0; y < VIDEO_HEIGHT; y++)
 	{
@@ -231,65 +282,15 @@ int main(int argc, char** argv)
 		}
 
 		agnes_set_input(s_agnes, &s_input, NULL);
-		// Use catch-up synchronization for better performance
-		// PPU runs lazily and catches up on register access
-		s_alive = agnes_next_frame_catchup(s_agnes);
+		s_alive = agnes_next_frame(s_agnes);
 
-		// Process audio: accumulate samples and send when buffer is full
-		short* audioDest = (short*)audioBuffer.cpuAddress;
-		
-#if AUDIO_TEST_TONE
-		// Generate a simple 440 Hz test tone
-		static uint32_t testPhase = 0;
-		for (uint32_t i = 0; i < AUDIO_BUFFER_SAMPLES; i++)
-		{
-			// 440 Hz square wave at 22050 Hz sample rate
-			// Period = 22050/440 = ~50 samples
-			int16_t sample = (testPhase % 50 < 25) ? 8000 : -8000;
-			audioDest[i * 2 + 0] = sample;
-			audioDest[i * 2 + 1] = sample;
-			testPhase++;
-		}
-		
-		// Send audio to APU DMA
-		APUStartDMA(s_platform->ac, (uint32_t)audioBuffer.dmaAddress);
-		APUWaitSync(s_platform->ac);
-#else
-		// Get samples generated this frame
+		// Push audio samples to ring buffer - audio thread handles DMA
 		uint32_t samples = agnes_get_audio_samples(s_agnes);
-
-		// Push samples into ring buffer
 		for (uint32_t i = 0; i < samples; i++)
 		{
 			audio_push_sample(s_nesAudioBuffer[i]);
 		}
-
-		// When enough samples are available, send a buffer
-		// Only queue when the hardware has swapped to the other half
-		uint32_t currentFrame = APUFrame(s_platform->ac);
-		if (s_dmaQueued && currentFrame != s_audioFrame)
-		{
-			s_audioFrame = currentFrame;
-			s_dmaQueued = false;
-		}
-
-		while (!s_dmaQueued && audio_available() >= AUDIO_BUFFER_SAMPLES)
-		{
-			for (uint32_t i = 0; i < AUDIO_BUFFER_SAMPLES; i++)
-			{
-				int16_t sample = float_to_i16(audio_pop_sample());
-				audioDest[i * 2 + 0] = sample;  // Left channel
-				audioDest[i * 2 + 1] = sample;  // Right channel
-			}
-
-			// Send audio to APU DMA and mark as queued; the hardware will flip halves
-			APUStartDMA(s_platform->ac, (uint32_t)audioBuffer.dmaAddress);
-			s_dmaQueued = true;
-		}
-
-		// Reset the NES audio buffer for next frame
 		agnes_reset_audio_buffer(s_agnes);
-#endif
 
 		// Vsync barrier
 		// Wait for previous frame (if any) to consume swap command + barrier, then swap buffers
@@ -300,14 +301,21 @@ int main(int argc, char** argv)
 		for (uint32_t i = 0; i < 256; ++i)
 			VPUSetPal(s_platform->vx, i, palette[i].r, palette[i].g, palette[i].b);
 
+		// NEON-optimized screen blit
+		// Copy 256-pixel wide NES screen to framebuffer with 32-byte X offset
 		uint8_t *source = agnes_get_raw_screen_buffer(s_agnes);
 		uint8_t *dest = (uint8_t*)s_platform->sc->writepage;
-		for (uint32_t y = 0; y<AGNES_SCREEN_HEIGHT; ++y)
+		for (uint32_t y = 0; y < AGNES_SCREEN_HEIGHT; ++y)
 		{
-			for (uint32_t x = 0; x<AGNES_SCREEN_WIDTH; ++x)
+			uint8_t *src_row = source + y * AGNES_SCREEN_WIDTH;
+			uint8_t *dst_row = dest + 32 + y * stride;
+			
+			// Copy 256 bytes (16 pixels * 16 iterations) using NEON
+			// Each iteration copies 16 bytes at once
+			for (uint32_t x = 0; x < AGNES_SCREEN_WIDTH; x += 16)
 			{
-				uint32_t color = source[x+AGNES_SCREEN_WIDTH*y];
-				dest[32 + x+y*stride] = color;
+				uint8x16_t pixels = vld1q_u8(src_row + x);
+				vst1q_u8(dst_row + x, pixels);
 			}
 		}
 
@@ -315,6 +323,10 @@ int main(int argc, char** argv)
 		VPUNoop(s_platform->vx);
 
 	} while(s_alive);
+
+	// Stop audio thread
+	s_audioRunning = false;
+	pthread_join(s_audioThread, NULL);
 
     return 0;
 }
