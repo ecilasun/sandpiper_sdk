@@ -2,6 +2,10 @@
 
 #include "platform.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // VCP command fifo commands
 #define VCPSETBUFFERSIZE	0x0
 #define VCPSTARTDMA			0x1
@@ -114,3 +118,7 @@
 void VCPUploadProgram(struct SPPlatform *ctx, const uint32_t* _program, enum EVCPBufferSize size);
 void VCPExecProgram(struct SPPlatform *ctx, const uint8_t _execFlags);
 uint32_t VCPStatus(struct SPPlatform *ctx);
+
+#ifdef __cplusplus
+}
+#endif

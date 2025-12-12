@@ -1,1 +1,3 @@
 samples/tetris/**
+samples/**/bin/*.o
+SDK/obj/*.o

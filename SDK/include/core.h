@@ -5,6 +5,10 @@
 #include <xil_cache.h>
 #endif
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define PT_NULL		0			/* Program header table entry unused */
 #define PT_LOAD		1			/* Loadable program segment */
 #define PT_DYNAMIC	2			/* Dynamic linking information */
@@ -75,3 +79,7 @@ struct SPIoctl
 	uint32_t offset;
 	uint32_t value;
 };
+
+#ifdef __cplusplus
+}
+#endif

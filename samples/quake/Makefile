@@ -25,10 +25,10 @@ ARM_GCC_OPTS = -std=gnu99 -Ofast -flto=8 -mcpu=cortex-a9 -mfpu=neon -mfloat-abi=
 ARM_GCC_LIBS = -lgcc -lc -lm
 
 SOURCES_quake_arch := \
-	../../SDK/platform.c \
-	../../SDK/vpu.c \
-	../../SDK/vcp.c \
-	../../SDK/apu.c \
+	../../SDK/src/platform.c \
+	../../SDK/src/vpu.c \
+	../../SDK/src/vcp.c \
+	../../SDK/src/apu.c \
 	sandpiper/platformav.c \
 	sandpiper/fio.c \
 	sandpiper/main.c \
@@ -102,7 +102,7 @@ SOURCES_quake_arch := \
 
 all: quake
 
-incs = -I../../SDK -Iinclude -Iwinquake -Isandpiper -I.
+incs = -I../../SDK/include -Iinclude -Iwinquake -Isandpiper -I.
 
 quake: $(SOURCES_quake_arch)
 	@$(ARM_GCC) $(ARM_GCC_OPTS) -o quake $(incs) $(SOURCES_quake_arch) $(ARM_GCC_LIBS)

@@ -2,6 +2,10 @@
 
 #include "platform.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 int APUInitAudio(struct EAudioContext* _context, struct SPPlatform* _platform);
 void APUShutdownAudio(struct EAudioContext* _context);
 
@@ -13,3 +17,7 @@ void APUSwapChannels(struct EAudioContext* _context, uint32_t _swap);
 uint32_t APUFrame(struct EAudioContext* _context);
 uint32_t APUGetWordCount(struct EAudioContext* _context);
 void APUWaitSync(struct EAudioContext *_context);
+
+#ifdef __cplusplus
+}
+#endif

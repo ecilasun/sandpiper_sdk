@@ -2,6 +2,10 @@
 
 #include "platform.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define VPUCMD_SETVPAGE			0x00000000
 #define VPUCMD_RESERVED			0x00000001
 #define VPUCMD_SETVMODE			0x00000002
@@ -92,3 +96,7 @@ void VPUInsertCharacter(struct EVideoContext *_context, uint16_t _line, uint16_t
 void VPURemoveCharacter(struct EVideoContext *_context, uint16_t _line, uint16_t _column);
 int VPUConsoleFillLine(struct EVideoContext *_context, const char _character);
 void VPUConsoleSetCursor(struct EVideoContext *_context, uint16_t _x, uint16_t _y);
+
+#ifdef __cplusplus
+}
+#endif

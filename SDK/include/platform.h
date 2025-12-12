@@ -4,6 +4,10 @@
 #include <linux/limits.h>
 #include <sys/mman.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // Small O(1) allocator parameters
 #define SP_ALLOC_ALIGNMENT     128U
 #define SP_ALLOC_MAX_ORDER     18U
@@ -166,3 +170,7 @@ void SPShutdownPlatform(struct SPPlatform* _platform);
 void SPGetConsoleFramebuffer(struct SPPlatform* _platform, struct SPSizeAlloc *_sizealloc);
 int SPAllocateBuffer(struct SPPlatform* _platform, struct SPSizeAlloc *_sizealloc);
 void SPFreeBuffer(struct SPPlatform* _platform, struct SPSizeAlloc *_sizealloc);
+
+#ifdef __cplusplus
+}
+#endif
