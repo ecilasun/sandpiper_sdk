@@ -26,7 +26,7 @@ extern "C" {
 #define VCP_READSCANLINE	0x0B
 #define VCP_READSCANPIXEL	0x0C
 #define VCP_LOGICOP			0x0D
-#define VCP_UNUSED0			0x0E
+#define VCP_LCTL			0x0E
 #define VCP_UNUSED1			0x0F
 
 #define DESTREG(reg)			((reg & 0xF) << 4)
@@ -109,6 +109,7 @@ extern "C" {
 #define vcp_rshr(dest, src1, src2)				(	IMMED8(OPL_SHR)		| SRCREG2(src2)		| SRCREG1(src1)		| DESTREG(dest)		| VCP_LOGICOP		)
 #define vcp_rshl(dest, src1, src2)				(	IMMED8(OPL_SHL)		| SRCREG2(src2)		| SRCREG1(src1)		| DESTREG(dest)		| VCP_LOGICOP		)
 #define vcp_rneg(dest, src1)					(	IMMED8(OPL_NOT)		| 0					| SRCREG1(src1)		| DESTREG(dest)		| VCP_LOGICOP		)
+#define vcp_lctl(dest)							(	0					| 0					| 0					| DESTREG(dest)		| VCP_LCTL			)
 
 // Pseudo instructions
 #define vcp_mv(dest, src)		vcp_radd(dest, src, VREG_ZERO)

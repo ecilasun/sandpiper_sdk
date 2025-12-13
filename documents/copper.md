@@ -117,6 +117,9 @@ Negates bits of register and writes result into register dest (same as dest = sr
 <span style="color:#00F0D0;">ldim(dest, immed)</span><br>
 Load 24 bit immediate to register dest
 
+<span style="color:#00F0D0;">lctl(dest)</span><br>
+Load VPU control register into lower 8 bits of destination register. This allows for CPU writes to VPU control register to affect program flow on the VCP while a program is active.
+
 <span style="color:#00F0D0;">noop()</span><br>
 No operation
 
