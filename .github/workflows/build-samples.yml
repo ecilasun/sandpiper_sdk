@@ -1,21 +1,23 @@
-# GitHub Actions workflow to build the Sandpiper SDK
+# GitHub Actions workflow to build the Sandpiper samples
 # Triggers on push and pull request events
 
-name: Build SDK
+name: Build Samples
 
 on:
   push:
     branches: [ main, master ]
     paths:
+      - 'samples/**'
       - 'SDK/**'
       - '3rdparty/**'
-      - '.github/workflows/build-sdk.yml'
+      - '.github/workflows/build-samples.yml'
   pull_request:
     branches: [ main, master ]
     paths:
+      - 'samples/**'
       - 'SDK/**'
       - '3rdparty/**'
-      - '.github/workflows/build-sdk.yml'
+      - '.github/workflows/build-samples.yml'
   workflow_dispatch:  # Allow manual triggering
 
 jobs:
@@ -44,24 +46,38 @@ jobs:
           arm-linux-gnueabihf-gcc --version
           arm-linux-gnueabihf-g++ --version
 
-      - name: Build SDK
+      - name: Build SDK first
         run: |
           cd SDK
+          make clean || true
+          make
+
+      - name: Build samples
+        run: |
+          cd samples
           make clean || true
           make
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: libsandpiper
-          path: SDK/libsandpiper.a
+          name: samples-binaries
+          path: |
+            samples/*/[!M]*[!.c][!.h][!.cpp][!.md]
+            !samples/**/*.c
+            !samples/**/*.cpp
+            !samples/**/*.h
+            !samples/**/*.md
+            !samples/**/*.txt
+            !samples/**/*.sh
+            !samples/**/Makefile
           retention-days: 30
 
-      - name: Commit and push built library
+      - name: Commit and push built binaries
         if: github.event_name == 'push'
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-          git add SDK/libsandpiper.a
-          git diff --staged --quiet || git commit -m "Auto-build: Update libsandpiper.a [skip ci]"
+          git add samples/*/
+          git diff --staged --quiet || git commit -m "Auto-build: Update sample binaries [skip ci]"
           git push
