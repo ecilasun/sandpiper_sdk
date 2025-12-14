@@ -1,5 +1,7 @@
 # Welcome to the sandpiper SDK
 
+![Build SDK](https://github.com/ecilasun/sandpiper_sdk/actions/workflows/build-sdk.yml/badge.svg)
+
 ## Installation
 For normal operation it is sufficient to clone this repo and place it in any convenient location on one of your linux partitions.
 

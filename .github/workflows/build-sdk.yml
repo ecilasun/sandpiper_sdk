@@ -1,0 +1,50 @@
+# GitHub Actions workflow to build the Sandpiper SDK
+# Triggers on push and pull request events
+
+name: Build SDK
+
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'SDK/**'
+      - '3rdparty/**'
+      - '.github/workflows/build-sdk.yml'
+  pull_request:
+    branches: [ main, master ]
+    paths:
+      - 'SDK/**'
+      - '3rdparty/**'
+      - '.github/workflows/build-sdk.yml'
+  workflow_dispatch:  # Allow manual triggering
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install ARM cross-compiler
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf
+
+      - name: Verify compiler installation
+        run: |
+          arm-linux-gnueabihf-gcc --version
+          arm-linux-gnueabihf-g++ --version
+
+      - name: Build SDK
+        run: |
+          cd SDK
+          make clean || true
+          make
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: libsandpiper
+          path: SDK/libsandpiper.a
+          retention-days: 30
