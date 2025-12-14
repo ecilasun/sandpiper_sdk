@@ -64,4 +64,5 @@ jobs:
           git config --local user.name "github-actions[bot]"
           git add SDK/libsandpiper.a
           git diff --staged --quiet || git commit -m "Auto-build: Update libsandpiper.a [skip ci]"
+          git pull --rebase origin main || git pull --rebase origin master
           git push
