@@ -80,5 +80,5 @@ jobs:
           git config --local user.name "github-actions[bot]"
           git add samples/*/
           git diff --staged --quiet || git commit -m "Auto-build: Update sample binaries [skip ci]"
-          git pull --rebase origin main || git pull --rebase origin master
+          git pull --rebase --autostash origin main || git pull --rebase --autostash origin master || true
           git push
