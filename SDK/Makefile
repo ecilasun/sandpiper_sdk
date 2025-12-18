@@ -40,7 +40,7 @@ ARM_AR  ?= arm-amd-linux-gnueabi-ar
 endif
 
 # Compiler flags
-ARM_CC_OPTS  += -Ofast -flto -mcpu=cortex-a9 -mfpu=neon -mfloat-abi=hard
+ARM_CC_OPTS  += -Ofast -mcpu=cortex-a9 -mfpu=neon -mfloat-abi=hard
 ARM_CC_OPTS  += -fdata-sections -ffunction-sections -fomit-frame-pointer
 ARM_CC_OPTS  += -fno-math-errno -fno-trapping-math -fstrict-aliasing -pipe -DNDEBUG
 ARM_CC_OPTS  += -falign-functions=16 -falign-loops=16
@@ -60,7 +60,7 @@ all: $(TARGET)
 
 # Create object directory
 $(OBJ_DIR):
-	@mkdir -p $(OBJ_DIR)
+	@mkdir $(OBJ_DIR)
 
 # Compile C source files
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c | $(OBJ_DIR)

@@ -60,7 +60,7 @@ all_objs := $(cpp_objs) $(c_objs)
 
 # Create bin directory
 $(bin_dir):
-	@mkdir -p $(bin_dir)
+	@mkdir $(bin_dir)
 
 # Build SDK library if needed
 $(sdk_dir)/libsandpiper.a:

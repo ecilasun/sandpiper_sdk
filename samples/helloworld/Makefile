@@ -18,7 +18,6 @@ default: $(TARGET)
 src_dir = .
 bin_dir = bin
 sdk_dir = ../../SDK
-libxmp = ../../3rdparty/libxmp
 
 # Rules
 ifeq ($(UNAME), Windows)
@@ -36,16 +35,10 @@ ARM_CC  ?= arm-amd-linux-gnueabi-gcc
 endif
 
 ARM_GCC_OPTS += -std=c++20 -Ofast -flto -mcpu=cortex-a9 -mfpu=neon -mfloat-abi=hard
-ARM_GCC_OPTS += -DLIBXMP_NO_DEPACKERS -DLIBXMP_CORE_PLAYER -Wno-narrowing
-ARM_GCC_OPTS += -fdata-sections -ffunction-sections -fomit-frame-pointer -fno-math-errno -fno-trapping-math -fstrict-aliasing -pipe -DNDEBUG
-ARM_GCC_OPTS += -falign-functions=16 -falign-loops=16
 ARM_CC_OPTS  += -Ofast -flto -mcpu=cortex-a9 -mfpu=neon -mfloat-abi=hard
-ARM_CC_OPTS  += -fdata-sections -ffunction-sections -fomit-frame-pointer -fno-math-errno -fno-trapping-math -fstrict-aliasing -pipe -DNDEBUG
-ARM_CC_OPTS  += -falign-functions=16 -falign-loops=16
-ARM_LD_OPTS  += -Wl,--gc-sections
-ARM_GCC_LIBS += -lgcc -lc -lm -pthread
+ARM_GCC_LIBS += -lgcc -lc -lm
 
-incs += -I$(src_dir) -I$(sdk_dir)/include -I$(libxmp)/include/ -I$(libxmp)/src/
+incs += -I$(src_dir) -I$(sdk_dir)/include
 
 # Source files
 cpp_srcs := $(wildcard $(src_dir)/*.cpp)
@@ -59,7 +52,7 @@ all_objs := $(cpp_objs) $(c_objs)
 
 # Create bin directory
 $(bin_dir):
-	@mkdir -p $(bin_dir)
+	@mkdir $(bin_dir)
 
 # Build SDK library if needed
 $(sdk_dir)/libsandpiper.a:
@@ -75,7 +68,7 @@ $(bin_dir)/%.o: $(src_dir)/%.c | $(bin_dir)
 
 # Link target
 $(TARGET): $(sdk_dir)/libsandpiper.a $(all_objs)
-	$(ARM_GCC) $(ARM_GCC_OPTS) $(ARM_LD_OPTS) -o $@ $(all_objs) -L$(sdk_dir) -lsandpiper -L../../3rdparty/libxmp/ -lxmp $(ARM_GCC_LIBS)
+	$(ARM_GCC) $(ARM_GCC_OPTS) -o $@ $(all_objs) -L$(sdk_dir) -lsandpiper $(ARM_GCC_LIBS)
 
 .PHONY: clean
 clean:
