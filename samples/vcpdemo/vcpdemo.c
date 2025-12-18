@@ -72,8 +72,8 @@ static uint32_t s_vcpprogram[] = {
 	vcp_wpix(VREG_3),								// wait for endofline
 	vcp_scanline_read(VREG_6),						// scanline = $videoscanline
 	vcp_ldim(VREG_9, 0x000080),						// temp = 128
-	vcp_cmp(COND_EQ, VREG_7, VREG_6, VREG_9),		// scanline == 128 ?
-	vcp_branch(VREG_C, VREG_7),						// branch.eq idle:
+	vcp_cmp(COND_EQ, VREG_6, VREG_9),				// scanline == 128 ?
+	vcp_branch(VREG_C),								// branch.eq idle:
 	vcp_ldim(VREG_9, 0x000003),						// temp = 3
 	vcp_rshl(VREG_6, VREG_6, VREG_9),				// scanline = scanline << temp
 	vcp_radd(VREG_6, VREG_6, VREG_1),				// scanline = scanline + scrolloffset
@@ -83,8 +83,8 @@ static uint32_t s_vcpprogram[] = {
 	vcp_pwrt(VREG_ZERO, VREG_ZERO),					// PAL[0] = 0
 	vcp_wpix(VREG_3),								// wait for endofline
 	vcp_scanline_read(VREG_6),						// scanline = $videoscanline
-	vcp_cmp(COND_EQ, VREG_7, VREG_6, VREG_ZERO),	// scanline == 0 ?
-	vcp_branch(VREG_5, VREG_7),						// branch.eq reset:
+	vcp_cmp(COND_EQ, VREG_6, VREG_ZERO),			// scanline == 0 ?
+	vcp_branch(VREG_5),								// branch.eq reset:
 	vcp_jump(VREG_C),								// jmp idle:
 	vcp_noop(),
 	vcp_noop(),

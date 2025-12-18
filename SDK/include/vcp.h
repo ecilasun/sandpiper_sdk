@@ -33,6 +33,7 @@ extern "C" {
 #define SRCREG1(reg)			((reg & 0xF) << 8)
 #define SRCREG2(reg)			((reg & 0xF) << 12)
 #define IMMED24(value)			((value & 0xFFFFFFU) << 8)
+#define IMMED16(value)			((value & 0xFFFFU) << 16)
 #define IMMED8(value)			((value & 0xFFU) << 24)
 
 // Condition codes for VCP_CMP instruction
@@ -46,19 +47,20 @@ extern "C" {
 #define COND_NE			(COND_EQ | COND_INV)
 
 // Math operation codes for VCP_MATHOP instruction
-#define OP_ADD			0x00
-#define OP_SUB			0x01
-#define OP_MUL			0x02
-#define OP_DIV			0x03
+#define OP_ADD			0x00 // Addition
+#define OP_SUB			0x01 // Subtraction
+#define OP_INC			0x02 // Increment
+#define OP_DEC			0x03 // Decrement
 
 // Logic operation codes for VCP_LOGICOP instruction
-#define OPL_AND			0x00
-#define OPL_OR			0x01
-#define OPL_XOR			0x02
-#define OPL_ASR			0x03
-#define OPL_SHR			0x04
-#define OPL_SHL			0x05
-#define OPL_NEG			0x06
+#define OPL_AND			0x00 // Bitwise AND
+#define OPL_OR			0x01 // Inclusive OR
+#define OPL_XOR			0x02 // Exclusive OR
+#define OPL_ASR			0x03 // Arithmetic shift right
+#define OPL_SHR			0x04 // Shift right
+#define OPL_SHL			0x05 // Shift left
+#define OPL_NEG			0x06 // Negate (bitwise NOT)
+#define OPL_RCMP		0x07 // Read compare flag
 
 // Register names
 #define VREG_ZERO	0x00
@@ -93,11 +95,14 @@ extern "C" {
 #define vcp_wpix(pixel)							(	0					| 0					| SRCREG1(pixel)	| 0					| VCP_WAITPIXEL		)
 #define vcp_radd(dest, src1, src2)				(	IMMED8(OP_ADD)		| SRCREG2(src2)		| SRCREG1(src1)		| DESTREG(dest)		| VCP_MATHOP		)
 #define vcp_rsub(dest, src1, src2)				(	IMMED8(OP_SUB)		| SRCREG2(src2)		| SRCREG1(src1)		| DESTREG(dest)		| VCP_MATHOP		)
-#define vcp_rmul(dest, src1, src2)				(	IMMED8(OP_MUL)		| SRCREG2(src2)		| SRCREG1(src1)		| DESTREG(dest)		| VCP_MATHOP		)
-#define vcp_rdiv(dest, src1, src2)				(	IMMED8(OP_DIV)		| SRCREG2(src2)		| SRCREG1(src1)		| DESTREG(dest)		| VCP_MATHOP		)
-#define vcp_jump(addrs)							(	0					| 0					| SRCREG1(addrs)	| 0					| VCP_JUMP			)
-#define vcp_cmp(cmpflags, dest, src1, src2)		(	IMMED8(cmpflags)	| SRCREG2(src2)		| SRCREG1(src1)		| DESTREG(dest)		| VCP_CMP			)
-#define vcp_branch(addrs, src)					(	0					| SRCREG2(src)		| SRCREG1(addrs)	| 0					| VCP_BRANCH		)
+#define vcp_rinc(dest, src1)					(	IMMED8(OP_INC)		| 0					| SRCREG1(src1)		| DESTREG(dest)		| VCP_MATHOP		)
+#define vcp_rdec(dest, src1)					(	IMMED8(OP_DEC)		| 0					| SRCREG1(src1)		| DESTREG(dest)		| VCP_MATHOP		)
+#define vcp_rcmp(dest)							(	IMMED8(OP_RCMP)		| 0					| 0					| DESTREG(dest)		| VCP_MATHOP		)
+#define vcp_jump(addrs)							(	0					| 0					| SRCREG1(addrs)	| 0x0				| VCP_JUMP			)
+#define vcp_jumpim(addrs)						(	IMMED16(addrs)							| 0					| 0x1				| VCP_JUMP			)
+#define vcp_cmp(cmpflags, src1, src2)			(	IMMED8(cmpflags)	| SRCREG2(src2)		| SRCREG1(src1)		| 0					| VCP_CMP			)
+#define vcp_branch(addrs)						(	0					| 0					| SRCREG1(addrs)	| 0					| VCP_BRANCH		)
+#define vcp_branchim(addrs)						(	IMMED16(addrs)							| 0					| 0x1				| VCP_BRANCH		)
 #define vcp_store(addrs, src)					(	0					| SRCREG2(src)		| SRCREG1(addrs)	| 0					| VCP_STORE			)
 #define vcp_load(addrs, dest)					(	0					| 0					| SRCREG1(addrs)	| DESTREG(dest)		| VCP_LOAD			)
 #define vcp_scanline_read(dest)					(	0					| 0					| 0					| DESTREG(dest)		| VCP_READSCANLINE	)
@@ -113,7 +118,7 @@ extern "C" {
 
 // Pseudo instructions
 #define vcp_mv(dest, src)		vcp_radd(dest, src, VREG_ZERO)
-#define vcp_mvi(dest, imm)		vcp_ldim(dest, imm)
+#define vcp_mvim(dest, imm)		vcp_ldim(dest, imm)
 #define vcp_clr(dest)			vcp_mv(dest, VREG_ZERO)
 
 void VCPUploadProgram(struct SPPlatform *ctx, const uint32_t* _program, enum EVCPBufferSize size);

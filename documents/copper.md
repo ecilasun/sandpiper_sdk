@@ -50,19 +50,23 @@ Adds contents of register src2 to contents of register src1 and writes the resul
 <span style="color:#00F0D0;">rsub(dest, src1, src2)</span><br>
 Subtracts contents of register src2 from contents of register src1 and writes the result into register dest
 
-<span style="color:#00F0D0;">rmul(dest, src1, src2)</span><br>
-INSTRUCTION NOT IMPLEMENTED
+<span style="color:#00F0D0;">rinc(dest, src1)</span><br>
+Increments contents of register src1 by one and writes the result into register dest.
 
-<span style="color:#00F0D0;">rdiv(dest, src1, src2)</span><br>
-INSTRUCTION NOT IMPLEMENTED
+<span style="color:#00F0D0;">rdec(dest, src1)</span><br>
+Decrements contents of register src1 by one and writes the result into register dest.
 
 ### Branch instructions
 
 <span style="color:#00F0D0;">jump(addrs)</span><br>
 Direct branch to program memory address pointed by contents of register adrs. Program memory addresses have to be 4-byte aligned, otherwise the behavior is undefined.
 
-<span style="color:#00F0D0;">branch(addrs, src)</span><br>
-Takes a branch to program memory address pointed by contents of register addrs, if the lowest bit of the value in register src is nonzero. Program memory addresses have to be 4-byte aligned, otherwise the behavior is undefined.
+<span style="color:#00F0D0;">jumpimm(offset)</span><br>
+Direct branch to program memory address relative to current PC plus offset, where offset is a 2's complement (signed) 13 bit number. (Highest 3 bits are ignored)
+Resulting memory address has to be 4-byte aligned, otherwise the behavior is undefined.
+
+<span style="color:#00F0D0;">branch(addrs)</span><br>
+Takes a branch to program memory address pointed by contents of register addrs, if cmpreg is nonzero. Program memory addresses have to be 4-byte aligned, otherwise the behavior is undefined.
 
 ### Program memory access
 
@@ -82,8 +86,8 @@ Read value of current pixel (X coordinate) the instruction is currently at, and 
 
 ### Logic instructions
 
-<span style="color:#00F0D0;">cmp(cmpflags, dest, src1, src2)</span><br>
-Compares register src1 with register src2 given compare flags and writes result into register dest.<br>
+<span style="color:#00F0D0;">cmp(cmpflags, src1, src2)</span><br>
+Compares register src1 with register src2 given compare flags, ORs all 3 compare results together, and writes result into cmpreg. Cmpreg is a 1 bit special purpose register, used by compare and branch instructions, to save register space.<br>
 Valid cmpflags values are a combination of the followinv values:<br>
 LE (1) - Less or equal<br>
 LT (2) - Less<br>
@@ -112,9 +116,12 @@ Shifts register src1 left by value of register src2 (only lowest 5 bits are used
 <span style="color:#00F0D0;">rneg(dest, src)</span><br>
 Negates bits of register and writes result into register dest (same as dest = src ^ 0xFFFFFF)
 
+<span style="color:#00F0D0;">rcmp(dest, src1)</span><br>
+Reads contents of cmpreg and writes the result into register dest, zero-extending it.
+
 ### Other instuctions
 
-<span style="color:#00F0D0;">ldim(dest, immed)</span><br>
+<span style="color:#00F0D0;">ldim(dest, immed)</span>&nbsp;(alias: mvim(dest, imm))<br>
 Load 24 bit immediate to register dest
 
 <span style="color:#00F0D0;">lctl(dest)</span><br>
@@ -125,9 +132,6 @@ No operation
 
 <span style="color:#00F0D0;">mv(dest, src)</span><br>
 Copies contents of register src into register dest (same as r2 = r1 + 0)
-
-<span style="color:#00F0D0;">mvi(dest, imm)</span><br>
-Loads an immediate to register dest (same as ldim)
 
 <span style="color:#00F0D0;">clr(dest)</span><br>
 Assigns zero to register dest
