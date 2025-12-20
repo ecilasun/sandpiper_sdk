@@ -61,12 +61,16 @@ Decrements contents of register src1 by one and writes the result into register 
 <span style="color:#00F0D0;">jump(addrs)</span><br>
 Direct branch to program memory address pointed by contents of register adrs. Program memory addresses have to be 4-byte aligned, otherwise the behavior is undefined.
 
-<span style="color:#00F0D0;">jumpimm(offset)</span><br>
+<span style="color:#00F0D0;">jumpim(offset)</span><br>
 Direct branch to program memory address relative to current PC plus offset, where offset is a 2's complement (signed) 13 bit number. (Highest 3 bits are ignored)
 Resulting memory address has to be 4-byte aligned, otherwise the behavior is undefined.
 
 <span style="color:#00F0D0;">branch(addrs)</span><br>
 Takes a branch to program memory address pointed by contents of register addrs, if cmpreg is nonzero. Program memory addresses have to be 4-byte aligned, otherwise the behavior is undefined.
+
+<span style="color:#00F0D0;">branchim(offset)</span><br>
+Takes a branch to program memory address relative to current PC plus offset, if cmpreg is nonzero. Offset is a 2's complement (signed) 13 bit number. (Highest 3 bits are ignored)
+Resulting memory address has to be 4-byte aligned, otherwise the behavior is undefined.
 
 ### Program memory access
 

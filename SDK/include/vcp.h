@@ -61,6 +61,7 @@ extern "C" {
 #define OPL_SHL			0x05 // Shift left
 #define OPL_NEG			0x06 // Negate (bitwise NOT)
 #define OPL_RCMP		0x07 // Read compare flag
+#define OPL_RCTL		0x08 // Read VPU control register
 
 // Register names
 #define VREG_ZERO	0x00
@@ -97,24 +98,24 @@ extern "C" {
 #define vcp_rsub(dest, src1, src2)				(	IMMED8(OP_SUB)		| SRCREG2(src2)		| SRCREG1(src1)		| DESTREG(dest)		| VCP_MATHOP		)
 #define vcp_rinc(dest, src1)					(	IMMED8(OP_INC)		| 0					| SRCREG1(src1)		| DESTREG(dest)		| VCP_MATHOP		)
 #define vcp_rdec(dest, src1)					(	IMMED8(OP_DEC)		| 0					| SRCREG1(src1)		| DESTREG(dest)		| VCP_MATHOP		)
-#define vcp_rcmp(dest)							(	IMMED8(OP_RCMP)		| 0					| 0					| DESTREG(dest)		| VCP_MATHOP		)
 #define vcp_jump(addrs)							(	0					| 0					| SRCREG1(addrs)	| 0x0				| VCP_JUMP			)
-#define vcp_jumpim(addrs)						(	IMMED16(addrs)							| 0					| 0x1				| VCP_JUMP			)
+#define vcp_jumpim(addrs)						(	IMMED16(addrs)							| 0					| DESTREG(1)		| VCP_JUMP			)
 #define vcp_cmp(cmpflags, src1, src2)			(	IMMED8(cmpflags)	| SRCREG2(src2)		| SRCREG1(src1)		| 0					| VCP_CMP			)
 #define vcp_branch(addrs)						(	0					| 0					| SRCREG1(addrs)	| 0					| VCP_BRANCH		)
-#define vcp_branchim(addrs)						(	IMMED16(addrs)							| 0					| 0x1				| VCP_BRANCH		)
+#define vcp_branchim(addrs)						(	IMMED16(addrs)							| 0					| DESTREG(1)		| VCP_BRANCH		)
 #define vcp_store(addrs, src)					(	0					| SRCREG2(src)		| SRCREG1(addrs)	| 0					| VCP_STORE			)
 #define vcp_load(addrs, dest)					(	0					| 0					| SRCREG1(addrs)	| DESTREG(dest)		| VCP_LOAD			)
 #define vcp_scanline_read(dest)					(	0					| 0					| 0					| DESTREG(dest)		| VCP_READSCANINFO	)
-#define vcp_scanpixel_read(dest)				(	0					| 0					| 0x1				| DESTREG(dest)		| VCP_READSCANINFO	)
+#define vcp_scanpixel_read(dest)				(	0					| 0					| SRCREG1(1)		| DESTREG(dest)		| VCP_READSCANINFO	)
 #define vcp_rand(dest, src1, src2)				(	IMMED8(OPL_AND)		| SRCREG2(src2)		| SRCREG1(src1)		| DESTREG(dest)		| VCP_LOGICOP		)
 #define vcp_ror(dest, src1, src2)				(	IMMED8(OPL_OR)		| SRCREG2(src2)		| SRCREG1(src1)		| DESTREG(dest)		| VCP_LOGICOP		)
 #define vcp_rxor(dest, src1, src2)				(	IMMED8(OPL_XOR)		| SRCREG2(src2)		| SRCREG1(src1)		| DESTREG(dest)		| VCP_LOGICOP		)
 #define vcp_rasr(dest, src1, src2)				(	IMMED8(OPL_ASR)		| SRCREG2(src2)		| SRCREG1(src1)		| DESTREG(dest)		| VCP_LOGICOP		)
 #define vcp_rshr(dest, src1, src2)				(	IMMED8(OPL_SHR)		| SRCREG2(src2)		| SRCREG1(src1)		| DESTREG(dest)		| VCP_LOGICOP		)
 #define vcp_rshl(dest, src1, src2)				(	IMMED8(OPL_SHL)		| SRCREG2(src2)		| SRCREG1(src1)		| DESTREG(dest)		| VCP_LOGICOP		)
-#define vcp_rneg(dest, src1)					(	IMMED8(OPL_NOT)		| 0					| SRCREG1(src1)		| DESTREG(dest)		| VCP_LOGICOP		)
-#define vcp_lctl(dest)							(	0					| 0					| 0					| DESTREG(dest)		| VCP_LCTL			)
+#define vcp_rneg(dest, src1)					(	IMMED8(OPL_NEG)		| 0					| SRCREG1(src1)		| DESTREG(dest)		| VCP_LOGICOP		)
+#define vcp_rcmp(dest)							(	IMMED8(OPL_RCMP)	| 0					| 0					| DESTREG(dest)		| VCP_LOGICOP		)
+#define vcp_rctl(dest)							(	IMMED8(OPL_RCTL)	| 0					| 0					| DESTREG(dest)		| VCP_LOGICOP		)
 
 // Pseudo instructions
 #define vcp_mv(dest, src)		vcp_radd(dest, src, VREG_ZERO)
