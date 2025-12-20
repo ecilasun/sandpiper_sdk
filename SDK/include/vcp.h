@@ -23,8 +23,8 @@ extern "C" {
 #define VCP_BRANCH			0x08
 #define VCP_STORE			0x09
 #define VCP_LOAD			0x0A
-#define VCP_READSCANLINE	0x0B
-#define VCP_READSCANPIXEL	0x0C
+#define VCP_READSCANINFO	0x0B
+#define VCP_UNUSED0			0x0C
 #define VCP_LOGICOP			0x0D
 #define VCP_LCTL			0x0E
 #define VCP_UNUSED1			0x0F
@@ -91,8 +91,8 @@ extern "C" {
 #define vcp_noop()								(	0					| 0					| 0					| 0					| VCP_NOOP			)
 #define vcp_ldim(dest, immed)					(	IMMED24(immed)												| DESTREG(dest)		| VCP_LOADIMM		)
 #define vcp_pwrt(addrs, src)					(	0					| SRCREG2(src)		| SRCREG1(addrs)	| 0					| VCP_PALWRITE		)
-#define vcp_wscn(line)							(	0					| 0					| SRCREG1(line)		| 0					| VCP_WAITSCANLINE	)
-#define vcp_wpix(pixel)							(	0					| 0					| SRCREG1(pixel)	| 0					| VCP_WAITPIXEL		)
+#define vcp_wscn(line)							(	0					| 0					| SRCREG1(line)		| 0					| VCP_READSCANINFO	)
+#define vcp_wpix(pixel)							(	0					| 0					| SRCREG1(pixel)	| 0x1				| VCP_READSCANINFO	)
 #define vcp_radd(dest, src1, src2)				(	IMMED8(OP_ADD)		| SRCREG2(src2)		| SRCREG1(src1)		| DESTREG(dest)		| VCP_MATHOP		)
 #define vcp_rsub(dest, src1, src2)				(	IMMED8(OP_SUB)		| SRCREG2(src2)		| SRCREG1(src1)		| DESTREG(dest)		| VCP_MATHOP		)
 #define vcp_rinc(dest, src1)					(	IMMED8(OP_INC)		| 0					| SRCREG1(src1)		| DESTREG(dest)		| VCP_MATHOP		)
