@@ -26,7 +26,7 @@ extern "C" {
 #define VCP_READSCANINFO	0x0B
 #define VCP_UNUSED0			0x0C
 #define VCP_LOGICOP			0x0D
-#define VCP_LCTL			0x0E
+#define VCP_UNUSED2			0x0E
 #define VCP_UNUSED1			0x0F
 
 #define DESTREG(reg)			((reg & 0xF) << 4)
