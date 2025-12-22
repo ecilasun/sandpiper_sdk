@@ -10,8 +10,6 @@ For normal operation it is sufficient to clone this repo and place it in any con
 ## Usage
 Please check out the samples/ directory to learn how to build and how certain hardware components work.
 
-Documentation can be found in the documents/ directory for more in-detail explanation of the hardware and SDK components.
-
 ## Copying files to the emulator
 First, install winscp, then use the following command line to copy binaries to current remote directory.
 In this example peta is your username, and mandelbrot is the binary we're copying. Type your password when prompted:
@@ -25,9 +23,9 @@ In this example we're making mandelbrot sample executable by running the followi
 sudo chmod +x mandelbrot
 ```
 
-## Related repos
+## Documentation
 
-See the [Sandpiper project page](https://ecilasun.github.io/sandpiper/) for related repositories and documentation.
+See the [Sandpiper project page](https://ecilasun.github.io/sandpiper/) for links to all related repositories and SDK documentation.
 
 ## Development toolchains
 
