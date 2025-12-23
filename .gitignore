@@ -6,3 +6,4 @@ host_tools/vcpcompiler/build/
 host_tools/vcpcompiler/waf3-**
 host_tools/vcpcompiler/.lock**
 host_tools/vcpcompiler/examples/*.bin
+host_tools/vcpcompiler/examples/*.S

@@ -930,8 +930,8 @@ struct Fixup {
 
 class Codegen {
 public:
-    explicit Codegen(std::vector<StmtPtr> program, bool useAllRegs = false)
-        : m_program(std::move(program)), m_useAllRegs(useAllRegs) {
+    explicit Codegen(std::vector<StmtPtr> program, bool useAllRegs = false, bool peephole = false, bool compact = false)
+        : m_program(std::move(program)), m_useAllRegs(useAllRegs), m_peephole(peephole), m_compact(compact) {
         // internal temporaries
         declareInternal("__tmp0");
         declareInternal("__tmp1");
@@ -953,8 +953,26 @@ public:
         // Ensure deferred variable stores are committed at end-of-program.
         flushAllDirtyAndClear();
 
+        // Optional code-only peephole and/or compaction (relayout).
+        // We run peephole on the code vector before data layout so that compaction can shrink codeBytes
+        // and all absolute addresses get recomputed correctly.
+        if (m_peephole || m_compact) {
+            const uint32_t codeBytesBefore = static_cast<uint32_t>(m_words.size() * 4u);
+            std::vector<uint8_t> fixed(m_words.size(), 0);
+            for (const auto& f : m_fixups) {
+                if (f.instrIndex < fixed.size()) fixed[f.instrIndex] = 1;
+            }
+
+            if (m_peephole) {
+                peepholeOptimize(m_words, codeBytesBefore, &fixed);
+            }
+            if (m_compact) {
+                compactCodeAndRelayoutMetadata();
+            }
+        }
+
         // finalize data layout
-        const uint32_t codeBytes = static_cast<uint32_t>(m_words.size() * 4);
+        const uint32_t codeBytes = static_cast<uint32_t>(m_words.size() * 4u);
         uint32_t dataCursor = 0;
         for (const auto& name : m_symOrder) {
             auto& sym = m_syms.at(name);
@@ -1006,7 +1024,252 @@ private:
     std::vector<uint32_t> m_words;
 
     bool m_useAllRegs = false;
+    bool m_peephole = false;
+    bool m_compact = false;
     std::vector<uint32_t> m_freeTemps;
+
+    struct Decoded {
+        uint32_t opcode = 0;
+        uint32_t dest = 0;
+        uint32_t src1 = 0;
+        uint32_t src2 = 0;
+        uint32_t imm8 = 0;
+        uint32_t imm24 = 0;
+    };
+
+    static Decoded decode(uint32_t w) {
+        Decoded d;
+        d.opcode = (w & 0x0Fu);
+        d.dest = (w >> 4) & 0xFu;
+        d.src1 = (w >> 8) & 0xFu;
+        d.src2 = (w >> 12) & 0xFu;
+        d.imm8 = (w >> 24) & 0xFFu;
+        d.imm24 = (w >> 8) & 0xFFFFFFu;
+        return d;
+    }
+
+    static bool readsReg(const Decoded& d, uint32_t r) {
+        switch (d.opcode) {
+            case VCP_MATHOP:
+            case VCP_LOGICOP:
+            case VCP_CMP:
+            case VCP_STORE:
+            case VCP_PALWRITE:
+                return d.src1 == r || d.src2 == r;
+            case VCP_WAITSCANLINE:
+            case VCP_WAITPIXEL:
+                return d.src1 == r;
+            default:
+                return false;
+        }
+    }
+
+    static bool writesDest(const Decoded& d) {
+        switch (d.opcode) {
+            case VCP_LOADIMM:
+            case VCP_MATHOP:
+            case VCP_LOGICOP:
+            case VCP_LOAD:
+            case VCP_READSCANINFO:
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    static bool isPureCompute(const Decoded& d) {
+        // Conservative: only these are treated as side-effect-free.
+        return d.opcode == VCP_LOADIMM || d.opcode == VCP_MATHOP || d.opcode == VCP_LOGICOP;
+    }
+
+    static void peepholeOptimize(std::vector<uint32_t>& out, uint32_t codeBytes, const std::vector<uint8_t>* fixedCodeWords) {
+        const uint32_t codeWords = codeBytes / 4u;
+        auto noop = []() { return static_cast<uint32_t>(VCP_NOOP); };
+
+        // Pass 0: basic-block constant tracking to remove redundant ldimm.
+        // This is conservative: we only *learn* constants from ldimm, and we clear knowledge on any other dest write.
+        {
+            bool known[16] = {};
+            uint32_t val[16] = {};
+            known[VREG_ZERO] = true;
+            val[VREG_ZERO] = 0;
+
+            for (uint32_t i = 0; i < codeWords && i < out.size(); ++i) {
+                Decoded d = decode(out[i]);
+
+                if (d.opcode == VCP_BRANCH || d.opcode == VCP_JUMP) {
+                    for (int r = 0; r < 16; ++r) {
+                        known[r] = false;
+                        val[r] = 0;
+                    }
+                    known[VREG_ZERO] = true;
+                    val[VREG_ZERO] = 0;
+                    continue;
+                }
+
+                if (d.opcode == VCP_LOADIMM) {
+                    const uint32_t r = d.dest & 0xFu;
+                    if (r != VREG_ZERO) {
+                        if (fixedCodeWords && i < fixedCodeWords->size() && (*fixedCodeWords)[i]) {
+                            // Don't touch instructions that participate in fixups (e.g. ldaddr).
+                            known[r] = false;
+                            val[r] = 0;
+                            continue;
+                        }
+                        if (known[r] && val[r] == d.imm24) {
+                            out[i] = noop();
+                            continue;
+                        }
+                        known[r] = true;
+                        val[r] = d.imm24;
+                    }
+                    continue;
+                }
+
+                if (writesDest(d)) {
+                    const uint32_t r = d.dest & 0xFu;
+                    if (r != VREG_ZERO) {
+                        known[r] = false;
+                        val[r] = 0;
+                    }
+                }
+            }
+        }
+
+        for (uint32_t i = 0; i + 1 < codeWords && i + 1 < out.size(); ++i) {
+            if (fixedCodeWords && i < fixedCodeWords->size() && (*fixedCodeWords)[i]) {
+                continue;
+            }
+            Decoded a = decode(out[i]);
+            Decoded b = decode(out[i + 1]);
+
+            // General dead-definition elimination (pure compute only):
+            // If dest is never read before being overwritten (and we don't cross control flow), the instruction is dead.
+            if (a.opcode != VCP_NOOP && isPureCompute(a) && writesDest(a)) {
+                const uint32_t dreg = a.dest;
+                bool readBeforeWrite = false;
+                bool overwritten = false;
+                for (uint32_t j = i + 1; j < codeWords && j < out.size(); ++j) {
+                    Decoded d = decode(out[j]);
+                    if (d.opcode == VCP_BRANCH || d.opcode == VCP_JUMP) {
+                        break; // stop at control-flow boundary
+                    }
+                    if (readsReg(d, dreg)) {
+                        readBeforeWrite = true;
+                        break;
+                    }
+                    if (writesDest(d) && d.dest == dreg) {
+                        overwritten = true;
+                        break;
+                    }
+                }
+                if (!readBeforeWrite && overwritten) {
+                    out[i] = noop();
+                    continue;
+                }
+            }
+
+            // ldimm rT, 0  +  add rD, rS, rT   =>  noop + add rD, rS, r0
+            // Only if rT is not read again after the add (until overwritten), and we don't cross control flow.
+            if (a.opcode == VCP_LOADIMM && a.imm24 == 0 && b.opcode == VCP_MATHOP && b.imm8 == OP_ADD) {
+                const uint32_t t = a.dest;
+                const bool usesT = (b.src1 == t) || (b.src2 == t);
+                if (usesT) {
+                    if (fixedCodeWords && (i + 1) < fixedCodeWords->size() && (*fixedCodeWords)[i + 1]) {
+                        // Don't rewrite fixup-bearing instructions.
+                        continue;
+                    }
+                    bool safe = true;
+                    for (uint32_t j = i + 2; j < codeWords && j < out.size(); ++j) {
+                        Decoded d = decode(out[j]);
+                        if (d.opcode == VCP_BRANCH || d.opcode == VCP_JUMP) { safe = false; break; }
+                        if (readsReg(d, t)) { safe = false; break; }
+                        if (writesDest(d) && d.dest == t) break; // overwritten before any read
+                    }
+
+                    if (safe) {
+                        // Patch b to use r0 in place of t.
+                        uint32_t bw = out[i + 1];
+                        if (b.src1 == t) {
+                            bw = (bw & ~(0xFu << 8)) | (VREG_ZERO << 8);
+                        }
+                        if (b.src2 == t) {
+                            bw = (bw & ~(0xFu << 12)) | (VREG_ZERO << 12);
+                        }
+                        out[i + 1] = bw;
+                        out[i] = noop();
+                        continue;
+                    }
+                }
+            }
+
+            // Redundant self-move: add rX, rX, r0
+            if (a.opcode == VCP_MATHOP && a.imm8 == OP_ADD && a.dest == a.src1 && a.src2 == VREG_ZERO) {
+                out[i] = noop();
+                continue;
+            }
+
+            // Dead overwrite in the very next instruction.
+            if (isPureCompute(a) && writesDest(a) && writesDest(b) && a.dest == b.dest) {
+                if (!readsReg(b, a.dest)) {
+                    out[i] = noop();
+                    continue;
+                }
+            }
+        }
+    }
+
+    void compactCodeAndRelayoutMetadata() {
+        const size_t oldWords = m_words.size();
+        if (oldWords == 0) return;
+
+        std::vector<uint8_t> keep(oldWords, 0);
+        for (size_t i = 0; i < oldWords; ++i) {
+            const uint32_t op = (m_words[i] & 0x0Fu);
+            keep[i] = static_cast<uint8_t>(op != VCP_NOOP);
+        }
+
+        std::vector<uint32_t> prefix(oldWords + 1, 0);
+        for (size_t i = 0; i < oldWords; ++i) {
+            prefix[i + 1] = prefix[i] + (keep[i] ? 1u : 0u);
+        }
+
+        const uint32_t newWordsCount = prefix[oldWords];
+        if (newWordsCount == oldWords) return; // nothing to do
+
+        std::vector<uint32_t> newCode;
+        newCode.reserve(newWordsCount);
+        for (size_t i = 0; i < oldWords; ++i) {
+            if (keep[i]) newCode.push_back(m_words[i]);
+        }
+
+        // Update labels (byte addresses) from old to new.
+        for (auto& kv : m_labels) {
+            const uint32_t oldAddrBytes = kv.second;
+            if ((oldAddrBytes % 4u) != 0u) {
+                throw CompileError("internal error: label address not word-aligned: " + kv.first);
+            }
+            const uint32_t oldIndex = oldAddrBytes / 4u;
+            if (oldIndex > oldWords) {
+                throw CompileError("internal error: label out of range during compact: " + kv.first);
+            }
+            const uint32_t newIndex = prefix[oldIndex];
+            kv.second = newIndex * 4u;
+        }
+
+        // Update fixup instruction indices.
+        for (auto& f : m_fixups) {
+            if (f.instrIndex >= oldWords) {
+                throw CompileError("internal error: fixup out of range during compact: " + f.symbol);
+            }
+            if (!keep[f.instrIndex]) {
+                throw CompileError("internal error: attempted to compact away a fixup-bearing instruction: " + f.symbol);
+            }
+            f.instrIndex = static_cast<size_t>(prefix[f.instrIndex]);
+        }
+
+        m_words = std::move(newCode);
+    }
 
     struct VarCache {
         uint32_t reg = 0;
@@ -1743,6 +2006,9 @@ struct Args {
     std::string outPath;
     bool dumpAsm = false;
     bool useAllRegs = false;
+    bool optReport = false;
+    bool peephole = false;
+    bool compact = false;
 };
 
 static Args parseArgs(int argc, char** argv) {
@@ -1760,6 +2026,27 @@ static Args parseArgs(int argc, char** argv) {
         }
         if (s == "-Oreg" || s == "--regs") {
             a.useAllRegs = true;
+            a.peephole = true;
+            continue;
+        }
+        if (s == "--peephole") {
+            a.peephole = true;
+            continue;
+        }
+        if (s == "--no-peephole") {
+            a.peephole = false;
+            continue;
+        }
+        if (s == "--opt-report") {
+            a.optReport = true;
+            continue;
+        }
+        if (s == "--compact") {
+            a.compact = true;
+            continue;
+        }
+        if (s == "--no-compact") {
+            a.compact = false;
             continue;
         }
         if (!s.empty() && s[0] == '-') {
@@ -1771,11 +2058,45 @@ static Args parseArgs(int argc, char** argv) {
         }
         throw std::runtime_error("unexpected extra arg: " + s);
     }
-    if (a.inPath.empty()) throw std::runtime_error("usage: vcpcompiler <input.vcp> [-o <output.bin>] [-S] [-Oreg|--regs]");
+    if (a.inPath.empty()) throw std::runtime_error("usage: vcpcompiler <input.vcp> [-o <output.bin>] [-S] [-Oreg|--regs] [--peephole|--no-peephole] [--compact|--no-compact] [--opt-report]");
     if (a.outPath.empty()) {
         a.outPath = a.inPath + ".bin";
     }
     return a;
+}
+
+static void dumpOptReport(const CompiledProgram& p, std::ostream& os) {
+    const uint32_t codeWords = p.codeBytes / 4u;
+    auto countOpcode = [&](uint32_t op) {
+        uint32_t n = 0;
+        for (uint32_t i = 0; i < codeWords && i < p.words.size(); ++i) {
+            if ((p.words[i] & 0x0Fu) == op) ++n;
+        }
+        return n;
+    };
+
+    const uint32_t nNoop = countOpcode(VCP_NOOP);
+    const uint32_t nLdimm = countOpcode(VCP_LOADIMM);
+    const uint32_t nPal = countOpcode(VCP_PALWRITE);
+    const uint32_t nWaitSl = countOpcode(VCP_WAITSCANLINE);
+    const uint32_t nWaitPx = countOpcode(VCP_WAITPIXEL);
+    const uint32_t nMath = countOpcode(VCP_MATHOP);
+    const uint32_t nJump = countOpcode(VCP_JUMP);
+    const uint32_t nCmp = countOpcode(VCP_CMP);
+    const uint32_t nBranch = countOpcode(VCP_BRANCH);
+    const uint32_t nStore = countOpcode(VCP_STORE);
+    const uint32_t nLoad = countOpcode(VCP_LOAD);
+    const uint32_t nRead = countOpcode(VCP_READSCANINFO);
+    const uint32_t nLogic = countOpcode(VCP_LOGICOP);
+
+    os << "opt-report:\n";
+    os << "  codeBytes=" << p.codeBytes << " (words=" << codeWords << ") dataBytes=" << p.dataBytes << " paddedBytes=" << p.paddedBytes << "\n";
+    os << "  instr: load=" << nLoad << " store=" << nStore << " ldimm=" << nLdimm
+       << " cmp=" << nCmp << " branch=" << nBranch << " jump=" << nJump
+       << " math=" << nMath << " logic=" << nLogic
+       << " wait_scanline=" << nWaitSl << " wait_pixel=" << nWaitPx
+       << " pal_write=" << nPal << " read_scaninfo=" << nRead
+       << " noop=" << nNoop << "\n";
 }
 
 } // namespace
@@ -1788,8 +2109,11 @@ int main(int argc, char** argv) {
         Parser parser(std::move(lex));
         auto program = parser.parseProgram();
 
-        Codegen cg(std::move(program), args.useAllRegs);
+        Codegen cg(std::move(program), args.useAllRegs, args.peephole, args.compact);
         auto compiled = cg.compileProgram();
+        if (args.optReport) {
+            dumpOptReport(compiled, std::cerr);
+        }
         if (args.dumpAsm) {
             dumpDisassembly(compiled, std::cout);
             std::cout << "\n";
