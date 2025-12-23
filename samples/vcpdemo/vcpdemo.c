@@ -60,41 +60,40 @@ void decodeStatus(uint32_t stat)
 static const uint32_t s_vcpprogram[32] = {
 // start:
 	vcp_ldim(VREG_1, 0x000000),						// scrolloffset = 0
-	vcp_ldim(VREG_2, 0x0000FF),						// colorincrement = 255
+	vcp_ldim(VREG_2, 0x0000FF),						// mask = 0xFF
 	vcp_ldim(VREG_3, 640),							// endofline = 640
 	vcp_ldim(VREG_8, 0x000002),						// scrollspeed = 2
+	vcp_ldim(VREG_9, 0x000003),						// shift3 = 3
+	vcp_ldim(VREG_4, 0x000006),						// shift6 = 6
+	vcp_ldim(VREG_5, 0x000008),						// shift8 = 8
+	vcp_ldim(VREG_C, 0x000010),						// shift16 = 16
+	vcp_ldim(VREG_B, 0x000080),						// stopline = 128
 // reset:
 	vcp_radd(VREG_1, VREG_1, VREG_8),				// scrolloffset += scrollspeed
 // loop:
 	vcp_wpix(VREG_3),								// wait for endofline
 	vcp_scanline_read(VREG_6),						// scanline = $videoscanline
-	vcp_ldim(VREG_9, 0x000080),						// temp = 128
-	vcp_cmp(COND_EQ, VREG_6, VREG_9),				// scanline == 128 ?
-	vcp_branchim(0x18),								// branch.eq idle: +0x18 bytes from this instruction
-	vcp_ldim(VREG_9, 0x000003),						// temp = 3
-	vcp_rshl(VREG_6, VREG_6, VREG_9),				// scanline = scanline << temp
-	vcp_radd(VREG_6, VREG_6, VREG_1),				// scanline = scanline + scrolloffset
-	vcp_pwrt(VREG_ZERO, VREG_6),					// PAL[0] = scanline
-	vcp_jumpim(-0x24),								// jmp loop: -0x24 bytes from this instruction
+	vcp_cmp(COND_EQ, VREG_6, VREG_B),				// scanline == 128 ?
+	vcp_branchim(0x34),								// branch.eq idle: +0x34 bytes from this instruction
+	vcp_radd(VREG_7, VREG_6, VREG_1),				// t = scanline + scrolloffset
+	vcp_rand(VREG_A, VREG_7, VREG_2),				// b = (t >> 0) & 0xFF
+	vcp_rshl(VREG_D, VREG_7, VREG_9),				// g = (t << 3) & 0xFF
+	vcp_rand(VREG_D, VREG_D, VREG_2),
+	vcp_rshl(VREG_D, VREG_D, VREG_5),				// g <<= 8
+	vcp_ror(VREG_A, VREG_A, VREG_D),				// color |= g
+	vcp_rshl(VREG_D, VREG_7, VREG_4),				// r = (t << 6) & 0xFF
+	vcp_rand(VREG_D, VREG_D, VREG_2),
+	vcp_rshl(VREG_D, VREG_D, VREG_C),				// r <<= 16
+	vcp_ror(VREG_A, VREG_A, VREG_D),				// color |= r
+	vcp_pwrt(VREG_ZERO, VREG_A),					// PAL[0] = color
+	vcp_jumpim(-0x3C),								// jmp loop: -0x3C bytes from this instruction
 // idle:
 	vcp_pwrt(VREG_ZERO, VREG_ZERO),					// PAL[0] = 0
 	vcp_wpix(VREG_3),								// wait for endofline
 	vcp_scanline_read(VREG_6),						// scanline = $videoscanline
 	vcp_cmp(COND_EQ, VREG_6, VREG_ZERO),			// scanline == 0 ?
-	vcp_branchim(-0x3C),							// branch.eq reset: -0x3C bytes from this instruction
+	vcp_branchim(-0x54),							// branch.eq reset: -0x54 bytes from this instruction
 	vcp_jumpim(-0x14),								// jmp idle: -0x14 bytes from this instruction
-	// Remaining words default-initialize to 0 (VCP_NOOP) to fill the 128-byte program buffer.
-	vcp_noop(),
-	vcp_noop(),
-	vcp_noop(),
-	vcp_noop(),
-	vcp_noop(),
-	vcp_noop(),
-	vcp_noop(),
-	vcp_noop(),
-	vcp_noop(),
-	vcp_noop(),
-	vcp_noop(),
 };
 
 int main(int argc, char** argv)
