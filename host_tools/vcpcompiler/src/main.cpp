@@ -930,10 +930,18 @@ struct Fixup {
 
 class Codegen {
 public:
-    explicit Codegen(std::vector<StmtPtr> program) : m_program(std::move(program)) {
+    explicit Codegen(std::vector<StmtPtr> program, bool useAllRegs = false)
+        : m_program(std::move(program)), m_useAllRegs(useAllRegs) {
         // internal temporaries
         declareInternal("__tmp0");
         declareInternal("__tmp1");
+
+        // Temp regs exclude r0 (zero), r1 (reserved in branch/jump encoding), r2 (expression result), r3 (addr scratch)
+        // Keep r4..r15 available.
+        for (uint32_t r = 15; r >= 4; --r) {
+            m_freeTemps.push_back(r);
+            if (r == 4) break;
+        }
     }
 
     CompiledProgram compileProgram() {
@@ -994,6 +1002,16 @@ private:
     std::vector<StmtPtr> m_program;
     std::vector<uint32_t> m_words;
 
+    bool m_useAllRegs = false;
+    std::vector<uint32_t> m_freeTemps;
+
+    struct VarCache {
+        uint32_t reg = 0;
+        bool dirty = false;
+    };
+    std::unordered_map<std::string, VarCache> m_varCache; // var -> reg
+    std::unordered_map<uint32_t, std::string> m_regToVar; // reg -> var
+
     std::unordered_map<std::string, Symbol> m_syms;
     std::vector<std::string> m_symOrder;
     std::unordered_map<std::string, uint32_t> m_labels; // byte address of label (code only)
@@ -1043,6 +1061,119 @@ private:
     }
 
     void emit(uint32_t word) { m_words.push_back(word); }
+
+    bool isCacheReg(uint32_t r) const { return m_useAllRegs && r >= 4 && r <= 15; }
+
+    void unbindVar(const std::string& name) {
+        auto it = m_varCache.find(name);
+        if (it == m_varCache.end()) return;
+        uint32_t r = it->second.reg;
+        m_regToVar.erase(r);
+        m_varCache.erase(it);
+        freeTemp(r);
+    }
+
+    void spillVar(const std::string& name) {
+        auto it = m_varCache.find(name);
+        if (it == m_varCache.end()) return;
+        if (!it->second.dirty) return;
+        // No real source location; variable existence is guaranteed.
+        emit_storeVar(name, it->second.reg, SourceLoc{});
+        it->second.dirty = false;
+    }
+
+    void flushAllDirtyAndClear() {
+        if (!m_useAllRegs) return;
+        // Copy keys first to avoid iterator invalidation as we free regs.
+        std::vector<std::string> names;
+        names.reserve(m_varCache.size());
+        for (const auto& kv : m_varCache) names.push_back(kv.first);
+        for (const auto& n : names) spillVar(n);
+        // Clear all bindings.
+        for (const auto& n : names) unbindVar(n);
+    }
+
+    void clearVarCacheOnly() {
+        if (!m_useAllRegs) return;
+        std::vector<std::string> names;
+        names.reserve(m_varCache.size());
+        for (const auto& kv : m_varCache) names.push_back(kv.first);
+        for (const auto& n : names) unbindVar(n);
+    }
+
+    uint32_t allocVarReg(const SourceLoc& loc) {
+        if (!m_freeTemps.empty()) return allocTemp(loc);
+        // Evict an existing cached var.
+        if (m_varCache.empty()) {
+            throw CompileError(err(loc) + "expression too complex: out of registers");
+        }
+        const std::string victim = m_varCache.begin()->first;
+        spillVar(victim);
+        uint32_t r = m_varCache[victim].reg;
+        // Unbind but do not free to pool; we want to reuse immediately.
+        m_regToVar.erase(r);
+        m_varCache.erase(victim);
+        return r;
+    }
+
+    void bindVarToReg(const std::string& name, uint32_t reg, bool dirty) {
+        if (!isCacheReg(reg)) return;
+
+        // If reg is bound to another var, evict it.
+        auto itRv = m_regToVar.find(reg);
+        if (itRv != m_regToVar.end() && itRv->second != name) {
+            spillVar(itRv->second);
+            // Don't free reg; we're reusing it.
+            m_varCache.erase(itRv->second);
+            m_regToVar.erase(itRv);
+        }
+
+        // If var was previously bound, release its old reg.
+        auto it = m_varCache.find(name);
+        if (it != m_varCache.end() && it->second.reg != reg) {
+            uint32_t old = it->second.reg;
+            m_regToVar.erase(old);
+            freeTemp(old);
+        }
+
+        m_varCache[name] = VarCache{reg, dirty};
+        m_regToVar[reg] = name;
+    }
+
+    void loadVarCached(uint32_t dest, const std::string& varName, const SourceLoc& loc) {
+        if (!m_useAllRegs) {
+            emit_loadVar(dest, varName, loc);
+            return;
+        }
+
+        auto it = m_varCache.find(varName);
+        if (it != m_varCache.end()) {
+            mov(dest, it->second.reg);
+            return;
+        }
+
+        emit_loadVar(dest, varName, loc);
+
+        // Populate cache for future uses.
+        if (isCacheReg(dest)) {
+            bindVarToReg(varName, dest, false);
+        } else {
+            uint32_t r = allocVarReg(loc);
+            mov(r, dest);
+            bindVarToReg(varName, r, false);
+        }
+    }
+
+    void assignVarCachedFromReg(const std::string& varName, uint32_t src, const SourceLoc& loc) {
+        if (!m_useAllRegs) {
+            emit_storeVar(varName, src, loc);
+            return;
+        }
+
+        uint32_t r = isCacheReg(src) ? src : allocVarReg(loc);
+        if (r != src) mov(r, src);
+        bindVarToReg(varName, r, true);
+    }
 
     void emit_ldim(uint32_t dest, uint32_t imm24, const SourceLoc& loc) {
         if (imm24 > 0xFFFFFFu) throw CompileError(err(loc) + "immediate out of range (0..0xFFFFFF)");
@@ -1112,8 +1243,95 @@ private:
         }
     }
 
+    uint32_t allocTemp(const SourceLoc& loc) {
+        if (m_freeTemps.empty()) {
+            throw CompileError(err(loc) + "expression too complex: out of registers (try simplifying)");
+        }
+        uint32_t r = m_freeTemps.back();
+        m_freeTemps.pop_back();
+        return r;
+    }
+
+    void freeTemp(uint32_t r) {
+        if (r >= 4 && r <= 15) m_freeTemps.push_back(r);
+    }
+
+    void mov(uint32_t dest, uint32_t src) {
+        if (dest == src) return;
+        emit_math(OP_ADD, dest, src, VREG_ZERO);
+    }
+
+    void emitExprTo(uint32_t dest, const Expr& e) {
+        if (!m_useAllRegs) {
+            // Preserve legacy behavior unless -Oreg/--regs is enabled.
+            if (dest != 2) {
+                emitExprToR2(e);
+                mov(dest, 2);
+            } else {
+                emitExprToR2(e);
+            }
+            return;
+        }
+
+        if (auto* n = std::get_if<Expr::Number>(&e.node)) {
+            emit_ldim(dest, n->value, e.loc);
+            return;
+        }
+        if (auto* v = std::get_if<Expr::Var>(&e.node)) {
+            loadVarCached(dest, v->name, e.loc);
+            return;
+        }
+        if (auto* u = std::get_if<Expr::Unary>(&e.node)) {
+            emitExprTo(dest, *u->rhs);
+            if (u->op == TokenKind::Minus) {
+                // dest = 0 - dest
+                uint32_t tmp = allocTemp(e.loc);
+                emit_ldim(tmp, 0, e.loc);
+                emit_math(OP_SUB, dest, tmp, dest);
+                freeTemp(tmp);
+                return;
+            }
+            if (u->op == TokenKind::Tilde) {
+                emit(IMMED8(OPL_NEG) | SRCREG1(dest) | DESTREG(dest) | VCP_LOGICOP);
+                return;
+            }
+            throw CompileError(err(e.loc) + "unsupported unary operator");
+        }
+        if (auto* b = std::get_if<Expr::Binary>(&e.node)) {
+            // Preserve original evaluation order: lhs then rhs.
+            emitExprTo(dest, *b->lhs);
+            uint32_t rhs = allocTemp(e.loc);
+            emitExprTo(rhs, *b->rhs);
+
+            switch (b->op) {
+                case TokenKind::Plus: emit_math(OP_ADD, dest, dest, rhs); break;
+                case TokenKind::Minus: emit_math(OP_SUB, dest, dest, rhs); break;
+                case TokenKind::Amp: emit_logic(OPL_AND, dest, dest, rhs); break;
+                case TokenKind::Pipe: emit_logic(OPL_OR, dest, dest, rhs); break;
+                case TokenKind::Caret: emit_logic(OPL_XOR, dest, dest, rhs); break;
+                case TokenKind::ShiftLeft: emit_logic(OPL_SHL, dest, dest, rhs); break;
+                case TokenKind::ShiftRight: emit_logic(OPL_SHR, dest, dest, rhs); break;
+                default:
+                    freeTemp(rhs);
+                    throw CompileError(err(e.loc) + "unsupported binary operator");
+            }
+
+            freeTemp(rhs);
+            return;
+        }
+        if (auto* c = std::get_if<Expr::Call>(&e.node)) {
+            (void)c;
+            throw CompileError(err(e.loc) + "call expression not allowed in value context");
+        }
+        throw CompileError(err(e.loc) + "unknown expression node");
+    }
+
     // Expr codegen: result in reg2, uses reg3/reg4 as scratch, spills to __tmp0/__tmp1.
     void emitExprToR2(const Expr& e) {
+        if (m_useAllRegs) {
+            emitExprTo(2, e);
+            return;
+        }
         if (auto* n = std::get_if<Expr::Number>(&e.node)) {
             emit_ldim(2, n->value, e.loc);
             return;
@@ -1176,6 +1394,8 @@ private:
     }
 
     void emitCondBranchToLabel(const Expr& l, TokenKind op, const Expr& r, const std::string& trueLabel, const SourceLoc& loc) {
+        // Control-flow boundary: commit variable state before branching.
+        flushAllDirtyAndClear();
         emitExprToR2(l);
         emit_math(OP_ADD, 4, 2, VREG_ZERO); // r4 = lhs
         emitExprToR2(r);
@@ -1190,7 +1410,7 @@ private:
         }
         if (auto* a = std::get_if<Stmt::Assign>(&s.node)) {
             emitExprToR2(*a->value);
-            emit_storeVar(a->name, 2, s.loc);
+            assignVarCachedFromReg(a->name, 2, s.loc);
             return;
         }
         if (auto* b = std::get_if<Stmt::Block>(&s.node)) {
@@ -1198,17 +1418,24 @@ private:
             return;
         }
         if (auto* l = std::get_if<Stmt::Label>(&s.node)) {
+            // Labels can be jump targets; commit state on fallthrough.
+            flushAllDirtyAndClear();
             if (m_labels.find(l->name) != m_labels.end()) {
                 throw CompileError(err(s.loc) + "duplicate label: " + l->name);
             }
             m_labels[l->name] = labelPcBytes();
+            // New basic block: start with empty cache.
+            clearVarCacheOnly();
             return;
         }
         if (auto* g = std::get_if<Stmt::Goto>(&s.node)) {
+            flushAllDirtyAndClear();
             emit_jumpim_label(g->target, s.loc);
             return;
         }
         if (auto* iff = std::get_if<Stmt::If>(&s.node)) {
+            // Conservative: start if with committed memory state.
+            flushAllDirtyAndClear();
             std::string thenLabel = freshLabel("then");
             std::string endLabel = freshLabel("endif");
             std::string elseLabel = freshLabel("else");
@@ -1216,31 +1443,43 @@ private:
             emitCondBranchToLabel(*iff->condL, iff->condOp, *iff->condR, thenLabel, s.loc);
             if (iff->elseS) {
                 emitStmt(*iff->elseS);
+                flushAllDirtyAndClear();
                 emit_jumpim_label(endLabel, s.loc);
                 m_labels[thenLabel] = labelPcBytes();
+                clearVarCacheOnly();
                 emitStmt(*iff->thenS);
+                flushAllDirtyAndClear();
                 m_labels[endLabel] = labelPcBytes();
+                clearVarCacheOnly();
             } else {
                 emit_jumpim_label(endLabel, s.loc);
                 m_labels[thenLabel] = labelPcBytes();
+                clearVarCacheOnly();
                 emitStmt(*iff->thenS);
+                flushAllDirtyAndClear();
                 m_labels[endLabel] = labelPcBytes();
+                clearVarCacheOnly();
             }
             (void)elseLabel;
             return;
         }
         if (auto* wh = std::get_if<Stmt::While>(&s.node)) {
+            flushAllDirtyAndClear();
             std::string startLabel = freshLabel("while");
             std::string bodyLabel = freshLabel("body");
             std::string endLabel = freshLabel("endwhile");
 
             m_labels[startLabel] = labelPcBytes();
+            clearVarCacheOnly();
             emitCondBranchToLabel(*wh->condL, wh->condOp, *wh->condR, bodyLabel, s.loc);
             emit_jumpim_label(endLabel, s.loc);
             m_labels[bodyLabel] = labelPcBytes();
+            clearVarCacheOnly();
             emitStmt(*wh->body);
+            flushAllDirtyAndClear();
             emit_jumpim_label(startLabel, s.loc);
             m_labels[endLabel] = labelPcBytes();
+            clearVarCacheOnly();
             return;
         }
         if (auto* es = std::get_if<Stmt::ExprStmt>(&s.node)) {
@@ -1296,6 +1535,8 @@ private:
         }
         if (name == "store") {
             expectArgs(*call, 2, e.loc);
+            // Arbitrary memory store may alias any variable.
+            flushAllDirtyAndClear();
             if (auto ca = evalConstExpr(*call->args[0]); ca && ((*ca % 4u) != 0u)) {
                 throw CompileError(err(e.loc) + "store address must be 4-byte aligned");
             }
@@ -1303,10 +1544,13 @@ private:
             emit_math(OP_ADD, 3, 2, VREG_ZERO); // r3 = addr
             emitExprToR2(*call->args[1]);
             emit(SRCREG2(2) | SRCREG1(3) | VCP_STORE);
+            clearVarCacheOnly();
             return;
         }
         if (name == "load") {
             expectArgs(*call, 2, e.loc);
+            // Arbitrary memory load may read any variable's address.
+            flushAllDirtyAndClear();
             if (auto ca = evalConstExpr(*call->args[0]); ca && ((*ca % 4u) != 0u)) {
                 throw CompileError(err(e.loc) + "load address must be 4-byte aligned");
             }
@@ -1315,7 +1559,8 @@ private:
             auto* v = std::get_if<Expr::Var>(&call->args[1]->node);
             if (!v) throw CompileError(err(e.loc) + "load(addr, var) expects a variable as second arg");
             emit(SRCREG1(3) | DESTREG(2) | VCP_LOAD);
-            emit_storeVar(v->name, 2, e.loc);
+            assignVarCachedFromReg(v->name, 2, e.loc);
+            clearVarCacheOnly();
             return;
         }
         if (name == "stack") {
@@ -1337,6 +1582,7 @@ private:
         if (name == "push") {
             expectArgs(*call, 1, e.loc);
             ensureStack(e.loc);
+            flushAllDirtyAndClear();
             // r2 = __sp
             emit_loadVar(2, "__sp", e.loc);
             emit_math(OP_ADD, 3, 2, VREG_ZERO); // r3 = sp addr
@@ -1348,11 +1594,13 @@ private:
             emit_ldim(4, 4, e.loc);
             emit_math(OP_ADD, 3, 3, 4);
             emit_storeVar("__sp", 3, e.loc);
+            clearVarCacheOnly();
             return;
         }
         if (name == "pop") {
             expectArgs(*call, 1, e.loc);
             ensureStack(e.loc);
+            flushAllDirtyAndClear();
             auto* v = std::get_if<Expr::Var>(&call->args[0]->node);
             if (!v) throw CompileError(err(e.loc) + "pop(var) expects a variable");
             // r3 = __sp
@@ -1363,7 +1611,8 @@ private:
             emit_storeVar("__sp", 3, e.loc);
             // load [sp] into r2
             emit(SRCREG1(3) | DESTREG(2) | VCP_LOAD);
-            emit_storeVar(v->name, 2, e.loc);
+            assignVarCachedFromReg(v->name, 2, e.loc);
+            clearVarCacheOnly();
             return;
         }
 
@@ -1483,6 +1732,7 @@ struct Args {
     std::string inPath;
     std::string outPath;
     bool dumpAsm = false;
+    bool useAllRegs = false;
 };
 
 static Args parseArgs(int argc, char** argv) {
@@ -1498,6 +1748,10 @@ static Args parseArgs(int argc, char** argv) {
             a.dumpAsm = true;
             continue;
         }
+        if (s == "-Oreg" || s == "--regs") {
+            a.useAllRegs = true;
+            continue;
+        }
         if (!s.empty() && s[0] == '-') {
             throw std::runtime_error("unknown argument: " + s);
         }
@@ -1507,7 +1761,7 @@ static Args parseArgs(int argc, char** argv) {
         }
         throw std::runtime_error("unexpected extra arg: " + s);
     }
-    if (a.inPath.empty()) throw std::runtime_error("usage: vcpcompiler <input.vcp> [-o <output.bin>] [-S]");
+    if (a.inPath.empty()) throw std::runtime_error("usage: vcpcompiler <input.vcp> [-o <output.bin>] [-S] [-Oreg|--regs]");
     if (a.outPath.empty()) {
         a.outPath = a.inPath + ".bin";
     }
@@ -1524,7 +1778,7 @@ int main(int argc, char** argv) {
         Parser parser(std::move(lex));
         auto program = parser.parseProgram();
 
-        Codegen cg(std::move(program));
+        Codegen cg(std::move(program), args.useAllRegs);
         auto compiled = cg.compileProgram();
         if (args.dumpAsm) {
             dumpDisassembly(compiled, std::cout);
