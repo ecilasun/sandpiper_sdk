@@ -15,8 +15,8 @@ From a PowerShell prompt:
 
 ```powershell
 cd host_tools/vcpcompiler
-./waf.bat configure
-./waf.bat build
+./build.bat configure
+./build.bat build
 ```
 
 The built binary is copied to `host_tools/vcpcompiler/bin/vcpcompiler.exe`.
@@ -24,17 +24,17 @@ The built binary is copied to `host_tools/vcpcompiler/bin/vcpcompiler.exe`.
 Toolchain selection (optional):
 
 ```powershell
-./waf.bat configure --toolchain=msvc
-./waf.bat configure --toolchain=gcc
-./waf.bat configure --toolchain=clang
+./build.bat configure --toolchain=msvc
+./build.bat configure --toolchain=gcc
+./build.bat configure --toolchain=clang
 ```
 
 ### Linux/macOS
 
 ```sh
 cd host_tools/vcpcompiler
-../remote/waf configure
-../remote/waf build
+python3 waf configure
+python3 waf build
 ```
 
 The built binary is copied to `host_tools/vcpcompiler/bin/vcpcompiler`.
