@@ -57,14 +57,11 @@ void decodeStatus(uint32_t stat)
 
 // Tiny program to change some palette colors at pixel zero of each scanline
 // This is a 128-byte program (32 wwords)
-static uint32_t s_vcpprogram[] = {
+static const uint32_t s_vcpprogram[32] = {
 // start:
 	vcp_ldim(VREG_1, 0x000000),						// scrolloffset = 0
 	vcp_ldim(VREG_2, 0x0000FF),						// colorincrement = 255
 	vcp_ldim(VREG_3, 640),							// endofline = 640
-	vcp_ldim(VREG_4, 0x000020),						// loop: = 32
-	vcp_ldim(VREG_5, 0x00001C),						// reset: = 28
-	vcp_ldim(VREG_C, 0x000048),						// idle: = 72
 	vcp_ldim(VREG_8, 0x000002),						// scrollspeed = 2
 // reset:
 	vcp_radd(VREG_1, VREG_1, VREG_8),				// scrolloffset += scrollspeed
@@ -73,19 +70,20 @@ static uint32_t s_vcpprogram[] = {
 	vcp_scanline_read(VREG_6),						// scanline = $videoscanline
 	vcp_ldim(VREG_9, 0x000080),						// temp = 128
 	vcp_cmp(COND_EQ, VREG_6, VREG_9),				// scanline == 128 ?
-	vcp_branch(VREG_C),								// branch.eq idle:
+	vcp_branchim(0x18),								// branch.eq idle: +0x18 bytes from this instruction
 	vcp_ldim(VREG_9, 0x000003),						// temp = 3
 	vcp_rshl(VREG_6, VREG_6, VREG_9),				// scanline = scanline << temp
 	vcp_radd(VREG_6, VREG_6, VREG_1),				// scanline = scanline + scrolloffset
 	vcp_pwrt(VREG_ZERO, VREG_6),					// PAL[0] = scanline
-	vcp_jump(VREG_4),								// jmp loop:
+	vcp_jumpim(-0x24),								// jmp loop: -0x24 bytes from this instruction
 // idle:
 	vcp_pwrt(VREG_ZERO, VREG_ZERO),					// PAL[0] = 0
 	vcp_wpix(VREG_3),								// wait for endofline
 	vcp_scanline_read(VREG_6),						// scanline = $videoscanline
 	vcp_cmp(COND_EQ, VREG_6, VREG_ZERO),			// scanline == 0 ?
-	vcp_branch(VREG_5),								// branch.eq reset:
-	vcp_jump(VREG_C),								// jmp idle:
+	vcp_branchim(-0x3C),							// branch.eq reset: -0x3C bytes from this instruction
+	vcp_jumpim(-0x14),								// jmp idle: -0x14 bytes from this instruction
+	// Remaining words default-initialize to 0 (VCP_NOOP) to fill the 128-byte program buffer.
 	vcp_noop(),
 	vcp_noop(),
 	vcp_noop(),
@@ -93,7 +91,10 @@ static uint32_t s_vcpprogram[] = {
 	vcp_noop(),
 	vcp_noop(),
 	vcp_noop(),
-	vcp_noop(),	// padding to align size to 128 bytes
+	vcp_noop(),
+	vcp_noop(),
+	vcp_noop(),
+	vcp_noop(),
 };
 
 int main(int argc, char** argv)

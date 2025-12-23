@@ -85,6 +85,10 @@ extern "C" {
 // compare(ACC,ACC,EQ) -> result goes to ACC register
 // branch(dest) -> jump based on lowest bit of ACC
 
+// NOTE ON IMMEDIATE BRANCH/JUMP:
+// vcp_jumpim() / vcp_branchim() encode a signed 16-bit 2's-complement byte offset that is
+// added to the PC of the executing instruction (PC-relative). Instruction addresses are multiples of 4.
+
 // Macros that help define VPU instructions with register indices or constants embedded into a single word
 // Destination and source registers, as well as immediate values, are always at the same bit positions across different instructions to ensure consistency and simplify decoding.
 // The source and destination register indices are 4 bits each, allowing for 16 registers.
