@@ -147,7 +147,8 @@ static void dumpDisassembly(const CompiledProgram& p, std::ostream& os) {
         uint32_t pc = i * 4u;
         uint32_t w = p.words[i];
 
-        uint32_t opcode = (w & 0xFFu);
+        // Encoding matches SDK/include/vcp.h: low 4 bits opcode, next nibbles are regs.
+        uint32_t opcode = (w & 0x0Fu);
         uint32_t dest = (w >> 4) & 0xFu;
         uint32_t src1 = (w >> 8) & 0xFu;
         uint32_t src2 = (w >> 12) & 0xFu;
@@ -203,35 +204,74 @@ static void dumpDisassembly(const CompiledProgram& p, std::ostream& os) {
                 inst << logicOpName(imm8) << " " << regName(dest) << ", " << regName(src1) << ", " << regName(src2);
                 break;
             default:
-                inst << "word 0x" << hex(w, 8) << " ; opcode=0x" << hex(opcode, 2);
+                inst << "word 0x" << hex(w, 8) << " ; opcode=0x" << hex(opcode, 1);
                 break;
         }
 
         os << "0x" << hex(pc, 4) << ": 0x" << hex(w, 8) << "  " << inst.str() << "\n";
     }
 
-    if (!p.symbols.empty()) {
-        os << "\n; --- DATA (symbols) ---\n";
-
+    // Dump initialized data words (includes internal temps, user vars, and stack slots).
+    // Per request, use the 'word' indicator for data/stack only.
+    if (p.dataBytes != 0) {
         auto isStackSym = [](const std::string& n) {
             return n == "__sp" || (n.rfind("__stack_", 0) == 0);
         };
 
-        if (p.stackDeclared) {
-            os << "; stackDeclared=true stackWords=" << p.stackWords << "\n";
-            os << "; STACK\n";
-            for (const auto& s : p.symbols) {
-                if (!isStackSym(s.name)) continue;
-                os << "0x" << hex(s.offsetBytes, 4) << "  " << s.name << " = 0x" << hex(s.initValue, 8) << "\n";
-            }
-            os << "\n";
+        // Map byte offset -> symbol names for annotation.
+        std::unordered_map<uint32_t, std::vector<std::string>> namesAt;
+        namesAt.reserve(p.symbols.size());
+        for (const auto& s : p.symbols) {
+            namesAt[s.offsetBytes].push_back(s.name);
         }
 
-        os << "; DATA\n";
-        for (const auto& s : p.symbols) {
-            if (isStackSym(s.name)) continue;
-            os << "0x" << hex(s.offsetBytes, 4) << "  " << s.name << " = 0x" << hex(s.initValue, 8);
-            if (s.isInternal) os << " ; internal";
+        const uint32_t dataWords = p.dataBytes / 4u;
+        const uint32_t dataBase = p.codeBytes;
+
+        if (p.stackDeclared) {
+            os << "\n; --- STACK (data words) ---\n";
+            os << "; stackDeclared=true stackWords=" << p.stackWords << "\n";
+            for (uint32_t j = 0; j < dataWords && (codeWords + j) < p.words.size(); ++j) {
+                const uint32_t addr = dataBase + j * 4u;
+                auto it = namesAt.find(addr);
+                if (it == namesAt.end()) continue;
+                bool anyStack = false;
+                for (const auto& n : it->second) {
+                    if (isStackSym(n)) { anyStack = true; break; }
+                }
+                if (!anyStack) continue;
+                const uint32_t w = p.words[codeWords + j];
+                os << "0x" << hex(addr, 4) << ": word 0x" << hex(w, 8);
+                os << " ; ";
+                for (size_t k = 0; k < it->second.size(); ++k) {
+                    if (k) os << ", ";
+                    os << it->second[k];
+                }
+                os << "\n";
+            }
+        }
+
+        os << "\n; --- DATA (data words) ---\n";
+        for (uint32_t j = 0; j < dataWords && (codeWords + j) < p.words.size(); ++j) {
+            const uint32_t addr = dataBase + j * 4u;
+            const uint32_t w = p.words[codeWords + j];
+            auto it = namesAt.find(addr);
+            if (it != namesAt.end()) {
+                bool anyStack = false;
+                for (const auto& n : it->second) {
+                    if (isStackSym(n)) { anyStack = true; break; }
+                }
+                if (anyStack) continue;
+            }
+
+            os << "0x" << hex(addr, 4) << ": word 0x" << hex(w, 8);
+            if (it != namesAt.end()) {
+                os << " ; ";
+                for (size_t k = 0; k < it->second.size(); ++k) {
+                    if (k) os << ", ";
+                    os << it->second[k];
+                }
+            }
             os << "\n";
         }
     }
