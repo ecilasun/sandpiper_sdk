@@ -1,0 +1,59 @@
+// Similar effect to samples/vcpdemo but written in .vcp pseudo-C.
+
+u32 scrolloffset = 0;
+u32 mask = 0xFF;
+u32 endofline = 640;
+u32 scrollspeed = 2;
+u32 shift3 = 3;
+u32 shift6 = 6;
+u32 shift8 = 8;
+u32 shift16 = 16;
+u32 stopline = 128;
+
+u32 scanline;
+u32 t;
+u32 b;
+u32 g;
+u32 r;
+u32 color;
+
+// Simple control-flow + VCP intrinsics demo
+
+reset:
+scrolloffset = scrolloffset + scrollspeed;
+
+loop:
+wait_pixel(endofline);
+scanline_read(scanline);
+
+if (scanline == stopline) {
+    goto idle;
+}
+
+t = scanline + scrolloffset;
+
+b = t & mask;
+
+g = (t << shift3) & mask;
+g = g << shift8;
+
+r = (t << shift6) & mask;
+r = r << shift16;
+
+color = b | g;
+color = color | r;
+
+pal_write(0, color);
+
+goto loop;
+
+idle:
+pal_write(0, 0);
+wait_pixel(endofline);
+scanline_read(scanline);
+
+if (scanline == 0) {
+    goto reset;
+}
+
+goto idle;

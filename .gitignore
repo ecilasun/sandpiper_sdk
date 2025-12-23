@@ -2,3 +2,6 @@ samples/tetris/**
 samples/tinysys/**
 samples/**/bin/*.o
 SDK/obj/*.o
+host_tools/vcpcompiler/build/
+host_tools/vcpcompiler/waf3-**
+host_tools/vcpcompiler/.lock**
