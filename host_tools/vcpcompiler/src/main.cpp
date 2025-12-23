@@ -950,6 +950,9 @@ public:
             emitStmt(*s);
         }
 
+        // Ensure deferred variable stores are committed at end-of-program.
+        flushAllDirtyAndClear();
+
         // finalize data layout
         const uint32_t codeBytes = static_cast<uint32_t>(m_words.size() * 4);
         uint32_t dataCursor = 0;
@@ -1016,6 +1019,9 @@ private:
     std::vector<std::string> m_symOrder;
     std::unordered_map<std::string, uint32_t> m_labels; // byte address of label (code only)
     std::vector<Fixup> m_fixups;
+
+    // For conservative variable caching: labels that can be reached via a jump/branch.
+    std::unordered_map<std::string, bool> m_jumpTargets;
 
     bool m_stackDeclared = false;
     uint32_t m_stackWords = 0;
@@ -1200,6 +1206,7 @@ private:
         f.loc = loc;
         emit(IMMED16(0) | DESTREG(1) | VCP_BRANCH);
         m_fixups.push_back(std::move(f));
+        m_jumpTargets[label] = true;
     }
 
     void emit_jumpim_label(const std::string& label, const SourceLoc& loc) {
@@ -1210,6 +1217,7 @@ private:
         f.loc = loc;
         emit(IMMED16(0) | DESTREG(1) | VCP_JUMP);
         m_fixups.push_back(std::move(f));
+        m_jumpTargets[label] = true;
     }
 
     // load absolute address of variable into dest
@@ -1418,14 +1426,16 @@ private:
             return;
         }
         if (auto* l = std::get_if<Stmt::Label>(&s.node)) {
-            // Labels can be jump targets; commit state on fallthrough.
-            flushAllDirtyAndClear();
+            // Only flush/clear if this label is an actual jump target.
+            // Fallthrough-only labels don't need to break register caching.
+            if (m_jumpTargets.find(l->name) != m_jumpTargets.end()) {
+                flushAllDirtyAndClear();
+                clearVarCacheOnly();
+            }
             if (m_labels.find(l->name) != m_labels.end()) {
                 throw CompileError(err(s.loc) + "duplicate label: " + l->name);
             }
             m_labels[l->name] = labelPcBytes();
-            // New basic block: start with empty cache.
-            clearVarCacheOnly();
             return;
         }
         if (auto* g = std::get_if<Stmt::Goto>(&s.node)) {
