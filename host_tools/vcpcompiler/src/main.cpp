@@ -68,6 +68,175 @@ constexpr uint32_t IMMED8(uint32_t value) { return (value & 0xFFu) << 24; }
 // Program sizes in bytes (EVCPBufferSize)
 static const uint32_t kAllowedProgramSizes[] = {128, 256, 512, 1024, 2048, 4096};
 
+struct SymbolInfo {
+    std::string name;
+    uint32_t offsetBytes = 0;
+    uint32_t initValue = 0;
+    bool isInternal = false;
+};
+
+struct CompiledProgram {
+    std::vector<uint32_t> words;
+    uint32_t codeBytes = 0;
+    uint32_t dataBytes = 0;
+    uint32_t paddedBytes = 0;
+    std::vector<SymbolInfo> symbols;
+    bool stackDeclared = false;
+    uint32_t stackWords = 0;
+};
+
+static std::string hex(uint32_t v, int width) {
+    std::ostringstream oss;
+    oss.setf(std::ios::hex, std::ios::basefield);
+    oss.setf(std::ios::uppercase);
+    oss.fill('0');
+    oss.width(width);
+    oss << v;
+    return oss.str();
+}
+
+static std::string regName(uint32_t r) {
+    return "r" + std::to_string(r & 0xFu);
+}
+
+static const char* mathOpName(uint32_t op) {
+    switch (op) {
+        case OP_ADD: return "add";
+        case OP_SUB: return "sub";
+        case OP_INC: return "inc";
+        case OP_DEC: return "dec";
+        default: return "math?";
+    }
+}
+
+static const char* logicOpName(uint32_t op) {
+    switch (op) {
+        case OPL_AND: return "and";
+        case OPL_OR: return "or";
+        case OPL_XOR: return "xor";
+        case OPL_ASR: return "asr";
+        case OPL_SHR: return "shr";
+        case OPL_SHL: return "shl";
+        case OPL_NEG: return "neg";
+        case OPL_RCMP: return "rcmp";
+        case OPL_RCTL: return "rctl";
+        default: return "logic?";
+    }
+}
+
+static const char* condName(uint32_t cond) {
+    switch (cond) {
+        case COND_LE: return "le";
+        case COND_LT: return "lt";
+        case COND_EQ: return "eq";
+        case COND_GT: return "gt";
+        case COND_GE: return "ge";
+        case COND_NE: return "ne";
+        default: return "cond?";
+    }
+}
+
+static void dumpDisassembly(const CompiledProgram& p, std::ostream& os) {
+    const uint32_t codeWords = p.codeBytes / 4u;
+
+    os << "; vcpcompiler -S disassembly\n";
+    os << "; codeBytes=" << p.codeBytes << " dataBytes=" << p.dataBytes << " paddedBytes=" << p.paddedBytes << "\n\n";
+
+    os << "; --- CODE ---\n";
+    for (uint32_t i = 0; i < codeWords && i < p.words.size(); ++i) {
+        uint32_t pc = i * 4u;
+        uint32_t w = p.words[i];
+
+        uint32_t opcode = (w & 0xFFu);
+        uint32_t dest = (w >> 4) & 0xFu;
+        uint32_t src1 = (w >> 8) & 0xFu;
+        uint32_t src2 = (w >> 12) & 0xFu;
+        uint32_t imm8 = (w >> 24) & 0xFFu;
+        uint32_t imm16 = (w >> 16) & 0xFFFFu;
+        uint32_t imm24 = (w >> 8) & 0xFFFFFFu;
+
+        std::ostringstream inst;
+        switch (opcode) {
+            case VCP_NOOP:
+                inst << "noop";
+                break;
+            case VCP_LOADIMM:
+                inst << "ldimm " << regName(dest) << ", 0x" << hex(imm24, 6);
+                break;
+            case VCP_PALWRITE:
+                inst << "pal_write [" << regName(src1) << "], " << regName(src2);
+                break;
+            case VCP_WAITSCANLINE:
+                inst << "wait_scanline " << regName(src1);
+                break;
+            case VCP_WAITPIXEL:
+                inst << "wait_pixel " << regName(src1);
+                break;
+            case VCP_MATHOP:
+                inst << mathOpName(imm8) << " " << regName(dest) << ", " << regName(src1) << ", " << regName(src2);
+                break;
+            case VCP_JUMP: {
+                int16_t rel = static_cast<int16_t>(imm16);
+                int32_t target = static_cast<int32_t>(pc) + static_cast<int32_t>(rel);
+                inst << "jump 0x" << hex(static_cast<uint32_t>(target), 4) << " ; rel=" << rel;
+                break;
+            }
+            case VCP_CMP:
+                inst << "cmp." << condName(imm8) << " " << regName(src1) << ", " << regName(src2);
+                break;
+            case VCP_BRANCH: {
+                int16_t rel = static_cast<int16_t>(imm16);
+                int32_t target = static_cast<int32_t>(pc) + static_cast<int32_t>(rel);
+                inst << "branch 0x" << hex(static_cast<uint32_t>(target), 4) << " ; rel=" << rel;
+                break;
+            }
+            case VCP_STORE:
+                inst << "store [" << regName(src1) << "], " << regName(src2);
+                break;
+            case VCP_LOAD:
+                inst << "load " << regName(dest) << ", [" << regName(src1) << "]";
+                break;
+            case VCP_READSCANINFO:
+                inst << "read_scaninfo(" << src1 << ") " << regName(dest);
+                break;
+            case VCP_LOGICOP:
+                inst << logicOpName(imm8) << " " << regName(dest) << ", " << regName(src1) << ", " << regName(src2);
+                break;
+            default:
+                inst << "word 0x" << hex(w, 8) << " ; opcode=0x" << hex(opcode, 2);
+                break;
+        }
+
+        os << "0x" << hex(pc, 4) << ": 0x" << hex(w, 8) << "  " << inst.str() << "\n";
+    }
+
+    if (!p.symbols.empty()) {
+        os << "\n; --- DATA (symbols) ---\n";
+
+        auto isStackSym = [](const std::string& n) {
+            return n == "__sp" || (n.rfind("__stack_", 0) == 0);
+        };
+
+        if (p.stackDeclared) {
+            os << "; stackDeclared=true stackWords=" << p.stackWords << "\n";
+            os << "; STACK\n";
+            for (const auto& s : p.symbols) {
+                if (!isStackSym(s.name)) continue;
+                os << "0x" << hex(s.offsetBytes, 4) << "  " << s.name << " = 0x" << hex(s.initValue, 8) << "\n";
+            }
+            os << "\n";
+        }
+
+        os << "; DATA\n";
+        for (const auto& s : p.symbols) {
+            if (isStackSym(s.name)) continue;
+            os << "0x" << hex(s.offsetBytes, 4) << "  " << s.name << " = 0x" << hex(s.initValue, 8);
+            if (s.isInternal) os << " ; internal";
+            os << "\n";
+        }
+    }
+}
+
 struct CompileError : std::runtime_error {
     using std::runtime_error::runtime_error;
 };
@@ -727,7 +896,7 @@ public:
         declareInternal("__tmp1");
     }
 
-    std::vector<uint32_t> compile() {
+    CompiledProgram compileProgram() {
         // first pass: gather decls and emit code
         for (auto& s : m_program) {
             emitStmt(*s);
@@ -751,12 +920,34 @@ public:
         // apply fixups (labels & abs addresses)
         applyFixups(out, codeBytes);
 
+        CompiledProgram result;
+        result.codeBytes = codeBytes;
+        result.dataBytes = static_cast<uint32_t>(m_symOrder.size() * 4u);
+        result.stackDeclared = m_stackDeclared;
+        result.stackWords = m_stackWords;
+        result.symbols.reserve(m_symOrder.size());
+        for (const auto& n : m_symOrder) {
+            const auto& sym = m_syms.at(n);
+            SymbolInfo si;
+            si.name = n;
+            si.offsetBytes = sym.dataOffsetBytes;
+            si.initValue = sym.initValue;
+            si.isInternal = sym.isInternal;
+            result.symbols.push_back(std::move(si));
+        }
+
         // padding to allowed sizes
         uint32_t totalBytes = static_cast<uint32_t>(out.size() * 4);
         uint32_t padded = pickPaddedSize(totalBytes);
         while (out.size() * 4u < padded) out.push_back(0);
 
-        return out;
+        result.paddedBytes = padded;
+        result.words = std::move(out);
+        return result;
+    }
+
+    std::vector<uint32_t> compile() {
+        return compileProgram().words;
     }
 
 private:
@@ -1283,175 +1474,6 @@ static Args parseArgs(int argc, char** argv) {
     return a;
 }
 
-struct SymbolInfo {
-    std::string name;
-    uint32_t offsetBytes = 0;
-    uint32_t initValue = 0;
-    bool isInternal = false;
-};
-
-struct CompiledProgram {
-    std::vector<uint32_t> words;
-    uint32_t codeBytes = 0;
-    uint32_t dataBytes = 0;
-    uint32_t paddedBytes = 0;
-    std::vector<SymbolInfo> symbols;
-    bool stackDeclared = false;
-    uint32_t stackWords = 0;
-};
-
-static std::string hex(uint32_t v, int width) {
-    std::ostringstream oss;
-    oss.setf(std::ios::hex, std::ios::basefield);
-    oss.setf(std::ios::uppercase);
-    oss.fill('0');
-    oss.width(width);
-    oss << v;
-    return oss.str();
-}
-
-static std::string regName(uint32_t r) {
-    return "r" + std::to_string(r & 0xFu);
-}
-
-static const char* mathOpName(uint32_t op) {
-    switch (op) {
-        case OP_ADD: return "add";
-        case OP_SUB: return "sub";
-        case OP_INC: return "inc";
-        case OP_DEC: return "dec";
-        default: return "math?";
-    }
-}
-
-static const char* logicOpName(uint32_t op) {
-    switch (op) {
-        case OPL_AND: return "and";
-        case OPL_OR: return "or";
-        case OPL_XOR: return "xor";
-        case OPL_ASR: return "asr";
-        case OPL_SHR: return "shr";
-        case OPL_SHL: return "shl";
-        case OPL_NEG: return "neg";
-        case OPL_RCMP: return "rcmp";
-        case OPL_RCTL: return "rctl";
-        default: return "logic?";
-    }
-}
-
-static const char* condName(uint32_t cond) {
-    switch (cond) {
-        case COND_LE: return "le";
-        case COND_LT: return "lt";
-        case COND_EQ: return "eq";
-        case COND_GT: return "gt";
-        case COND_GE: return "ge";
-        case COND_NE: return "ne";
-        default: return "cond?";
-    }
-}
-
-static void dumpDisassembly(const CompiledProgram& p, std::ostream& os) {
-    const uint32_t codeWords = p.codeBytes / 4u;
-
-    os << "; vcpcompiler -S disassembly\n";
-    os << "; codeBytes=" << p.codeBytes << " dataBytes=" << p.dataBytes << " paddedBytes=" << p.paddedBytes << "\n\n";
-
-    os << "; --- CODE ---\n";
-    for (uint32_t i = 0; i < codeWords && i < p.words.size(); ++i) {
-        uint32_t pc = i * 4u;
-        uint32_t w = p.words[i];
-
-        uint32_t opcode = (w & 0xFFu);
-        uint32_t dest = (w >> 4) & 0xFu;
-        uint32_t src1 = (w >> 8) & 0xFu;
-        uint32_t src2 = (w >> 12) & 0xFu;
-        uint32_t imm8 = (w >> 24) & 0xFFu;
-        uint32_t imm16 = (w >> 16) & 0xFFFFu;
-        uint32_t imm24 = (w >> 8) & 0xFFFFFFu;
-
-        std::ostringstream inst;
-        switch (opcode) {
-            case VCP_NOOP:
-                inst << "noop";
-                break;
-            case VCP_LOADIMM:
-                inst << "ldimm " << regName(dest) << ", 0x" << hex(imm24, 6);
-                break;
-            case VCP_PALWRITE:
-                inst << "pal_write [" << regName(src1) << "], " << regName(src2);
-                break;
-            case VCP_WAITSCANLINE:
-                inst << "wait_scanline " << regName(src1);
-                break;
-            case VCP_WAITPIXEL:
-                inst << "wait_pixel " << regName(src1);
-                break;
-            case VCP_MATHOP:
-                inst << mathOpName(imm8) << " " << regName(dest) << ", " << regName(src1) << ", " << regName(src2);
-                break;
-            case VCP_JUMP: {
-                int16_t rel = static_cast<int16_t>(imm16);
-                int32_t target = static_cast<int32_t>(pc) + static_cast<int32_t>(rel);
-                inst << "jump 0x" << hex(static_cast<uint32_t>(target), 4) << " ; rel=" << rel;
-                break;
-            }
-            case VCP_CMP:
-                inst << "cmp." << condName(imm8) << " " << regName(src1) << ", " << regName(src2);
-                break;
-            case VCP_BRANCH: {
-                int16_t rel = static_cast<int16_t>(imm16);
-                int32_t target = static_cast<int32_t>(pc) + static_cast<int32_t>(rel);
-                inst << "branch 0x" << hex(static_cast<uint32_t>(target), 4) << " ; rel=" << rel;
-                break;
-            }
-            case VCP_STORE:
-                inst << "store [" << regName(src1) << "], " << regName(src2);
-                break;
-            case VCP_LOAD:
-                inst << "load " << regName(dest) << ", [" << regName(src1) << "]";
-                break;
-            case VCP_READSCANINFO:
-                inst << "read_scaninfo(" << src1 << ") " << regName(dest);
-                break;
-            case VCP_LOGICOP:
-                inst << logicOpName(imm8) << " " << regName(dest) << ", " << regName(src1) << ", " << regName(src2);
-                break;
-            default:
-                inst << "word 0x" << hex(w, 8) << " ; opcode=0x" << hex(opcode, 2);
-                break;
-        }
-
-        os << "0x" << hex(pc, 4) << ": 0x" << hex(w, 8) << "  " << inst.str() << "\n";
-    }
-
-    if (!p.symbols.empty()) {
-        os << "\n; --- DATA (symbols) ---\n";
-
-        auto isStackSym = [](const std::string& n) {
-            return n == "__sp" || (n.rfind("__stack_", 0) == 0);
-        };
-
-        if (p.stackDeclared) {
-            os << "; stackDeclared=true stackWords=" << p.stackWords << "\n";
-            os << "; STACK\n";
-            for (const auto& s : p.symbols) {
-                if (!isStackSym(s.name)) continue;
-                os << "0x" << hex(s.offsetBytes, 4) << "  " << s.name << " = 0x" << hex(s.initValue, 8) << "\n";
-            }
-            os << "\n";
-        }
-
-        os << "; DATA\n";
-        for (const auto& s : p.symbols) {
-            if (isStackSym(s.name)) continue;
-            os << "0x" << hex(s.offsetBytes, 4) << "  " << s.name << " = 0x" << hex(s.initValue, 8);
-            if (s.isInternal) os << " ; internal";
-            os << "\n";
-        }
-    }
-}
-
 } // namespace
 
 int main(int argc, char** argv) {
@@ -1463,10 +1485,14 @@ int main(int argc, char** argv) {
         auto program = parser.parseProgram();
 
         Codegen cg(std::move(program));
-        auto words = cg.compile();
-        writeBinaryLE32(args.outPath, words);
+        auto compiled = cg.compileProgram();
+        if (args.dumpAsm) {
+            dumpDisassembly(compiled, std::cout);
+            std::cout << "\n";
+        }
+        writeBinaryLE32(args.outPath, compiled.words);
 
-        std::cerr << "Wrote " << (words.size() * 4u) << " bytes to " << args.outPath << "\n";
+        std::cerr << "Wrote " << (compiled.words.size() * 4u) << " bytes to " << args.outPath << "\n";
         return 0;
     } catch (const CompileError& e) {
         std::cerr << "compile error: " << e.what() << "\n";
