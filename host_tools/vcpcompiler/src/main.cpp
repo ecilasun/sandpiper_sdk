@@ -8,6 +8,7 @@
 #include <fstream>
 #include <iostream>
 #include <optional>
+#include <memory>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -31,6 +32,7 @@ constexpr uint32_t VCP_BRANCH = 0x08;
 constexpr uint32_t VCP_STORE = 0x09;
 constexpr uint32_t VCP_LOAD = 0x0A;
 constexpr uint32_t VCP_READSCANINFO = 0x0B;
+constexpr uint32_t VCP_LOADPC = 0x0C;
 constexpr uint32_t VCP_LOGICOP = 0x0D;
 
 constexpr uint32_t COND_INV = 0x08;
@@ -177,18 +179,32 @@ static void dumpDisassembly(const CompiledProgram& p, std::ostream& os) {
                 inst << mathOpName(imm8) << " " << regName(dest) << ", " << regName(src1) << ", " << regName(src2);
                 break;
             case VCP_JUMP: {
-                int16_t rel = static_cast<int16_t>(imm16);
-                int32_t target = static_cast<int32_t>(pc) + static_cast<int32_t>(rel);
-                inst << "jump 0x" << hex(static_cast<uint32_t>(target), 4) << " ; rel=" << rel;
+                // Two encodings exist:
+                // - Register-based: SRCREG1(rX), DEST=0
+                // - PC-relative imm16: IMMED16(rel), DEST=1 (see SDK/include/vcp.h vcp_jumpim)
+                if (dest == 1) {
+                    int16_t rel = static_cast<int16_t>(imm16);
+                    int32_t target = static_cast<int32_t>(pc) + static_cast<int32_t>(rel);
+                    inst << "jumpimm " << rel << " ; // target=0x" << hex(static_cast<uint32_t>(target), 4);
+                } else {
+                    inst << "jump " << regName(src1);
+                }
                 break;
             }
             case VCP_CMP:
                 inst << "cmp." << condName(imm8) << " " << regName(src1) << ", " << regName(src2);
                 break;
             case VCP_BRANCH: {
-                int16_t rel = static_cast<int16_t>(imm16);
-                int32_t target = static_cast<int32_t>(pc) + static_cast<int32_t>(rel);
-                inst << "branch 0x" << hex(static_cast<uint32_t>(target), 4) << " ; rel=" << rel;
+                // Two encodings exist:
+                // - Register-based: SRCREG1(rX), DEST=0
+                // - PC-relative imm16: IMMED16(rel), DEST=1 (see SDK/include/vcp.h vcp_branchim)
+                if (dest == 1) {
+                    int16_t rel = static_cast<int16_t>(imm16);
+                    int32_t target = static_cast<int32_t>(pc) + static_cast<int32_t>(rel);
+                    inst << "branchimm " << rel << " ; // target=0x" << hex(static_cast<uint32_t>(target), 4);
+                } else {
+                    inst << "branch " << regName(src1);
+                }
                 break;
             }
             case VCP_STORE:
@@ -199,6 +215,9 @@ static void dumpDisassembly(const CompiledProgram& p, std::ostream& os) {
                 break;
             case VCP_READSCANINFO:
                 inst << "read_scaninfo(" << src1 << ") " << regName(dest);
+                break;
+            case VCP_LOADPC:
+                inst << "loadpc " << regName(dest);
                 break;
             case VCP_LOGICOP:
                 inst << logicOpName(imm8) << " " << regName(dest) << ", " << regName(src1) << ", " << regName(src2);
@@ -488,9 +507,7 @@ private:
 
     std::string readNumber(uint32_t& out) {
         size_t start = m_pos;
-        bool isHex = false;
         if (m_src[m_pos] == '0' && m_pos + 1 < m_src.size() && (m_src[m_pos + 1] == 'x' || m_src[m_pos + 1] == 'X')) {
-            isHex = true;
             bump(); bump();
             start = m_pos - 2;
             uint64_t v = 0;
@@ -1059,6 +1076,10 @@ private:
             case VCP_WAITSCANLINE:
             case VCP_WAITPIXEL:
                 return d.src1 == r;
+            case VCP_BRANCH:
+            case VCP_JUMP:
+                // Register-based variant reads SRCREG1; the immediate PC-relative variant uses DEST=1.
+                return (d.dest != 1) && (d.src1 == r);
             default:
                 return false;
         }
@@ -1071,6 +1092,7 @@ private:
             case VCP_LOGICOP:
             case VCP_LOAD:
             case VCP_READSCANINFO:
+            case VCP_LOADPC:
                 return true;
             default:
                 return false;
@@ -1806,6 +1828,15 @@ private:
             emit_storeVar(v->name, 2, e.loc);
             return;
         }
+        if (name == "loadpc") {
+            expectArgs(*call, 1, e.loc);
+            auto* v = std::get_if<Expr::Var>(&call->args[0]->node);
+            if (!v) throw CompileError(err(e.loc) + "loadpc expects a variable");
+            // VCP_LOADPC writes the PC of the *next* instruction (PC+4) into dest.
+            emit(DESTREG(2) | VCP_LOADPC);
+            assignVarCachedFromReg(v->name, 2, e.loc);
+            return;
+        }
         if (name == "store") {
             expectArgs(*call, 2, e.loc);
             // Arbitrary memory store may alias any variable.
@@ -2087,6 +2118,7 @@ static void dumpOptReport(const CompiledProgram& p, std::ostream& os) {
     const uint32_t nStore = countOpcode(VCP_STORE);
     const uint32_t nLoad = countOpcode(VCP_LOAD);
     const uint32_t nRead = countOpcode(VCP_READSCANINFO);
+    const uint32_t nLoadpc = countOpcode(VCP_LOADPC);
     const uint32_t nLogic = countOpcode(VCP_LOGICOP);
 
     os << "opt-report:\n";
@@ -2095,7 +2127,7 @@ static void dumpOptReport(const CompiledProgram& p, std::ostream& os) {
        << " cmp=" << nCmp << " branch=" << nBranch << " jump=" << nJump
        << " math=" << nMath << " logic=" << nLogic
        << " wait_scanline=" << nWaitSl << " wait_pixel=" << nWaitPx
-       << " pal_write=" << nPal << " read_scaninfo=" << nRead
+         << " pal_write=" << nPal << " read_scaninfo=" << nRead << " loadpc=" << nLoadpc
        << " noop=" << nNoop << "\n";
 }
 

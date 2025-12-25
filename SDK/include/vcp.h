@@ -24,7 +24,7 @@ extern "C" {
 #define VCP_STORE			0x09
 #define VCP_LOAD			0x0A
 #define VCP_READSCANINFO	0x0B
-#define VCP_UNUSED0			0x0C
+#define VCP_LOADPC			0x0C
 #define VCP_LOGICOP			0x0D
 #define VCP_UNUSED2			0x0E
 #define VCP_UNUSED1			0x0F
@@ -111,6 +111,7 @@ extern "C" {
 #define vcp_load(addrs, dest)					(	0					| 0					| SRCREG1(addrs)	| DESTREG(dest)		| VCP_LOAD			)
 #define vcp_scanline_read(dest)					(	0					| 0					| 0					| DESTREG(dest)		| VCP_READSCANINFO	)
 #define vcp_scanpixel_read(dest)				(	0					| 0					| SRCREG1(1)		| DESTREG(dest)		| VCP_READSCANINFO	)
+#define vcp_loadpc(dest)						(	0					| 0					| 0					| DESTREG(dest)		| VCP_LOADPC		)
 #define vcp_rand(dest, src1, src2)				(	IMMED8(OPL_AND)		| SRCREG2(src2)		| SRCREG1(src1)		| DESTREG(dest)		| VCP_LOGICOP		)
 #define vcp_ror(dest, src1, src2)				(	IMMED8(OPL_OR)		| SRCREG2(src2)		| SRCREG1(src1)		| DESTREG(dest)		| VCP_LOGICOP		)
 #define vcp_rxor(dest, src1, src2)				(	IMMED8(OPL_XOR)		| SRCREG2(src2)		| SRCREG1(src1)		| DESTREG(dest)		| VCP_LOGICOP		)
