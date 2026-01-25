@@ -12,6 +12,7 @@
 #include <fcntl.h>
 #include <signal.h>
 #include <string.h>
+#include <linux/input.h>
 
 #include "vpu.h"
 #include "vcp.h"
@@ -423,4 +424,124 @@ void SPFreeBuffer(struct SPPlatform* _platform, struct SPSizeAlloc *_sizealloc)
 	_sizealloc->cpuAddress = NULL;
 	_sizealloc->dmaAddress = NULL;
 	_sizealloc->size = 0;
+}
+
+// Helper macros for input device detection
+#define NBITS(x) (((x) + 7) / 8)
+#define test_bit(bit, array) (array[bit/8] & (1<<(bit%8)))
+
+int SPFindKeyboardDevice()
+{
+	char name[256] = "Unknown";
+	unsigned char bit[EV_MAX][NBITS(KEY_MAX)];
+	
+	for (int i = 0; i < 32; i++)
+	{
+		char device_path[64];
+		snprintf(device_path, sizeof(device_path), "/dev/input/event%d", i);
+		
+		int fd = open(device_path, O_RDONLY | O_NONBLOCK);
+		if (fd < 0)
+			continue;
+		
+		// Get device name
+		ioctl(fd, EVIOCGNAME(sizeof(name)), name);
+		
+		// Check if device supports EV_KEY events
+		memset(bit, 0, sizeof(bit));
+		ioctl(fd, EVIOCGBIT(0, EV_MAX), bit[0]);
+		
+		if (test_bit(EV_KEY, bit[0]))
+		{
+			// Check if it has typical keyboard keys
+			ioctl(fd, EVIOCGBIT(EV_KEY, KEY_MAX), bit[EV_KEY]);
+			if (test_bit(KEY_ENTER, bit[EV_KEY]) && test_bit(KEY_SPACE, bit[EV_KEY]))
+			{
+				printf("Found keyboard: %s at %s\n", name, device_path);
+				return fd;
+			}
+		}
+		close(fd);
+	}
+	return -1;
+}
+
+int SPFindMouseDevice()
+{
+	char name[256] = "Unknown";
+	unsigned char bit[EV_MAX][NBITS(KEY_MAX)];
+	
+	for (int i = 0; i < 32; i++)
+	{
+		char device_path[64];
+		snprintf(device_path, sizeof(device_path), "/dev/input/event%d", i);
+		
+		int fd = open(device_path, O_RDONLY | O_NONBLOCK);
+		if (fd < 0)
+			continue;
+		
+		// Get device name
+		ioctl(fd, EVIOCGNAME(sizeof(name)), name);
+		
+		// Check if device supports mouse events
+		memset(bit, 0, sizeof(bit));
+		ioctl(fd, EVIOCGBIT(0, EV_MAX), bit[0]);
+		
+		// Look for relative movement (mouse) or absolute position (touchpad)
+		int has_rel = test_bit(EV_REL, bit[0]);
+		int has_abs = test_bit(EV_ABS, bit[0]);
+		int has_key = test_bit(EV_KEY, bit[0]);
+		
+		if ((has_rel || has_abs) && has_key)
+		{
+			// Check for mouse buttons
+			ioctl(fd, EVIOCGBIT(EV_KEY, KEY_MAX), bit[EV_KEY]);
+			if (test_bit(BTN_MOUSE, bit[EV_KEY]) || test_bit(BTN_LEFT, bit[EV_KEY]))
+			{
+				printf("Found mouse: %s at %s\n", name, device_path);
+				return fd;
+			}
+		}
+		close(fd);
+	}
+	return -1;
+}
+
+int SPFindGamepadDevice()
+{
+	char name[256] = "Unknown";
+	unsigned char bit[EV_MAX][NBITS(KEY_MAX)];
+	
+	for (int i = 0; i < 32; i++)
+	{
+		char device_path[64];
+		snprintf(device_path, sizeof(device_path), "/dev/input/event%d", i);
+		
+		int fd = open(device_path, O_RDONLY | O_NONBLOCK);
+		if (fd < 0)
+			continue;
+		
+		// Get device name
+		ioctl(fd, EVIOCGNAME(sizeof(name)), name);
+		
+		// Check if device supports gamepad events
+		memset(bit, 0, sizeof(bit));
+		ioctl(fd, EVIOCGBIT(0, EV_MAX), bit[0]);
+		
+		// Gamepads typically have both absolute axes (joysticks) and buttons
+		if (test_bit(EV_ABS, bit[0]) && test_bit(EV_KEY, bit[0]))
+		{
+			// Check for gamepad buttons
+			ioctl(fd, EVIOCGBIT(EV_KEY, KEY_MAX), bit[EV_KEY]);
+			if (test_bit(BTN_GAMEPAD, bit[EV_KEY]) || 
+			    test_bit(BTN_SOUTH, bit[EV_KEY]) ||
+			    test_bit(BTN_A, bit[EV_KEY]))
+			{
+				printf("Found gamepad: %s at %s\n", name, device_path);
+				return fd;
+			}
+		}
+		close(fd);
+	}
+	return -1;
 }

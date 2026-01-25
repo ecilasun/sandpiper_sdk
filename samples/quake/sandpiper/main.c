@@ -27,6 +27,7 @@
 #include <linux/input.h>
 
 #include "core.h"
+#include "platform.h"
 
 static struct termios orig_termios;
 
@@ -179,12 +180,12 @@ int qembd_dequeue_key_event(key_event_t *e)
 	{
 		nokeyboard = 0;
 
-		fds[0].fd = open("/dev/input/event0", O_RDONLY | O_NONBLOCK);
+		fds[0].fd = SPFindKeyboardDevice();
 		fds[0].events = POLLIN;
 
 		if (fds[0].fd < 0)
 		{
-			perror("/dev/input/event0: make sure a keyboard is connected");
+			printf("Could not find keyboard device. Make sure a keyboard is connected.\n");
 			nokeyboard = 1;
 		}
 

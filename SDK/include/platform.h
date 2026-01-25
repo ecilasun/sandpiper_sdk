@@ -171,6 +171,11 @@ void SPGetConsoleFramebuffer(struct SPPlatform* _platform, struct SPSizeAlloc *_
 int SPAllocateBuffer(struct SPPlatform* _platform, struct SPSizeAlloc *_sizealloc);
 void SPFreeBuffer(struct SPPlatform* _platform, struct SPSizeAlloc *_sizealloc);
 
+// Input device discovery functions
+int SPFindKeyboardDevice();
+int SPFindMouseDevice();
+int SPFindGamepadDevice();
+
 #ifdef __cplusplus
 }
 #endif
