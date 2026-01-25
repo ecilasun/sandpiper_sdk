@@ -18,6 +18,7 @@
 #include <fcntl.h>
 #include <poll.h>
 #include <unistd.h>
+#include <sys/ioctl.h>
 #include <linux/input.h>
 
 #ifdef __cplusplus
@@ -43,6 +44,46 @@ uint16_t *image;
 
 #define min(_x_,_y_) (_x_) < (_y_) ? (_x_) : (_y_)
 #define max(_x_,_y_) (_x_) > (_y_) ? (_x_) : (_y_)
+
+// Helper macros
+#define NBITS(x) (((x) + 7) / 8)
+#define test_bit(bit, array) (array[bit/8] & (1<<(bit%8)))
+
+int find_keyboard_device()
+{
+	char name[256] = "Unknown";
+	unsigned char bit[EV_MAX][NBITS(KEY_MAX)];
+	
+	for (int i = 0; i < 32; i++)
+	{
+		char device_path[64];
+		sprintf(device_path, "/dev/input/event%d", i);
+		
+		int fd = open(device_path, O_RDONLY | O_NONBLOCK);
+		if (fd < 0)
+			continue;
+		
+		// Get device name
+		ioctl(fd, EVIOCGNAME(sizeof(name)), name);
+		
+		// Check if device supports EV_KEY events
+		memset(bit, 0, sizeof(bit));
+		ioctl(fd, EVIOCGBIT(0, EV_MAX), bit[0]);
+		
+		if (test_bit(EV_KEY, bit[0]))
+		{
+			// Check if it has typical keyboard keys
+			ioctl(fd, EVIOCGBIT(EV_KEY, KEY_MAX), bit[EV_KEY]);
+			if (test_bit(KEY_ENTER, bit[EV_KEY]) && test_bit(KEY_SPACE, bit[EV_KEY]))
+			{
+				printf("Found keyboard: %s at %s\n", name, device_path);
+				return fd;
+			}
+		}
+		close(fd);
+	}
+	return -1;
+}
 
 void DecodeJPEG(uint32_t stride, const char *fname)
 {
@@ -149,17 +190,15 @@ int main(int argc, char** argv )
 	}
 	else
 	{
-		// Open keyboard device (note: how do we know which one is the keyboard and which one is the mouse?)
-		fds[0].fd = open("/dev/input/event0", O_RDONLY | O_NONBLOCK);
+		// Find and open keyboard device
+		fds[0].fd = find_keyboard_device();
 		fds[0].events = POLLIN;
 
 		if (fds[0].fd < 0)
 		{
-			perror("/dev/input/event0: make sure a keyboard is connected");
+			printf("Could not find keyboard device. Make sure a keyboard is connected.\n");
 			havekeyboard = 0;
 		}
-		else
-			printf("attached to /dev/input/event for keyboard access\n");
 
 		DecodeJPEG(stride/sizeof(uint16_t), argv[1]);
 	}
