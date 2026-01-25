@@ -35,6 +35,47 @@ static void restore_terminal(void) {
 	tcsetattr(STDIN_FILENO, TCSANOW, &orig_termios);
 }
 
+// Map Linux input key codes to printable ASCII (lowercase, no modifiers).
+// Returns 0 when the key is non-printable.
+static int map_ascii_key(__u16 code)
+{
+	if (code >= KEY_A && code <= KEY_Z)
+		return 'a' + (code - KEY_A);
+	if (code >= KEY_1 && code <= KEY_9)
+		return '1' + (code - KEY_1);
+	if (code == KEY_0)
+		return '0';
+
+	switch (code)
+	{
+		case KEY_SPACE: return ' ';
+		case KEY_MINUS: return '-';
+		case KEY_EQUAL: return '=';
+		case KEY_LEFTBRACE: return '[';
+		case KEY_RIGHTBRACE: return ']';
+		case KEY_BACKSLASH: return '\\';
+		case KEY_SEMICOLON: return ';';
+		case KEY_APOSTROPHE: return '\'';
+		case KEY_GRAVE: return '`';
+		case KEY_COMMA: return ',';
+		case KEY_DOT: return '.';
+		case KEY_SLASH: return '/';
+		case KEY_KP0: return '0';
+		case KEY_KP1: return '1';
+		case KEY_KP2: return '2';
+		case KEY_KP3: return '3';
+		case KEY_KP4: return '4';
+		case KEY_KP5: return '5';
+		case KEY_KP6: return '6';
+		case KEY_KP7: return '7';
+		case KEY_KP8: return '8';
+		case KEY_KP9: return '9';
+		case KEY_KPDOT: return '.';
+	}
+
+	return 0;
+}
+
 enum {
 	MOUSE_BUTTON_LEFT = 1,
 	MOUSE_BUTTON_MIDDLE = 2,
@@ -242,7 +283,11 @@ int qembd_dequeue_key_event(key_event_t *e)
 					case KEY_PAGEDOWN:	{ e->keycode = K_PGDN; break; }
 					case KEY_INSERT:	{ e->keycode = K_INS; break; }
 					case KEY_DELETE:	{ e->keycode = K_DEL; break; }
-					default:			{ e->keycode = ev.code; break; }
+					default:			{
+						int ascii = map_ascii_key(ev.code);
+						e->keycode = ascii ? ascii : ev.code;
+						break;
+					}
 				}
 				e->state = ev.value == 0 ? 0 : 1; // 1: key down, 0: key up, 2: autorepeat
 				return 0;
