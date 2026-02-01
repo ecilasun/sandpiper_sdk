@@ -1,0 +1,6 @@
+{
+    "helloworld.remoteHost": "192.168.1.87",
+    "helloworld.user": "peta",
+    "helloworld.remoteDir": "/home/peta",
+    "helloworld.port": "2000"
+}

@@ -9,7 +9,7 @@
             "cwd": "${workspaceFolder}",
             "MIMode": "gdb",
             "miDebuggerPath": "arm-none-linux-gnueabihf-gdb",
-            "miDebuggerServerAddress": "192.168.1.87:2000",
+            "miDebuggerServerAddress": "${config:helloworld.remoteHost}:${config:helloworld.port}",
             "externalConsole": false,
             "preLaunchTask": "start remote gdbserver",
             "setupCommands": [

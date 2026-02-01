@@ -9,6 +9,7 @@ This project is configured for cross-compilation on Windows and remote debugging
     -   IP Address: `192.168.1.87` (Default configured).
     -   User: `peta`.
     -   `gdbserver` must be installed on the target machine.
+    -   **Configuration**: The connection settings are stored in `.vscode/settings.json`. You can easily change the IP address, username, or paths there.
 3.  **SSH Access**:
     -   You must have `ssh` and `scp` clients installed (e.g., Windows OpenSSH).
     -   **Recommended**: Setup SSH key-based authentication for the user `peta` to avoid password prompts during the automated deployment and debugging process.

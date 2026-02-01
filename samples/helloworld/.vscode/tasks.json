@@ -20,7 +20,7 @@
             "command": "scp",
             "args": [
                 "helloworld",
-                "peta@192.168.1.87:/home/peta/helloworld"
+                "${config:helloworld.user}@${config:helloworld.remoteHost}:${config:helloworld.remoteDir}/helloworld"
             ],
             "dependsOn": "build",
             "problemMatcher": []
@@ -30,8 +30,8 @@
             "type": "shell",
             "command": "ssh",
             "args": [
-                "peta@192.168.1.87",
-                "killall -9 gdbserver > /dev/null 2>&1; chmod +x /home/peta/helloworld; gdbserver --once :2000 /home/peta/helloworld"
+                "${config:helloworld.user}@${config:helloworld.remoteHost}",
+                "killall -9 gdbserver > /dev/null 2>&1; chmod +x ${config:helloworld.remoteDir}/helloworld; gdbserver --once :${config:helloworld.port} ${config:helloworld.remoteDir}/helloworld"
             ],
             "dependsOn": "deploy",
             "isBackground": true,
