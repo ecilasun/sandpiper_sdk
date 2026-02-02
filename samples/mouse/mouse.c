@@ -112,6 +112,10 @@ int main(int argc, char** argv)
 	bool btn_left = false;
 	bool btn_middle = false;
 	bool btn_right = false;
+	int wheel_delta = 0;
+	int wheel_total = 0;
+	int hwheel_delta = 0;
+	int hwheel_total = 0;
 
 	struct pollfd pfd;
 	pfd.fd = mouse_fd;
@@ -123,6 +127,8 @@ int main(int argc, char** argv)
 
 	while (1)
 	{
+		wheel_delta = 0;
+		hwheel_delta = 0;
 		int ret = poll(&pfd, 1, 0);
 		if (ret > 0)
 		{
@@ -133,6 +139,16 @@ int main(int argc, char** argv)
 				{
 					if (ev.code == REL_X) mouse_x += ev.value;
 					if (ev.code == REL_Y) mouse_y += ev.value;
+					if (ev.code == REL_WHEEL)
+					{
+						wheel_delta += ev.value;
+						wheel_total += ev.value;
+					}
+					if (ev.code == REL_HWHEEL)
+					{
+						hwheel_delta += ev.value;
+						hwheel_total += ev.value;
+					}
 				}
 				else if (ev.type == EV_ABS)
 				{
@@ -159,8 +175,8 @@ int main(int argc, char** argv)
 		memset(frameBuffer.cpuAddress, 0, stride * VIDEO_HEIGHT);
 
 		snprintf(line1, sizeof(line1), "Device: %s", dev_name);
-		snprintf(line2, sizeof(line2), "Pos: %d, %d  Mode: %s", mouse_x, mouse_y, has_abs ? "abs" : "rel");
-		snprintf(line3, sizeof(line3), "Buttons: L=%d M=%d R=%d", btn_left ? 1 : 0, btn_middle ? 1 : 0, btn_right ? 1 : 0);
+		snprintf(line2, sizeof(line2), "Pos: %d, %d  Wheel: dV=%d t=%d", mouse_x, mouse_y, wheel_delta, wheel_total);
+		snprintf(line3, sizeof(line3), "Buttons: L=%d M=%d R=%d  dH=%d t=%d", btn_left ? 1 : 0, btn_middle ? 1 : 0, btn_right ? 1 : 0, hwheel_delta, hwheel_total);
 
 		VPUPrintString(s_platform->vx, 15, 0, 4, 4, line1, (int)strlen(line1));
 		VPUPrintString(s_platform->vx, 15, 0, 4, 14, line2, (int)strlen(line2));
