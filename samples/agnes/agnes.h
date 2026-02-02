@@ -88,6 +88,10 @@ void agnes_set_audio_buffer(agnes_t *agnes, float *buffer, uint32_t size);
 uint32_t agnes_get_audio_samples(agnes_t *agnes);
 void agnes_reset_audio_buffer(agnes_t *agnes);
 
+// JIT control
+void agnes_set_jit_enabled(agnes_t *agnes, bool enabled);
+bool agnes_get_jit_enabled(const agnes_t *agnes);
+
 // Catch-up PPU synchronization functions
 // These allow the PPU to run lazily and catch up on register access
 bool agnes_tick_catchup(agnes_t *agnes, bool *out_new_frame);

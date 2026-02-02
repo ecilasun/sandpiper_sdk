@@ -33,6 +33,7 @@ THE SOFTWARE.
 #endif /* _MSC_VER */
 
 #include "agnes.h"
+#include "jit.h"
 
 //-----------------------------------------------------------------------------
 // Headers
@@ -383,6 +384,7 @@ typedef struct agnes {
     cpu_t cpu;
     ppu_t ppu;
     apu_t apu;
+    jit_t jit;
     uint8_t ram[2 * 1024];
     gamepack_t gamepack;
     controller_t controllers[2];
@@ -727,6 +729,7 @@ bool agnes_load_ines_data(agnes_t *agnes, void *data, size_t data_size) {
     cpu_init(&agnes->cpu, agnes);
     ppu_init(&agnes->ppu, agnes);
     apu_init(&agnes->apu, agnes);
+    jit_init(&agnes->jit, agnes);
 
 	agnes->ppu.screen_buffer = (uint8_t*)malloc(AGNES_SCREEN_HEIGHT * AGNES_SCREEN_WIDTH);
     
@@ -751,6 +754,9 @@ void agnes_dump_state(const agnes_t *agnes, agnes_state_t *out_res) {
     out_res->agnes.gamepack.data = NULL;
     out_res->agnes.cpu.agnes = NULL;
     out_res->agnes.ppu.agnes = NULL;
+    out_res->agnes.jit.agnes = NULL;
+    out_res->agnes.jit.enabled = false;
+    out_res->agnes.jit.generation = 0;
     switch (out_res->agnes.gamepack.mapper) {
         case 0: out_res->agnes.mapper.m0.agnes = NULL; break;
         case 1: out_res->agnes.mapper.m1.agnes = NULL; break;
@@ -765,6 +771,7 @@ bool agnes_restore_state(agnes_t *agnes, const agnes_state_t *state) {
     agnes->gamepack.data = gamepack_data;
     agnes->cpu.agnes = agnes;
     agnes->ppu.agnes = agnes;
+    jit_init(&agnes->jit, agnes);
     switch (agnes->gamepack.mapper) {
         case 0: agnes->mapper.m0.agnes = agnes; break;
         case 1: agnes->mapper.m1.agnes = agnes; break;
@@ -930,6 +937,7 @@ uint32_t agnes_get_raw_screen_pixel4(const agnes_t *agnes, int x, int y) {
 }
 
 void agnes_destroy(agnes_t *agnes) {
+    jit_shutdown(&agnes->jit);
     free(agnes);
 }
 
@@ -948,6 +956,20 @@ uint32_t agnes_get_audio_samples(agnes_t *agnes) {
 
 void agnes_reset_audio_buffer(agnes_t *agnes) {
     agnes->apu.audio_buffer_index = 0;
+}
+
+void agnes_set_jit_enabled(agnes_t *agnes, bool enabled) {
+    if (!agnes) {
+        return;
+    }
+    agnes->jit.enabled = enabled;
+}
+
+bool agnes_get_jit_enabled(const agnes_t *agnes) {
+    if (!agnes) {
+        return false;
+    }
+    return agnes->jit.enabled;
 }
 
 static uint8_t get_input_byte(const agnes_input_t* input) {
@@ -974,6 +996,7 @@ static uint8_t get_input_byte(const agnes_input_t* input) {
 #include "agnes_types.h"
 #include "instructions.h"
 #include "mapper.h"
+#include "jit.h"
 #endif
 
 static uint16_t cpu_read16_indirect_bug(cpu_t *cpu, uint16_t addr);
@@ -999,6 +1022,13 @@ int cpu_tick(cpu_t *cpu) {
 
     if (cpu->interrupt != INTERRPUT_NONE) {
         cycles += handle_interrupt(cpu);
+    }
+
+    int jit_cycles = 0;
+    if (jit_run_block(&cpu->agnes->jit, cpu, &jit_cycles)) {
+        cycles += jit_cycles;
+        cpu->cycles += cycles;
+        return cycles;
     }
 
     uint8_t opcode = cpu_read8(cpu, cpu->pc);
@@ -1094,6 +1124,9 @@ void cpu_write8(cpu_t *cpu, uint16_t addr, uint8_t val) {
 
     if (addr < 0x2000) {
         agnes->ram[addr & 0x7ff] = val;
+#if AGNES_JIT_INVALIDATE_RAM
+        jit_invalidate_range(&agnes->jit, addr, addr);
+#endif
     } else if (addr < 0x4000) {
         ppu_write_register(&agnes->ppu, 0x2000 | (addr & 0x7), val);
     } else if (addr == 0x4014) {
@@ -1119,6 +1152,9 @@ void cpu_write8(cpu_t *cpu, uint16_t addr, uint8_t val) {
         // disabled ($4018-$401F)
     } else {
         mapper_write(agnes, addr, val);
+        if (addr >= 0x6000 && addr < 0x8000) {
+            jit_invalidate_range(&agnes->jit, addr, addr);
+        }
     }
 }
 
@@ -1147,6 +1183,10 @@ uint8_t cpu_read8(cpu_t *cpu, uint16_t addr) {
         agnes->controllers[controller].shift >>= 1;
     }
     return res;
+}
+
+uint8_t agnes_cpu_read8(cpu_t *cpu, uint16_t addr) {
+    return cpu_read8(cpu, addr);
 }
 
 uint16_t cpu_read16(cpu_t *cpu, uint16_t addr) {
@@ -1218,6 +1258,10 @@ static uint16_t get_instruction_operand(cpu_t *cpu, addr_mode_t mode, bool *out_
             return 0;
         }
     }
+}
+
+uint16_t agnes_get_instruction_operand(cpu_t *cpu, addr_mode_t mode, bool *out_pages_differ) {
+    return get_instruction_operand(cpu, mode, out_pages_differ);
 }
 
 static int handle_interrupt(cpu_t *cpu) {
@@ -2789,6 +2833,10 @@ instruction_t* instruction_get(uint8_t opc) {
     return &instructions[opc];
 }
 
+instruction_t* agnes_instruction_get(uint8_t opc) {
+    return instruction_get(opc);
+}
+
 uint8_t instruction_get_size(addr_mode_t mode) {
     switch (mode) {
         case ADDR_MODE_NONE:        return 0;
@@ -2808,6 +2856,10 @@ uint8_t instruction_get_size(addr_mode_t mode) {
         case ADDR_MODE_ZERO_PAGE_Y: return 2;
         default: return 0;
     }
+}
+
+uint8_t agnes_instruction_get_size(addr_mode_t mode) {
+    return instruction_get_size(mode);
 }
 
 static int op_adc(cpu_t *cpu, uint16_t addr, addr_mode_t mode) {
@@ -3191,6 +3243,7 @@ static int take_branch(cpu_t *cpu, uint16_t addr) {
 #include "mapper0.h"
 
 #include "agnes_types.h"
+#include "jit.h"
 
 #include "mapper0.h"
 #include "mapper1.h"
@@ -3225,6 +3278,7 @@ void mapper_write(agnes_t *agnes, uint16_t addr, uint8_t val) {
         case 2: mapper2_write(&agnes->mapper.m2, addr, val); break;
         case 4: mapper4_write(&agnes->mapper.m4, addr, val); break;
     }
+    jit_invalidate_all(&agnes->jit);
 }
 
 void mapper_pa12_rising_edge(agnes_t *agnes) {
