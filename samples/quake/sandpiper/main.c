@@ -39,15 +39,50 @@ static void restore_terminal(void) {
 // Returns 0 when the key is non-printable.
 static int map_ascii_key(__u16 code)
 {
-	if (code >= KEY_A && code <= KEY_Z)
-		return 'a' + (code - KEY_A);
-	if (code >= KEY_1 && code <= KEY_9)
-		return '1' + (code - KEY_1);
-	if (code == KEY_0)
-		return '0';
-
+	// Linux input keycodes for letters follow QWERTY keyboard layout, not alphabetical order
 	switch (code)
 	{
+		// Letter keys - must map individually due to QWERTY layout
+		case KEY_A: return 'a';
+		case KEY_B: return 'b';
+		case KEY_C: return 'c';
+		case KEY_D: return 'd';
+		case KEY_E: return 'e';
+		case KEY_F: return 'f';
+		case KEY_G: return 'g';
+		case KEY_H: return 'h';
+		case KEY_I: return 'i';
+		case KEY_J: return 'j';
+		case KEY_K: return 'k';
+		case KEY_L: return 'l';
+		case KEY_M: return 'm';
+		case KEY_N: return 'n';
+		case KEY_O: return 'o';
+		case KEY_P: return 'p';
+		case KEY_Q: return 'q';
+		case KEY_R: return 'r';
+		case KEY_S: return 's';
+		case KEY_T: return 't';
+		case KEY_U: return 'u';
+		case KEY_V: return 'v';
+		case KEY_W: return 'w';
+		case KEY_X: return 'x';
+		case KEY_Y: return 'y';
+		case KEY_Z: return 'z';
+		
+		// Number keys
+		case KEY_1: return '1';
+		case KEY_2: return '2';
+		case KEY_3: return '3';
+		case KEY_4: return '4';
+		case KEY_5: return '5';
+		case KEY_6: return '6';
+		case KEY_7: return '7';
+		case KEY_8: return '8';
+		case KEY_9: return '9';
+		case KEY_0: return '0';
+		
+		// Special characters
 		case KEY_SPACE: return ' ';
 		case KEY_MINUS: return '-';
 		case KEY_EQUAL: return '=';
@@ -60,6 +95,8 @@ static int map_ascii_key(__u16 code)
 		case KEY_COMMA: return ',';
 		case KEY_DOT: return '.';
 		case KEY_SLASH: return '/';
+		
+		// Keypad
 		case KEY_KP0: return '0';
 		case KEY_KP1: return '1';
 		case KEY_KP2: return '2';
@@ -71,9 +108,9 @@ static int map_ascii_key(__u16 code)
 		case KEY_KP8: return '8';
 		case KEY_KP9: return '9';
 		case KEY_KPDOT: return '.';
+		
+		default: return 0;
 	}
-
-	return 0;
 }
 
 enum {
