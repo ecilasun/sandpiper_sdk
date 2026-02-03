@@ -43,7 +43,7 @@ stdi sqrt_fixed(stdi v)
 {
   if (v <= 0) { return BASE_MAX; }
   stdi b = BASE_MAX, q = 0, r = v;
-  while (b > r) { b >>= 2; }
+  while ((uint32_t)b > (uint32_t)r) { b >>= 2; }
   while (b > 0) {
       stdi t = q + b;
       q >>= 1;
@@ -107,6 +107,8 @@ void intersectSphere(const t_ray *r, const t_sphere *s, t_hit *h)
 {
   h->t     = BASE_MAX;
   v3f   d  = sub( s->p, r->s );
+  stdi limit = 100<<FP;
+  if(d.x>limit||d.x<-limit||d.y>limit||d.y<-limit||d.z>limit||d.z<-limit) return;
   stdi t   = dot( d, r->n );
   if (t < 0)   { return; }
   stdi hh  = dot(d,d) - fxmul(t,t);
@@ -169,9 +171,9 @@ v3f intersectScene(const t_ray *r, t_hit *h, int max_bounce, int shadow)
   for (int i = 0; i < 3 ; ++i) {
     stdi rd     = 6 + i*2;
     v3f c       = {to_fixed(15),to_fixed(rd - 14),to_fixed(0)};
-    int   a     = (g_time<<3) + (i*1365);
+    int   a     = ((g_time<<3) + (i*1365)) & 4095;
     stdi cs     = sine_table[(a+1024)&4095]<<(FP-12);
-    stdi ss     = sine_table[(a     )&4095]<<(FP-12);
+    stdi ss     = sine_table[a]<<(FP-12);
     t_sphere sp = {
       {(fxmul(c.x,cs) - fxmul(c.z,ss)),c.y,(fxmul(c.x,ss) + fxmul(c.z,cs))},
       to_fixed(rd),
@@ -235,28 +237,29 @@ int main(int argc, char **argv)
 		return -1;
 	}
 
+  // Set up the video mode and frame pointers
+	VPUSetVideoMode(s_platform->vx, EVM_320_240, ECM_16bit_RGB, EVS_Enable);
+
 	// Grab video buffer
 	uint32_t stride = VPUGetStride(EVM_320_240, ECM_16bit_RGB);
 	framebufferA.size = framebufferB.size = stride*240;
 	SPAllocateBuffer(s_platform, &framebufferA);
 	SPAllocateBuffer(s_platform, &framebufferB);
 
-	// Set up the video mode and frame pointers
-	VPUSetVideoMode(s_platform->vx, EVM_320_240, ECM_16bit_RGB, EVS_Enable);
-
+  VPUSetScanoutAddress(s_platform->vx, (uint32_t)framebufferA.dmaAddress);
 	s_platform->sc->cycle = 0;
 	s_platform->sc->framebufferA = &framebufferA;
 	s_platform->sc->framebufferB = &framebufferB;
 	VPUSwapPages(s_platform->vx, s_platform->sc);
+	VPUClear(s_platform->vx, 0x00000000);
 
-	while (1)
+	do
 	{
-		VPUClear(s_platform->vx, 0x00000000);
 		render(stride);
 
 		VPUWaitVSync(s_platform->vx);
 		VPUSwapPages(s_platform->vx, s_platform->sc);
-	}
+	} while (1);
 
 	return 0;
 }
