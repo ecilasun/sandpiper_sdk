@@ -34,10 +34,24 @@ void IN_Move(usercmd_t *cmd)
 {
 	mouse_movement_t movement;
 	int r;
+	static uint32_t old_buttons = 0;
 
 	r = qembd_get_mouse_movement(&movement);
 	if (r != 0)
 		return;
+
+	if (movement.buttons != old_buttons)
+	{
+		for (int i = 0; i < 3; i++)
+		{
+			int mask = 1 << i;
+			if ((movement.buttons & mask) != (old_buttons & mask))
+			{
+				Key_Event(K_MOUSE1 + i, (movement.buttons & mask) != 0);
+			}
+		}
+		old_buttons = movement.buttons;
+	}
 
 	movement.x *= sensitivity.value;
 	movement.y *= sensitivity.value;

@@ -64,6 +64,7 @@ typedef struct {
 
 typedef struct {
 	int32_t x, y;
+	uint32_t buttons;
 } mouse_movement_t;
 
 int qembd_get_width();

@@ -187,7 +187,8 @@ static event_queue_t event_queue = {
 //static event_t event;
 static mouse_movement_t mouse_movement;
 static int nokeyboard = 0;
-static struct pollfd fds[1];
+static int nomouse = 0;
+static struct pollfd fds[2];
 static int inited = 0;
 
 uint64_t qembd_get_time()
@@ -257,6 +258,7 @@ int qembd_dequeue_key_event(key_event_t *e)
 	if (!inited)
 	{
 		nokeyboard = 0;
+		nomouse = 0;
 
 		fds[0].fd = SPFindKeyboardDevice();
 		fds[0].events = POLLIN;
@@ -265,6 +267,19 @@ int qembd_dequeue_key_event(key_event_t *e)
 		{
 			printf("Could not find keyboard device. Make sure a keyboard is connected.\n");
 			nokeyboard = 1;
+		}
+
+		fds[1].fd = SPFindMouseDevice();
+		fds[1].events = POLLIN;
+		if (fds[1].fd < 0)
+		{
+			printf("Could not find mouse device.\n");
+			nomouse = 1;
+		}
+		else
+		{
+			int flags = fcntl(fds[1].fd, F_GETFL, 0);
+			if (flags != -1) fcntl(fds[1].fd, F_SETFL, flags | O_NONBLOCK);
 		}
 
 		struct termios raw_termios;
@@ -277,58 +292,82 @@ int qembd_dequeue_key_event(key_event_t *e)
 		inited = 1;
 	}
 
-	if (!nokeyboard)
+	int ret = poll(fds, 2, 10);
+	if (ret <= 0) return -1;
+
+	if (!nomouse && (fds[1].revents & POLLIN))
 	{
-		int ret = poll(fds, 1, 10);
-		if (ret > 0)
+		struct input_event ev;
+		while (read(fds[1].fd, &ev, sizeof(struct input_event)) == sizeof(struct input_event))
 		{
-			struct input_event ev;
-			int n = read(fds[0].fd, &ev, sizeof(struct input_event));
-			if (n > 0 && ev.type == EV_KEY)
+			if (ev.type == EV_REL)
 			{
-				// We have our scancode and key state here
-				switch(ev.code)
-				{
-					case KEY_ENTER:		{ e->keycode = K_ENTER; break; }
-					case KEY_RIGHT:		{ e->keycode = K_RIGHTARROW; break; }
-					case KEY_LEFT:		{ e->keycode = K_LEFTARROW; break; }
-					case KEY_DOWN:		{ e->keycode = K_DOWNARROW; break; }
-					case KEY_UP:		{ e->keycode = K_UPARROW; break; }
-					case KEY_ESC:		{ e->keycode = K_ESCAPE; break; }
-					case KEY_TAB:		{ e->keycode = K_TAB; break; }
-					case KEY_BACKSPACE:	{ e->keycode = K_BACKSPACE; break; }
-					case KEY_LEFTSHIFT:	{ e->keycode = K_SHIFT; break; }
-					case KEY_LEFTCTRL:	{ e->keycode = K_CTRL; break; }
-					case KEY_RIGHTALT:	{ e->keycode = K_ALT; break; }
-					case KEY_LEFTALT:	{ e->keycode = K_ALT; break; }
-					case KEY_PAUSE:		{ e->keycode = K_PAUSE; break; }
-					case KEY_F1:		{ e->keycode = K_F1; break; }
-					case KEY_F2:		{ e->keycode = K_F2; break; }
-					case KEY_F3:		{ e->keycode = K_F3; break; }
-					case KEY_F4:		{ e->keycode = K_F4; break; }
-					case KEY_F5:		{ e->keycode = K_F5; break; }
-					case KEY_F6:		{ e->keycode = K_F6; break; }
-					case KEY_F7:		{ e->keycode = K_F7; break; }
-					case KEY_F8:		{ e->keycode = K_F8; break; }
-					case KEY_F9:		{ e->keycode = K_F9; break; }
-					case KEY_F10:		{ e->keycode = K_F10; break; }
-					case KEY_F11:		{ e->keycode = K_F11; break; }
-					case KEY_F12:		{ e->keycode = K_F12; break; }
-					case KEY_HOME:		{ e->keycode = K_HOME; break; }
-					case KEY_END:		{ e->keycode = K_END; break; }
-					case KEY_PAGEUP:	{ e->keycode = K_PGUP; break; }
-					case KEY_PAGEDOWN:	{ e->keycode = K_PGDN; break; }
-					case KEY_INSERT:	{ e->keycode = K_INS; break; }
-					case KEY_DELETE:	{ e->keycode = K_DEL; break; }
-					default:			{
-						int ascii = map_ascii_key(ev.code);
-						e->keycode = ascii ? ascii : ev.code;
-						break;
-					}
-				}
-				e->state = ev.value == 0 ? 0 : 1; // 1: key down, 0: key up, 2: autorepeat
-				return 0;
+				if (ev.code == REL_X) mouse_movement.x += ev.value;
+				if (ev.code == REL_Y) mouse_movement.y += ev.value;
 			}
+			else if (ev.type == EV_KEY)
+			{
+				int mask = 0;
+				if (ev.code == BTN_LEFT) mask = 1;
+				else if (ev.code == BTN_RIGHT) mask = 2;
+				else if (ev.code == BTN_MIDDLE) mask = 4;
+
+				if (mask) {
+					if (ev.value) mouse_movement.buttons |= mask;
+					else mouse_movement.buttons &= ~mask;
+				}
+			}
+		}
+	}
+
+	if (!nokeyboard && (fds[0].revents & POLLIN))
+	{
+		struct input_event ev;
+		int n = read(fds[0].fd, &ev, sizeof(struct input_event));
+		if (n > 0 && ev.type == EV_KEY)
+		{
+			// We have our scancode and key state here
+			switch(ev.code)
+			{
+				case KEY_ENTER:		{ e->keycode = K_ENTER; break; }
+				case KEY_RIGHT:		{ e->keycode = K_RIGHTARROW; break; }
+				case KEY_LEFT:		{ e->keycode = K_LEFTARROW; break; }
+				case KEY_DOWN:		{ e->keycode = K_DOWNARROW; break; }
+				case KEY_UP:		{ e->keycode = K_UPARROW; break; }
+				case KEY_ESC:		{ e->keycode = K_ESCAPE; break; }
+				case KEY_TAB:		{ e->keycode = K_TAB; break; }
+				case KEY_BACKSPACE:	{ e->keycode = K_BACKSPACE; break; }
+				case KEY_LEFTSHIFT:	{ e->keycode = K_SHIFT; break; }
+				case KEY_LEFTCTRL:	{ e->keycode = K_CTRL; break; }
+				case KEY_RIGHTALT:	{ e->keycode = K_ALT; break; }
+				case KEY_LEFTALT:	{ e->keycode = K_ALT; break; }
+				case KEY_PAUSE:		{ e->keycode = K_PAUSE; break; }
+				case KEY_F1:		{ e->keycode = K_F1; break; }
+				case KEY_F2:		{ e->keycode = K_F2; break; }
+				case KEY_F3:		{ e->keycode = K_F3; break; }
+				case KEY_F4:		{ e->keycode = K_F4; break; }
+				case KEY_F5:		{ e->keycode = K_F5; break; }
+				case KEY_F6:		{ e->keycode = K_F6; break; }
+				case KEY_F7:		{ e->keycode = K_F7; break; }
+				case KEY_F8:		{ e->keycode = K_F8; break; }
+				case KEY_F9:		{ e->keycode = K_F9; break; }
+				case KEY_F10:		{ e->keycode = K_F10; break; }
+				case KEY_F11:		{ e->keycode = K_F11; break; }
+				case KEY_F12:		{ e->keycode = K_F12; break; }
+				case KEY_HOME:		{ e->keycode = K_HOME; break; }
+				case KEY_END:		{ e->keycode = K_END; break; }
+				case KEY_PAGEUP:	{ e->keycode = K_PGUP; break; }
+				case KEY_PAGEDOWN:	{ e->keycode = K_PGDN; break; }
+				case KEY_INSERT:	{ e->keycode = K_INS; break; }
+				case KEY_DELETE:	{ e->keycode = K_DEL; break; }
+				default:			{
+					int ascii = map_ascii_key(ev.code);
+					e->keycode = ascii ? ascii : ev.code;
+					break;
+				}
+			}
+			e->state = ev.value == 0 ? 0 : 1; // 1: key down, 0: key up, 2: autorepeat
+			return 0;
 		}
 	}
 
