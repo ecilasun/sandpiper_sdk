@@ -16,6 +16,11 @@
 #include <termios.h>
 #include <time.h>
 #include <unistd.h>
+#include <poll.h>
+#include <linux/input.h>
+#include "core.h"
+#include "platform.h"
+#include "vpu.h"
 
 /*** defines ***/
 
@@ -35,7 +40,9 @@ enum editorKey {
   HOME_KEY,
   END_KEY,
   PAGE_UP,
-  PAGE_DOWN
+  PAGE_DOWN,
+  MOUSE_EVENT,
+  MOUSE_MOVE
 };
 
 /*** data ***/
@@ -61,12 +68,28 @@ struct editorConfig {
   char statusmsg[80];
   time_t statusmsg_time;
   struct termios orig_termios;
+  int mouse_row;
+  int mouse_col;
+  int local_mouse_fd;
+  int local_mouse_x;
+  int local_mouse_y;
+  int screen_width_pixels;
+  int screen_height_pixels;
+  int cursor_visible;
+  int cursor_stored_x;
+  int cursor_stored_y;
+  int remote_mouse_visible;
+  int remote_mouse_x;
+  int remote_mouse_y;
+  uint16_t cursor_backup[16*16]; // Backup 16x16 area
+  struct SPPlatform* platform;
 };
 
 struct editorConfig E;
 
 /*** prototypes ***/
 
+const char* getSessionName();
 void editorSetStatusMessage(const char *fmt, ...);
 void editorRefreshScreen();
 char *editorPrompt(char *prompt, void (*callback)(char *, int));
@@ -82,7 +105,32 @@ void die(const char *s) {
   exit(1);
 }
 
+int getSessionType() {
+    if (getenv("SSH_CONNECTION") || getenv("SSH_CLIENT")) return 1; // SSH
+    
+    char *tty = ttyname(STDIN_FILENO);
+    if (!tty) return 0; // Local Console likely
+    
+    if (strstr(tty, "/dev/pts/") == tty) return 2; // Pseudo-Terminal (xterm, screen, etc)
+    if (strstr(tty, "/dev/ttyS") == tty) return 3; // Serial
+    if (strstr(tty, "/dev/ttyUSB") == tty) return 3; // USB Serial
+    
+    return 0; // Console
+}
+
+const char* getSessionName() {
+    switch (getSessionType()) {
+        case 1: return "Remote(SSH)";
+        case 2: return "Terminal";
+        case 3: return "Serial";
+        default: return "Console";
+    }
+}
+
 void disableRawMode() {
+  if (getSessionType() != 0) {
+      write(STDOUT_FILENO, "\x1b[?1003;1006l", 12);
+  }
   if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &E.orig_termios) == -1)
     die("tcsetattr");
 }
@@ -100,13 +148,137 @@ void enableRawMode() {
   raw.c_cc[VTIME] = 1;
 
   if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw) == -1) die("tcsetattr");
+  
+  if (getSessionType() != 0) {
+      write(STDOUT_FILENO, "\x1b[?1003;1006h", 12);
+  }
+}
+
+static void undraw_local_cursor() {
+    if (!E.cursor_visible || !E.platform || E.platform->mapped_memory == MAP_FAILED) return;
+
+    // Restore backup
+    uint8_t* fb = (uint8_t*)E.platform->mapped_memory;
+    int start_x = E.cursor_stored_x;
+    int start_y = E.cursor_stored_y;
+    int stride = 1280; // 640 * 2
+
+    for (int dy = 0; dy < 16; dy++) {
+        int y = start_y + dy;
+        if (y >= 480) break;
+        for (int dx = 0; dx < 16; dx++) {
+            int x = start_x + dx;
+            if (x >= 640) break;
+            
+            uint16_t* p = (uint16_t*)(fb + y * stride + x * 2);
+            *p = E.cursor_backup[dy * 16 + dx];
+        }
+    }
+    E.cursor_visible = 0;
+}
+
+static void draw_local_cursor() {
+    if (!E.platform || E.platform->mapped_memory == MAP_FAILED) return;
+
+    if (E.cursor_visible) undraw_local_cursor();
+
+    uint8_t* fb = (uint8_t*)E.platform->mapped_memory;
+    int start_x = E.local_mouse_x;
+    int start_y = E.local_mouse_y;
+    int stride = 1280;
+
+    // Save background and draw cursor (simple red cross)
+    // RGB565 Red = 0xF800
+    uint16_t cursor_color = 0xF800; // Red
+
+    for (int dy = 0; dy < 16; dy++) {
+        int y = start_y + dy;
+        if (y >= 480) break;
+        for (int dx = 0; dx < 16; dx++) {
+            int x = start_x + dx;
+            if (x >= 640) break;
+            
+            uint16_t* p = (uint16_t*)(fb + y * stride + x * 2);
+            E.cursor_backup[dy * 16 + dx] = *p;
+
+            // Draw Crosshair logic
+            // Center is around 8,8
+            int draw = 0;
+            if (dy == 8 || dx == 8) draw = 1;
+            // Border
+            if (dy == 0 || dy == 15) { if(dx>=7 && dx<=9) draw=1; }
+            if (dx == 0 || dx == 15) { if(dy>=7 && dy<=9) draw=1; }
+
+            if (draw) {
+                *p = cursor_color;
+            }
+        }
+    }
+
+    E.cursor_stored_x = start_x;
+    E.cursor_stored_y = start_y;
+    E.cursor_visible = 1;
+}
+
+static int map_value(int v, int max_src, int max_dst) {
+    if (v < 0) return 0;
+    if (v >= max_src) return max_dst - 1;
+    return (v * max_dst) / max_src;
 }
 
 int editorReadKey() {
   int nread;
   char c;
-  while ((nread = read(STDIN_FILENO, &c, 1)) != 1) {
-    if (nread == -1 && errno != EAGAIN) die("read");
+
+  struct pollfd pfd[2];
+  pfd[0].fd = STDIN_FILENO;
+  pfd[0].events = POLLIN;
+  pfd[1].fd = E.local_mouse_fd;
+  pfd[1].events = POLLIN;
+
+  while (1) {
+      int poll_count = (E.local_mouse_fd >= 0) ? 2 : 1;
+      if (poll(pfd, poll_count, -1) == -1) {
+          if (errno == EINTR) continue;
+          die("poll");
+      }
+
+      // Check local mouse
+      if (E.local_mouse_fd >= 0 && (pfd[1].revents & (POLLIN | POLLERR | POLLHUP))) {
+          struct input_event ev;
+          int n = read(E.local_mouse_fd, &ev, sizeof(ev));
+          if (n <= 0) {
+              // Device disconnected or error, stop polling it
+              close(E.local_mouse_fd);
+              E.local_mouse_fd = -1;
+          }
+          else if (n == sizeof(ev)) {
+             if (ev.type == EV_REL) {
+                 if (ev.code == REL_X) E.local_mouse_x += ev.value;
+                 if (ev.code == REL_Y) E.local_mouse_y += ev.value;
+                 
+                 // Clamp
+                 if (E.local_mouse_x < 0) E.local_mouse_x = 0;
+                 if (E.local_mouse_x >= E.screen_width_pixels) E.local_mouse_x = E.screen_width_pixels - 1;
+                 
+                 if (E.local_mouse_y < 0) E.local_mouse_y = 0;
+                 if (E.local_mouse_y >= E.screen_height_pixels) E.local_mouse_y = E.screen_height_pixels - 1;
+                 
+                 draw_local_cursor();
+             } else if (ev.type == EV_KEY && ev.code == BTN_LEFT && ev.value == 1) {
+                 // Left click
+                 E.mouse_col = map_value(E.local_mouse_x, E.screen_width_pixels, E.screencols);
+                 E.mouse_row = map_value(E.local_mouse_y, E.screen_height_pixels, E.screenrows);
+                 return MOUSE_EVENT;
+             }
+          }
+      }
+
+      // Check STDIN
+      if (pfd[0].revents & POLLIN) {
+        undraw_local_cursor();
+        if (read(STDIN_FILENO, &c, 1) == 1) break;
+      }
   }
 
   if (c == '\x1b') {
@@ -116,6 +288,34 @@ int editorReadKey() {
     if (read(STDIN_FILENO, &seq[1], 1) != 1) return '\x1b';
 
     if (seq[0] == '[') {
+      if (seq[1] == '<') {
+        char mbuf[32];
+        int i = 0;
+        int max_len = sizeof(mbuf) - 1;
+        while (i < max_len) {
+          if (read(STDIN_FILENO, &mbuf[i], 1) != 1) break;
+          if (mbuf[i] == 'm' || mbuf[i] == 'M') {
+            if (mbuf[i] == 'M') {
+                int b, x, y;
+                mbuf[i] = '\0';
+                if (sscanf(mbuf, "%d;%d;%d", &b, &x, &y) == 3) {
+                    if (b == 0) { // Click
+                        E.mouse_col = x - 1;
+                        E.mouse_row = y - 1;
+                        return MOUSE_EVENT;
+                    } else if (b == 35) { // Move
+                        E.remote_mouse_x = x - 1;
+                        E.remote_mouse_y = y - 1;
+                        E.remote_mouse_visible = 1;
+                        return MOUSE_MOVE;
+                    }
+                }
+            }
+            return '\x1b';
+          }
+          i++;
+        }
+      }
       if (seq[1] >= '0' && seq[1] <= '9') {
         if (read(STDIN_FILENO, &seq[2], 1) != 1) return '\x1b';
         if (seq[2] == ~0) {
@@ -578,6 +778,18 @@ void editorRefreshScreen() {
   editorDrawStatusBar(&ab);
   editorDrawMessageBar(&ab);
 
+  if (getSessionType() != 0 && E.remote_mouse_visible) {
+      // Basic bound check. Remember screen is 1-based in ANSI
+      if (E.remote_mouse_x >= 0 && E.remote_mouse_x < E.screencols &&
+          E.remote_mouse_y >= 0 && E.remote_mouse_y <= E.screenrows + 1) { // +1 for status bars
+          
+           char cursor[32];
+           snprintf(cursor, sizeof(cursor), "\x1b[%d;%dH\x1b[31m+\x1b[m", 
+               E.remote_mouse_y + 1, E.remote_mouse_x + 1);
+           abAppend(&ab, cursor, strlen(cursor));
+      }
+  }
+
   char buf[32];
   snprintf(buf, sizeof(buf), "\x1b[%d;%dH", (E.cy - E.rowoff) + 1,
                                             (E.rx - E.coloff) + 1);
@@ -683,6 +895,7 @@ void editorProcessKeypress() {
 
   switch (c) {
     case '\r':
+      E.remote_mouse_visible = 0;
       editorInsertNewline();
       break;
 
@@ -702,6 +915,25 @@ void editorProcessKeypress() {
       editorSave();
       break;
 
+    case MOUSE_EVENT:
+      {
+        int y = E.mouse_row + E.rowoff;
+        if (y > E.numrows) y = E.numrows;
+        E.cy = y;
+        
+        int rx = E.mouse_col + E.coloff;
+
+        if (E.cy < E.numrows)
+          E.cx = editorRowRxToCx(&E.row[E.cy], rx);
+        else
+          E.cx = 0;
+      }
+      break;
+
+    case MOUSE_MOVE:
+        // Just refresh, cursor updated
+        break;
+
     case HOME_KEY:
       E.cx = 0;
       break;
@@ -718,6 +950,7 @@ void editorProcessKeypress() {
     case BACKSPACE:
     case CTRL_KEY('h'):
     case DEL_KEY:
+      E.remote_mouse_visible = 0;
       if (c == DEL_KEY) editorMoveCursor(ARROW_RIGHT);
       editorDelChar();
       break;
@@ -750,6 +983,7 @@ void editorProcessKeypress() {
       break;
 
     default:
+      E.remote_mouse_visible = 0;
       editorInsertChar(c);
       break;
   }
@@ -772,7 +1006,32 @@ void initEditor() {
   E.statusmsg[0] = '\0';
   E.statusmsg_time = 0;
 
+  E.platform = SPInitPlatform();
+  E.local_mouse_fd = -1;
+  if (E.platform) {
+      E.local_mouse_fd = SPFindMouseDevice();
+  }
+  
+  E.cursor_visible = 0;
+  E.remote_mouse_visible = 0;
+  E.local_mouse_x = 0;
+  E.local_mouse_y = 0;
+  // Default assumptions if we can't get pixel size
+  E.screen_width_pixels = 640;
+  E.screen_height_pixels = 480;
+
   if (getWindowSize(&E.screenrows, &E.screencols) == -1) die("getWindowSize");
+  
+  // Try to get pixel size from terminal
+  struct winsize ws;
+  if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) != -1) {
+      if (ws.ws_xpixel > 0) E.screen_width_pixels = ws.ws_xpixel;
+      else E.screen_width_pixels = E.screencols * 8; // Guess 8x16 font
+
+      if (ws.ws_ypixel > 0) E.screen_height_pixels = ws.ws_ypixel;
+      else E.screen_height_pixels = E.screenrows * 16;
+  }
+  
   E.screenrows -= 2;
 }
 
@@ -783,7 +1042,8 @@ int main(int argc, char *argv[]) {
     editorOpen(argv[1]);
   }
 
-  editorSetStatusMessage("HELP: Ctrl-S = save | Ctrl-Q = quit | Ctrl-F = find");
+  editorSetStatusMessage("HELP: Ctrl-S = save | Ctrl-Q = quit | Ctrl-F = find | Mode: %s", 
+    getSessionName());
 
   while (1) {
     editorRefreshScreen();
