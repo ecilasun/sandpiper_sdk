@@ -1,4 +1,3 @@
-#include <string.h>
 #include <math.h>
 #include "tinynet.h"
 
@@ -10,18 +9,23 @@ float tinynet_predict(const TinyNetC* net, const float* x)
 	for (int i = 0; i < TINYNET_HIDDEN_SIZE; ++i)
 	{
 		float sum = net->b1[i];
-		const float* row = net->w1 + i * TINYNET_INPUT_SIZE;
-		
-		for (int j = 0; j < TINYNET_INPUT_SIZE; ++j)
-			sum += row[j] * x[j];
-		
-		hidden[i] = sum > 0.0f ? sum : 0.0f;  // ReLU
+		const float* restrict row = net->w1 + i * TINYNET_INPUT_SIZE;
+		const float* restrict xi = x;
+		const float* restrict row_end = row + TINYNET_INPUT_SIZE;
+
+		for (; row < row_end; ++row, ++xi)
+			sum += (*row) * (*xi);
+
+		hidden[i] = fmaxf(sum, 0.0f);  // ReLU
 	}
 
 	// Compute output layer
 	float out = net->b2;
-	for (int i = 0; i < TINYNET_HIDDEN_SIZE; ++i)
-		out += net->w2[i] * hidden[i];
+	const float* restrict w2 = net->w2;
+	const float* restrict w2_end = w2 + TINYNET_HIDDEN_SIZE;
+	const float* restrict h = hidden;
+	for (; w2 < w2_end; ++w2, ++h)
+		out += (*w2) * (*h);
 	
 	return out;
 }
@@ -35,19 +39,24 @@ void tinynet_train_on_sample(TinyNetC* net, const float* x, float target, float 
 	for (int i = 0; i < TINYNET_HIDDEN_SIZE; ++i)
 	{
 		float sum = net->b1[i];
-		const float* row = net->w1 + i * TINYNET_INPUT_SIZE;
-		
-		for (int j = 0; j < TINYNET_INPUT_SIZE; ++j)
-			sum += row[j] * x[j];
-		
+		const float* restrict row = net->w1 + i * TINYNET_INPUT_SIZE;
+		const float* restrict xi = x;
+		const float* restrict row_end = row + TINYNET_INPUT_SIZE;
+
+		for (; row < row_end; ++row, ++xi)
+			sum += (*row) * (*xi);
+
 		pre[i] = sum;
-		hidden[i] = sum > 0.0f ? sum : 0.0f;
+		hidden[i] = fmaxf(sum, 0.0f);
 	}
 
 	// Output layer
 	float out = net->b2;
-	for (int i = 0; i < TINYNET_HIDDEN_SIZE; ++i)
-		out += net->w2[i] * hidden[i];
+	const float* restrict w2 = net->w2;
+	const float* restrict w2_end = w2 + TINYNET_HIDDEN_SIZE;
+	const float* restrict h = hidden;
+	for (; w2 < w2_end; ++w2, ++h)
+		out += (*w2) * (*h);
 
 	// Compute loss and output gradient
 	float loss = out - target;
