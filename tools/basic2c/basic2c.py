@@ -35,6 +35,11 @@ KEYWORDS = {
     "OR",
     "NOT",
     "DIM",
+    "OPEN",
+    "CLOSE",
+    "AS",
+    "OUTPUT",
+    "APPEND",
 }
 
 @dataclass
@@ -60,6 +65,7 @@ class BasicProgram:
         self._for_stack: List[Tuple[str, int]] = []
         self._for_id = 0
         self.return_targets: Set[int] = set()
+        self.uses_files: bool = False
 
     def parse(self) -> None:
         for raw_line in self.src.splitlines():
@@ -136,7 +142,7 @@ class BasicProgram:
                 tokens.append(Token("OP", two))
                 i += 2
                 continue
-            if ch in "+-*/(),;=<>":
+            if ch in "+-*/(),;=<>#":
                 tokens.append(Token("OP", ch))
                 i += 1
                 continue
@@ -148,11 +154,17 @@ class BasicProgram:
             return None
         head = tokens[0].value if tokens[0].kind == "IDENT" else None
         if head == "PRINT":
-            items, newline = self._parse_print_list(tokens[1:])
-            return Statement("PRINT", line_no, {"items": items, "newline": newline})
+            chan, rest = self._parse_channel_prefix(tokens[1:])
+            if chan is not None:
+                self.uses_files = True
+            items, newline = self._parse_print_list(rest)
+            return Statement("PRINT", line_no, {"items": items, "newline": newline, "channel": chan})
         if head == "INPUT":
-            targets = self._parse_input_targets(tokens[1:])
-            return Statement("INPUT", line_no, {"targets": targets})
+            chan, rest = self._parse_channel_prefix(tokens[1:])
+            if chan is not None:
+                self.uses_files = True
+            targets = self._parse_input_targets(rest)
+            return Statement("INPUT", line_no, {"targets": targets, "channel": chan})
         if head == "LET":
             return self._parse_assignment(line_no, tokens[1:])
         if head and head not in KEYWORDS:
@@ -176,6 +188,12 @@ class BasicProgram:
             return self._parse_next(line_no, tokens)
         if head == "END":
             return Statement("END", line_no, {})
+        if head == "OPEN":
+            self.uses_files = True
+            return self._parse_open(line_no, tokens)
+        if head == "CLOSE":
+            self.uses_files = True
+            return self._parse_close(line_no, tokens)
         raise BasicParseError(f"Unsupported statement at {line_no}")
 
     def _parse_assignment(self, line_no: int, tokens: List[Token]) -> Statement:
@@ -264,6 +282,46 @@ class BasicProgram:
         for k,v in dims.items():
             self.arrays[k] = v
         return Statement("DIM", line_no, {"dims": dims})
+
+    def _parse_channel_prefix(self, tokens: List[Token]) -> Tuple[Optional[int], List[Token]]:
+        if tokens and tokens[0].value == "#":
+            if len(tokens) < 2 or tokens[1].kind != "NUMBER":
+                raise BasicParseError("Channel use requires #<n>")
+            ch = int(float(tokens[1].value))
+            if len(tokens) >= 3 and tokens[2].value == ",":
+                return ch, tokens[3:]
+            return ch, tokens[2:]
+        return None, tokens
+
+    def _parse_open(self, line_no: int, tokens: List[Token]) -> Statement:
+        # OPEN "file" FOR INPUT|OUTPUT|APPEND AS #n
+        if len(tokens) < 6 or tokens[1].kind != "STRING":
+            raise BasicParseError("OPEN syntax: OPEN \"file\" FOR INPUT|OUTPUT|APPEND AS #n")
+        fname = tokens[1].value
+        try:
+            for_idx = [i for i,t in enumerate(tokens) if t.kind == "IDENT" and t.value == "FOR"][0]
+        except IndexError:
+            raise BasicParseError("OPEN missing FOR")
+        if for_idx + 1 >= len(tokens) or tokens[for_idx+1].kind != "IDENT":
+            raise BasicParseError("OPEN missing mode")
+        mode = tokens[for_idx+1].value
+        if mode not in ("INPUT", "OUTPUT", "APPEND"):
+            raise BasicParseError("OPEN mode must be INPUT, OUTPUT, or APPEND")
+        try:
+            as_idx = [i for i,t in enumerate(tokens) if t.kind == "IDENT" and t.value == "AS"][0]
+        except IndexError:
+            raise BasicParseError("OPEN missing AS")
+        if as_idx + 2 >= len(tokens) or tokens[as_idx+1].value != "#" or tokens[as_idx+2].kind != "NUMBER":
+            raise BasicParseError("OPEN AS requires #<n>")
+        channel = int(float(tokens[as_idx+2].value))
+        return Statement("OPEN", line_no, {"fname": fname, "mode": mode, "channel": channel})
+
+    def _parse_close(self, line_no: int, tokens: List[Token]) -> Statement:
+        # CLOSE #n
+        if len(tokens) != 3 or tokens[1].value != "#" or tokens[2].kind != "NUMBER":
+            raise BasicParseError("CLOSE syntax: CLOSE #<n>")
+        channel = int(float(tokens[2].value))
+        return Statement("CLOSE", line_no, {"channel": channel})
 
     def _parse_print_list(self, tokens: List[Token]) -> Tuple[List[Tuple[str, bool]], bool]:
         if not tokens:
@@ -501,6 +559,9 @@ class BasicProgram:
         lines.append("#define GOSUB_STACK_MAX 1024")
         lines.append("int __gosub_stack[GOSUB_STACK_MAX];")
         lines.append("int __gosub_sp = 0;")
+        if self.uses_files:
+            lines.append("#define FILE_CH_MAX 16")
+            lines.append("FILE * __files[FILE_CH_MAX] = {0};")
         lines.append("")
         lines.append("int main(void) {")
         if self.variables:
@@ -515,6 +576,8 @@ class BasicProgram:
             emit = getattr(self, f"_emit_{stmt.kind.lower()}")
             emit(lines, stmt)
         lines.append("Lexit:")
+        if self.uses_files:
+            lines.append("    for (int __i = 0; __i < FILE_CH_MAX; __i++) { if (__files[__i]) fclose(__files[__i]); }")
         lines.append("    return 0;")
         lines.append("}")
         return "\n".join(lines) + "\n"
@@ -522,14 +585,26 @@ class BasicProgram:
     def _emit_print(self, out: List[str], stmt: Statement) -> None:
         items = stmt.data["items"]
         newline = stmt.data["newline"]
+        channel = stmt.data.get("channel")
+        if channel is not None:
+            out.append(f"    if (__files[{channel}] == NULL) {{ fprintf(stderr, \"File #{channel} not open\\n\"); return 1; }}")
         if not items and newline:
-            out.append("    printf(\"\\n\");")
+            if channel is None:
+                out.append("    printf(\"\\n\");")
+            else:
+                out.append(f"    fprintf(__files[{channel}], \"\\n\");")
         else:
             for expr, is_string in items:
                 fmt = "%s" if is_string else "%g"
-                out.append(f"    printf(\"{fmt}\", {expr});")
+                if channel is None:
+                    out.append(f"    printf(\"{fmt}\", {expr});")
+                else:
+                    out.append(f"    fprintf(__files[{channel}], \"{fmt}\", {expr});")
             if newline:
-                out.append("    printf(\"\\n\");")
+                if channel is None:
+                    out.append("    printf(\"\\n\");")
+                else:
+                    out.append(f"    fprintf(__files[{channel}], \"\\n\");")
         out.append("    goto L" + self._next_label(stmt) + ";")
 
     def _emit_dim(self, out: List[str], stmt: Statement) -> None:
@@ -538,8 +613,14 @@ class BasicProgram:
 
     def _emit_input(self, out: List[str], stmt: Statement) -> None:
         targets = stmt.data["targets"]
+        channel = stmt.data.get("channel")
+        if channel is not None:
+            out.append(f"    if (__files[{channel}] == NULL) {{ fprintf(stderr, \"File #{channel} not open\\n\"); return 1; }}")
         for t in targets:
-            out.append(f"    if (scanf(\"%lf\", &{t}) != 1) return 1;")
+            if channel is None:
+                out.append(f"    if (scanf(\"%lf\", &{t}) != 1) return 1;")
+            else:
+                out.append(f"    if (fscanf(__files[{channel}], \"%lf\", &{t}) != 1) return 1;")
         out.append("    goto L" + self._next_label(stmt) + ";")
 
     def _emit_let(self, out: List[str], stmt: Statement) -> None:
@@ -557,6 +638,25 @@ class BasicProgram:
     def _emit_goto(self, out: List[str], stmt: Statement) -> None:
         dest = stmt.data["dest"]
         out.append(f"    goto L{dest};")
+
+    def _emit_open(self, out: List[str], stmt: Statement) -> None:
+        fname = stmt.data["fname"].replace("\\", "\\\\").replace("\"", "\\\"")
+        mode = stmt.data["mode"]
+        channel = stmt.data["channel"]
+        c_mode = {"INPUT": "r", "OUTPUT": "w", "APPEND": "a"}[mode]
+        out.append(f"    int __ch = {channel};")
+        out.append("    if (__ch < 0 || __ch >= FILE_CH_MAX) { fprintf(stderr, \"Bad channel\\n\"); return 1; }")
+        out.append("    if (__files[__ch]) { fclose(__files[__ch]); __files[__ch] = NULL; }")
+        out.append(f"    __files[__ch] = fopen(\"{fname}\", \"{c_mode}\");")
+        out.append("    if (!__files[__ch]) { perror(\"open\"); return 1; }")
+        out.append("    goto L" + self._next_label(stmt) + ";")
+
+    def _emit_close(self, out: List[str], stmt: Statement) -> None:
+        channel = stmt.data["channel"]
+        out.append(f"    int __ch = {channel};")
+        out.append("    if (__ch < 0 || __ch >= FILE_CH_MAX) { fprintf(stderr, \"Bad channel\\n\"); return 1; }")
+        out.append("    if (__files[__ch]) { fclose(__files[__ch]); __files[__ch] = NULL; }")
+        out.append("    goto L" + self._next_label(stmt) + ";")
 
     def _emit_gosub(self, out: List[str], stmt: Statement) -> None:
         dest = stmt.data["dest"]
@@ -598,6 +698,8 @@ class BasicProgram:
         out.append("    goto L" + self._next_label(stmt) + ";")
 
     def _emit_end(self, out: List[str], stmt: Statement) -> None:
+        if self.uses_files:
+            out.append("    for (int __i = 0; __i < FILE_CH_MAX; __i++) { if (__files[__i]) fclose(__files[__i]); }")
         out.append("    return 0;")
 
     def _next_label(self, stmt: Statement) -> str:
