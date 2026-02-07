@@ -7,46 +7,27 @@
 #include <random>
 #include <string>
 #include <vector>
-#include "tinynet.h"
+#include "tinychess.h"
+
+float TinyNet::predict(const std::array<float, TINYNET_INPUT_SIZE>& x) const
+{
+	return tinynet_predict(&c_net, x.data());
+}
+
+void TinyNet::init(std::mt19937& rng)
+{
+	// Seed C-side initializer from the C++ RNG for reproducibility
+	uint32_t seed = rng();
+	tinynet_init(&c_net, seed);
+}
+
+void TinyNet::train_on_sample(const std::array<float, TINYNET_INPUT_SIZE>& x, float target, float lr)
+{
+	tinynet_train_on_sample(&c_net, x.data(), target, lr);
+}
 
 namespace
 {
-constexpr int kBoardSize = 128;
-constexpr float kMateScore = 10000.0f;
-
-enum Piece
-{
-	EMPTY = 0,
-	WP = 1,
-	WN = 2,
-	WB = 3,
-	WR = 4,
-	WQ = 5,
-	WK = 6,
-	BP = -1,
-	BN = -2,
-	BB = -3,
-	BR = -4,
-	BQ = -5,
-	BK = -6
-};
-
-struct Move
-{
-	int from = 0;
-	int to = 0;
-	int promote = 0;
-	bool enPassant = false;
-	bool castle = false;
-};
-
-struct Board
-{
-	std::array<int8_t, kBoardSize> squares{};
-	int side = 1;
-	uint8_t castling = 0;
-	int enPassant = -1;
-};
 
 static inline int color_of(int piece)
 {
@@ -181,28 +162,6 @@ static void encode_features(const Board& b, std::array<float, TINYNET_INPUT_SIZE
 	}
 	out[TINYNET_INPUT_SIZE - 1] = b.side == 1 ? 1.0f : -1.0f;
 }
-
-struct TinyNet
-{
-	TinyNetC c_net;
-
-	float predict(const std::array<float, TINYNET_INPUT_SIZE>& x) const
-	{
-		return tinynet_predict(&c_net, x.data());
-	}
-
-	void init(std::mt19937& rng)
-	{
-		// Seed C-side initializer from the C++ RNG for reproducibility
-		uint32_t seed = rng();
-		tinynet_init(&c_net, seed);
-	}
-
-	void train_on_sample(const std::array<float, TINYNET_INPUT_SIZE>& x, float target, float lr)
-	{
-		tinynet_train_on_sample(&c_net, x.data(), target, lr);
-	}
-};
 
 static Move find_best_move(const TinyNet& net, const Board& b, int depth, std::mt19937& rng);
 
