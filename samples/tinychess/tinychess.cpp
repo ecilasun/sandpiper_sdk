@@ -193,14 +193,9 @@ struct TinyNet
 
 	void init(std::mt19937& rng)
 	{
-		std::uniform_real_distribution<float> dist(-0.05f, 0.05f);
-		for (int i = 0; i < TINYNET_HIDDEN_SIZE * TINYNET_INPUT_SIZE; ++i)
-			c_net.w1[i] = dist(rng);
-		for (int i = 0; i < TINYNET_HIDDEN_SIZE; ++i)
-			c_net.b1[i] = dist(rng);
-		for (int i = 0; i < TINYNET_HIDDEN_SIZE; ++i)
-			c_net.w2[i] = dist(rng);
-		c_net.b2 = dist(rng);
+		// Seed C-side initializer from the C++ RNG for reproducibility
+		uint32_t seed = rng();
+		tinynet_init(&c_net, seed);
 	}
 
 	void train_on_sample(const std::array<float, TINYNET_INPUT_SIZE>& x, float target, float lr)
