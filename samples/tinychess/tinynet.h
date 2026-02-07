@@ -18,6 +18,15 @@ typedef struct {
 float tinynet_predict(const TinyNetC* net, const float* x);
 void tinynet_train_on_sample(TinyNetC* net, const float* x, float target, float lr);
 
+// Parallel training function using pthreads
+// num_threads: Number of worker threads to use (recommended: 2-8)
+void tinynet_train_on_sample_parallel(
+	TinyNetC* net, 
+	const float* x, 
+	float target, 
+	float lr,
+	int num_threads);
+
 #ifdef __cplusplus
 }
 #endif

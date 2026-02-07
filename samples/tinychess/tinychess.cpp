@@ -12,8 +12,6 @@
 namespace
 {
 constexpr int kBoardSize = 128;
-constexpr int kInputSize = 64 * 12 + 1;
-constexpr int kHiddenSize = 32;
 constexpr float kMateScore = 10000.0f;
 
 enum Piece
@@ -165,7 +163,7 @@ static int heuristic_eval(const Board& b)
 	return b.side == 1 ? score : -score;
 }
 
-static void encode_features(const Board& b, std::array<float, kInputSize>& out)
+static void encode_features(const Board& b, std::array<float, TINYNET_INPUT_SIZE>& out)
 {
 	out.fill(0.0f);
 	for (int r = 0; r < 8; ++r)
@@ -181,14 +179,14 @@ static void encode_features(const Board& b, std::array<float, kInputSize>& out)
 			out[index * 64 + flat] = 1.0f;
 		}
 	}
-	out[kInputSize - 1] = b.side == 1 ? 1.0f : -1.0f;
+	out[TINYNET_INPUT_SIZE - 1] = b.side == 1 ? 1.0f : -1.0f;
 }
 
 struct TinyNet
 {
 	TinyNetC c_net;
 
-	float predict(const std::array<float, kInputSize>& x) const
+	float predict(const std::array<float, TINYNET_INPUT_SIZE>& x) const
 	{
 		return tinynet_predict(&c_net, x.data());
 	}
@@ -196,16 +194,16 @@ struct TinyNet
 	void init(std::mt19937& rng)
 	{
 		std::uniform_real_distribution<float> dist(-0.05f, 0.05f);
-		for (int i = 0; i < kHiddenSize * kInputSize; ++i)
+		for (int i = 0; i < TINYNET_HIDDEN_SIZE * TINYNET_INPUT_SIZE; ++i)
 			c_net.w1[i] = dist(rng);
-		for (int i = 0; i < kHiddenSize; ++i)
+		for (int i = 0; i < TINYNET_HIDDEN_SIZE; ++i)
 			c_net.b1[i] = dist(rng);
-		for (int i = 0; i < kHiddenSize; ++i)
+		for (int i = 0; i < TINYNET_HIDDEN_SIZE; ++i)
 			c_net.w2[i] = dist(rng);
 		c_net.b2 = dist(rng);
 	}
 
-	void train_on_sample(const std::array<float, kInputSize>& x, float target, float lr)
+	void train_on_sample(const std::array<float, TINYNET_INPUT_SIZE>& x, float target, float lr)
 	{
 		tinynet_train_on_sample(&c_net, x.data(), target, lr);
 	}
@@ -705,7 +703,7 @@ static void train_model(TinyNet& net, std::mt19937& rng)
 	const int kSamples = 256;
 	const int kEpochs = 2;
 	const float kLearnRate = 0.01f;
-	std::array<float, kInputSize> features{};
+	std::array<float, TINYNET_INPUT_SIZE> features{};
 
 	for (int e = 0; e < kEpochs; ++e)
 	{
@@ -733,7 +731,7 @@ static void self_play_train(TinyNet& net, std::mt19937& rng)
 	const int kMaxPlies = 24;
 	const int kSearchDepth = 2;
 	const float kLearnRate = 0.005f;
-	std::array<float, kInputSize> features{};
+	std::array<float, TINYNET_INPUT_SIZE> features{};
 
 	for (int g = 0; g < kGames; ++g)
 	{
@@ -765,7 +763,7 @@ static void self_play_train(TinyNet& net, std::mt19937& rng)
 
 static float evaluate_net(const TinyNet& net, const Board& b)
 {
-	std::array<float, kInputSize> features{};
+	std::array<float, TINYNET_INPUT_SIZE> features{};
 	encode_features(b, features);
 	return net.predict(features);
 }
