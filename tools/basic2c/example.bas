@@ -1,0 +1,9 @@
+10 PRINT "Enter a number"
+20 INPUT N
+30 LET S = 0
+40 FOR I = 1 TO N
+50 LET S = S + I
+60 NEXT I
+70 PRINT "Sum is"
+80 PRINT S
+90 END
