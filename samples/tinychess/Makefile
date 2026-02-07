@@ -37,7 +37,7 @@ endif
 ifdef DEBUG
 	OPT_FLAGS := -O0 -g
 else
-	OPT_FLAGS := -Ofast -flto
+	OPT_FLAGS := -Ofast -ffast-math
 endif
 
 ARM_GCC_OPTS += -std=c++20 $(OPT_FLAGS) -mcpu=cortex-a9 -mfpu=neon -mfloat-abi=hard

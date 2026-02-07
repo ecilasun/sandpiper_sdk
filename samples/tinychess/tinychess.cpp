@@ -7,6 +7,7 @@
 #include <random>
 #include <string>
 #include <vector>
+#include "tinynet.h"
 
 namespace
 {
@@ -185,75 +186,28 @@ static void encode_features(const Board& b, std::array<float, kInputSize>& out)
 
 struct TinyNet
 {
-	std::array<float, kHiddenSize * kInputSize> w1{};
-	std::array<float, kHiddenSize> b1{};
-	std::array<float, kHiddenSize> w2{};
-	float b2 = 0.0f;
+	TinyNetC c_net;
 
 	float predict(const std::array<float, kInputSize>& x) const
 	{
-		float hidden[kHiddenSize];
-		for (int i = 0; i < kHiddenSize; ++i)
-		{
-			float sum = b1[i];
-			const float* row = w1.data() + i * kInputSize;
-			for (int j = 0; j < kInputSize; ++j)
-				sum += row[j] * x[j];
-			hidden[i] = sum > 0.0f ? sum : 0.0f;
-		}
-		float out = b2;
-		for (int i = 0; i < kHiddenSize; ++i)
-			out += w2[i] * hidden[i];
-		return out;
+		return tinynet_predict(&c_net, x.data());
 	}
 
 	void init(std::mt19937& rng)
 	{
 		std::uniform_real_distribution<float> dist(-0.05f, 0.05f);
-		for (float& v : w1)
-			v = dist(rng);
-		for (float& v : b1)
-			v = dist(rng);
-		for (float& v : w2)
-			v = dist(rng);
-		b2 = dist(rng);
+		for (int i = 0; i < kHiddenSize * kInputSize; ++i)
+			c_net.w1[i] = dist(rng);
+		for (int i = 0; i < kHiddenSize; ++i)
+			c_net.b1[i] = dist(rng);
+		for (int i = 0; i < kHiddenSize; ++i)
+			c_net.w2[i] = dist(rng);
+		c_net.b2 = dist(rng);
 	}
 
 	void train_on_sample(const std::array<float, kInputSize>& x, float target, float lr)
 	{
-		float hidden[kHiddenSize];
-		float pre[kHiddenSize];
-		for (int i = 0; i < kHiddenSize; ++i)
-		{
-			float sum = b1[i];
-			const float* row = w1.data() + i * kInputSize;
-			for (int j = 0; j < kInputSize; ++j)
-				sum += row[j] * x[j];
-			pre[i] = sum;
-			hidden[i] = sum > 0.0f ? sum : 0.0f;
-		}
-
-		float out = b2;
-		for (int i = 0; i < kHiddenSize; ++i)
-			out += w2[i] * hidden[i];
-
-		float loss = out - target;
-		float grad_out = loss;
-
-		b2 -= lr * grad_out;
-		for (int i = 0; i < kHiddenSize; ++i)
-		{
-			float w2_old = w2[i];
-			w2[i] -= lr * grad_out * hidden[i];
-
-			float grad_hidden = grad_out * w2_old;
-			if (pre[i] <= 0.0f)
-				grad_hidden = 0.0f;
-			b1[i] -= lr * grad_hidden;
-			float* row = w1.data() + i * kInputSize;
-			for (int j = 0; j < kInputSize; ++j)
-				row[j] -= lr * grad_hidden * x[j];
-		}
+		tinynet_train_on_sample(&c_net, x.data(), target, lr);
 	}
 };
 
