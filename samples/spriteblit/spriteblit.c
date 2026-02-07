@@ -234,6 +234,7 @@ static void masked_blit_8(
 	int w = src_w;
 	int h = src_h;
 
+	// Clip the source and destination rectangles to ensure we don't read/write out of screen bounds
 	if (dst_x < 0)
 	{
 		src_x = -dst_x;
@@ -253,23 +254,30 @@ static void masked_blit_8(
 	if (w <= 0 || h <= 0)
 		return;
 
-	for (int y = 0; y < h; ++y)
+#if defined(__ARM_NEON) || defined(__ARM_NEON__)
+	uint8x16_t keyv = vdupq_n_u8(key);				// Broadcast the key to 16 bytes
+#endif
+
+for (int y = 0; y < h; ++y)
 	{
 		uint8_t* d = dst + (uint32_t)(dst_y + y) * dst_stride + dst_x;
 		const uint8_t* s = src + (src_y + y) * src_w + src_x;
 		int x = 0;
 
+		// If NEON is available, we can process 16 pixels at a time.
+		// The key is compared against the source pixels, and if it matches,
+		// the destination pixel is kept; otherwise, the source pixel is copied to the destination.
 #if defined(__ARM_NEON) || defined(__ARM_NEON__)
-		uint8x16_t keyv = vdupq_n_u8(key);
 		for (; x + 15 < w; x += 16)
 		{
-			uint8x16_t sv = vld1q_u8(s + x);
-			uint8x16_t dv = vld1q_u8(d + x);
-			uint8x16_t mask = vceqq_u8(sv, keyv);
-			uint8x16_t out = vbslq_u8(mask, dv, sv);
-			vst1q_u8(d + x, out);
+			uint8x16_t sv = vld1q_u8(s + x);			// Load source pixels
+			uint8x16_t dv = vld1q_u8(d + x);			// Load destination pixels
+			uint8x16_t mask = vceqq_u8(sv, keyv);		// Compare source pixels with key, result is 0xFF where equal, 0x00 where not
+			uint8x16_t out = vbslq_u8(mask, dv, sv);	// If mask bit is 1, select from dv (keep dest), else select from sv (copy src)
+			vst1q_u8(d + x, out);						// Store result back to destination
 		}
 #endif
+		// Process any remaining pixels that don't fit into a 16-byte block
 		for (; x < w; ++x)
 		{
 			uint8_t px = s[x];
