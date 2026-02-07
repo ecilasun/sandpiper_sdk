@@ -327,7 +327,7 @@ class BasicProgram:
 
     def _parse_for(self, line_no: int, tokens: List[Token]) -> Statement:
         # FOR i = 1 TO 10 [STEP 2]
-        if len(tokens) < 6 or tokens[1].value != "=":
+        if len(tokens) < 6 or tokens[2].value != "=":
             raise BasicParseError("FOR syntax: FOR var = start TO end [STEP n]")
         var = tokens[1].value
         # Find TO and optional STEP boundaries
@@ -340,7 +340,7 @@ class BasicProgram:
             if t.kind == "IDENT" and t.value == "STEP":
                 step_idx = i
                 break
-        start_tokens = tokens[2:to_idx]
+        start_tokens = tokens[3:to_idx]
         start_expr, _ = self._parse_expression(start_tokens)
         if step_idx is None:
             end_tokens = tokens[to_idx+1:]
