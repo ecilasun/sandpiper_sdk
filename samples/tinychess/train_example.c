@@ -124,16 +124,16 @@ void simple_training_example() {
     float target1 = 0.8f;  // High output
     float target2 = 0.2f;  // Low output
     
-    printf("Training network for 100 epochs...\n");
+    printf("Training network for 10000 epochs...\n");
     
-    for (int epoch = 0; epoch < 100; ++epoch) {
+    for (int epoch = 0; epoch < 10000; ++epoch) {
         // Train on sample 1
         tinynet_train_on_sample_parallel(&net, input1, target1, 0.01f, 2);
         
         // Train on sample 2
         tinynet_train_on_sample_parallel(&net, input2, target2, 0.01f, 2);
         
-        if ((epoch + 1) % 20 == 0) {
+        if ((epoch + 1) % 1000 == 0) {
             float pred1 = tinynet_predict(&net, input1);
             float pred2 = tinynet_predict(&net, input2);
             float loss1 = (pred1 - target1) * (pred1 - target1);
@@ -161,7 +161,7 @@ int main(int argc, char* argv[]) {
     printf("\n");
     
     // Run benchmark
-    benchmark_training(10, 5);
+    benchmark_training(100, 50);
     
     return 0;
 }
