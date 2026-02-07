@@ -36,6 +36,8 @@ static const float kAlignWeight = 0.050f;
 static const float kCohesionWeight = 0.0030f;
 static const float kSeparationWeight = 0.140f;
 static const float kObstacleWeight = 0.180f;
+static const float kWaterDrag = 0.985f;
+static const float kPostBurstDrag = 0.920f;
 
 struct Boid
 {
@@ -353,6 +355,12 @@ static void update_range(int startIndex, int endIndex)
 			if (burstTimer == 0)
 				burstCooldown = 20;
 		}
+
+		float drag = kWaterDrag;
+		if (burstTimer == 0 && burstCooldown > 0)
+			drag = kPostBurstDrag;
+		out->vx *= drag;
+		out->vy *= drag;
 
 		limit_speed(&out->vx, &out->vy, minSpeed, maxSpeed);
 		out->speedBias = b->speedBias;
