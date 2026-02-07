@@ -11,9 +11,8 @@ else
 endif
 
 TARGET = tinychess
-TRAIN_TARGET = train_example
 
-default: $(TARGET) $(TRAIN_TARGET)
+default: $(TARGET)
 
 # Directories
 src_dir = .
@@ -81,18 +80,12 @@ $(bin_dir)/%.o: $(src_dir)/%.c | $(bin_dir)
 $(TARGET): $(sdk_dir)/libsandpiper.a $(tinychess_objs)
 	$(ARM_GCC) $(ARM_GCC_OPTS) -o $@ $(tinychess_objs) -L$(sdk_dir) -lsandpiper $(ARM_GCC_LIBS)
 
-# Build train_example
-$(TRAIN_TARGET): $(sdk_dir)/libsandpiper.a $(train_example_objs)
-	$(ARM_GCC) $(ARM_GCC_OPTS) -o $@ $(train_example_objs) -L$(sdk_dir) -lsandpiper $(ARM_GCC_LIBS)
-
 .PHONY: clean
 clean:
 ifeq ($(UNAME), Windows)
 	@-del /F /Q $(TARGET)
-	@-del /F /Q $(TRAIN_TARGET)
 	@-rmdir /S /Q $(bin_dir)
 else
 	@-rm -f $(TARGET)
-	@-rm -f $(TRAIN_TARGET)
 	@-rm -rf $(bin_dir)
 endif
