@@ -10,6 +10,14 @@ else
 	endif
 endif
 
+TARGET = quake
+
+default: $(TARGET)
+
+# Directories
+bin_dir = bin
+sdk_dir = ../../SDK
+
 ifeq ($(UNAME), Windows)
 # Windows
 ARM_GCC ?= arm-none-linux-gnueabihf-gcc
@@ -24,11 +32,14 @@ endif
 ARM_GCC_OPTS = -std=gnu99 -Ofast -flto -mcpu=cortex-a9 -mfpu=neon -mfloat-abi=hard -Wno-stringop-overflow -Wno-address-of-packed-member -Wno-unused-result -Wno-format-security
 ARM_GCC_LIBS = -lgcc -lc -lm
 
-SOURCES_quake_arch := \
-	../../SDK/src/platform.c \
-	../../SDK/src/vpu.c \
-	../../SDK/src/vcp.c \
-	../../SDK/src/apu.c \
+incs = -I$(sdk_dir)/include -Iinclude -Iwinquake -Isandpiper -I.
+
+# Source files
+SOURCES := \
+	$(sdk_dir)/src/platform.c \
+	$(sdk_dir)/src/vpu.c \
+	$(sdk_dir)/src/vcp.c \
+	$(sdk_dir)/src/apu.c \
 	sandpiper/platformav.c \
 	sandpiper/fio.c \
 	sandpiper/main.c \
@@ -100,17 +111,34 @@ SOURCES_quake_arch := \
 	winquake/net_none.c \
 	$(NULL)
 
-all: quake
+# Object files in bin directory (flattened - all .o files go to bin/)
+objs := $(addprefix $(bin_dir)/,$(notdir $(SOURCES:.c=.o)))
 
-incs = -I../../SDK/include -Iinclude -Iwinquake -Isandpiper -I.
+# Create bin directory
+$(bin_dir):
+	@mkdir $(bin_dir)
 
-quake: $(SOURCES_quake_arch)
-	@$(ARM_GCC) $(ARM_GCC_OPTS) -o quake $(incs) $(SOURCES_quake_arch) $(ARM_GCC_LIBS)
+# Build SDK library if needed
+$(sdk_dir)/libsandpiper.a:
+	$(MAKE) -C $(sdk_dir)
 
-.PHONY: all clean
+# VPATH to find source files in subdirectories
+vpath %.c $(sort $(dir $(SOURCES)))
+
+# Compile .c files
+$(bin_dir)/%.o: %.c | $(bin_dir)
+	$(ARM_GCC) $(ARM_GCC_OPTS) $(incs) -c $< -o $@
+
+# Link target
+$(TARGET): $(sdk_dir)/libsandpiper.a $(objs)
+	$(ARM_GCC) $(ARM_GCC_OPTS) -o $@ $(objs) -L$(sdk_dir) -lsandpiper $(ARM_GCC_LIBS)
+
+.PHONY: clean
 clean:
 ifeq ($(UNAME), Windows)
-	@-del /F /Q quake
+	@-del /F /Q $(TARGET)
+	@-rmdir /S /Q $(bin_dir)
 else
-	@-rm -f quake
+	@-rm -f $(TARGET)
+	@-rm -rf $(bin_dir)
 endif
