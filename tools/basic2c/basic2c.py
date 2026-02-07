@@ -504,8 +504,8 @@ class BasicProgram:
         lines.append("")
         lines.append("int main(void) {")
         if self.variables:
-            decls = ", ".join(sorted(f"double {v}=0.0" for v in self.variables))
-            lines.append(f"    {decls};")
+            decls = ", ".join(sorted(f"{v}=0.0" for v in self.variables))
+            lines.append(f"    double {decls};")
         for name, size in sorted(self.arrays.items()):
             lines.append(f"    double {name}[{size}] = {{0}};")
         lines.append("    goto L" + str(self.statements[0].line) + ";")
