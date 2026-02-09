@@ -64,5 +64,12 @@ jobs:
           git config --local user.name "github-actions[bot]"
           git add SDK/libsandpiper.a
           git diff --staged --quiet || git commit -m "Auto-build: Update libsandpiper.a [skip ci]"
-          git pull --rebase --autostash origin main || git pull --rebase --autostash origin master || true
-          git push
+          BRANCH="${GITHUB_REF_NAME:-main}"
+          git fetch origin
+          git rebase origin/$BRANCH || {
+            echo "Rebase conflict detected — resolving with freshly built library..."
+            git diff --name-only --diff-filter=U | xargs -r git checkout --theirs --
+            git add -A
+            GIT_EDITOR=true git rebase --continue
+          }
+          git push origin HEAD:$BRANCH
