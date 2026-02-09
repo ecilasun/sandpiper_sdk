@@ -247,6 +247,26 @@ void VPUSetScanoutAddress2(struct EVideoContext *_context, const uint32_t _scanO
 	videowrite32(_context->m_platform, 0, _scanOutAddress64ByteAligned);
 }
 
+/*
+ * Sets the scanout address for layer B.
+ * The address must be 64-byte aligned.
+ */
+void VPUSetScanoutAddressB(struct EVideoContext *_context, const uint32_t _scanOutAddress64ByteAligned)
+{
+	videowrite32(_context->m_platform, 0, VPUCMD_SETVPAGE_B);
+	videowrite32(_context->m_platform, 0, _scanOutAddress64ByteAligned);
+}
+
+/*
+ * Sets the second scanout address for layer B (used by sync-swap).
+ * The address must be 64-byte aligned.
+ */
+void VPUSetScanoutAddress2B(struct EVideoContext *_context, const uint32_t _scanOutAddress64ByteAligned)
+{
+	videowrite32(_context->m_platform, 0, VPUCMD_SETVPAGE2_B);
+	videowrite32(_context->m_platform, 0, _scanOutAddress64ByteAligned);
+}
+
  /*
   * Initiates a (optionally) vsynced swap between the two video pages set up by
   * VPUSetScanoutAddress and VPUSetScanoutAddress2.
@@ -255,6 +275,29 @@ void VPUSetScanoutAddress2(struct EVideoContext *_context, const uint32_t _scanO
 void VPUSyncSwap(struct EVideoContext *_context, uint8_t _donotwaitforvsync)
 {
 	videowrite32(_context->m_platform, 0, (_donotwaitforvsync<<8) | VPUCMD_SYNCSWAP);
+}
+
+/*
+ * Initiates a (optionally) vsynced swap between layer B buffers.
+ * If _donotwaitforvsync is non-zero, the swap will not wait for vertical sync.
+ */
+void VPUSyncSwapB(struct EVideoContext *_context, uint8_t _donotwaitforvsync)
+{
+	videowrite32(_context->m_platform, 0, (_donotwaitforvsync<<8) | VPUCMD_SYNCSWAP_B);
+}
+
+/*
+ * Sets layer B mix mode and key color (RGB565) for layer blending.
+ * _layerBEnable enables dual-layer mode when set to 1.
+ * _mixMode selects the blend mode (0-4 per hardware).
+ */
+void VPUSetMixMode(struct EVideoContext *_context, uint8_t _layerBEnable, uint8_t _mixMode, uint16_t _keyColorRGB565)
+{
+	uint32_t cmd = VPUCMD_SETMIXMODE
+		| ((_layerBEnable & 0x1) << 8)
+		| ((_mixMode & 0x7) << 9)
+		| (((uint32_t)_keyColorRGB565 & 0xFFFF) << 12);
+	videowrite32(_context->m_platform, 0, cmd);
 }
 
 /*

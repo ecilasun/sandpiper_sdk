@@ -9,6 +9,7 @@ For normal operation it is sufficient to clone this repo and place it in any con
 
 ## Usage
 Please check out the samples/ directory to learn how to build and how certain hardware components work.
+Notable sample: samples/vpu_layers_demo shows layer B scanout, mix modes, and keycolor transparency.
 
 ## Copying files to the emulator
 First, install winscp, then use the following command line to copy binaries to current remote directory.
