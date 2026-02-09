@@ -65,7 +65,7 @@ static const uint16_t s_sandpiper_sprite[SPRITE_W * SPRITE_H] = {
 	K,K,K,K,K,K,K,K,B,K,K,K,K,K,B,B,B,B,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,B,K,K,K,K,K,K,
 	K,K,K,K,B,B,B,B,B,B,B,K,B,B,B,B,B,B,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,B,B,K,K,K,K,K,
 	K,K,K,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,B,B,B,B,B,K,K,
-	K,K,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,B,B,B,B,B,K,K,
+	K,K,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,B,B,B,B,B,K,
 	K,K,K,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,W,W,W,W,W,W,W,W,W,W,W,W,W,W,K,K,B,B,B,B,K,K,
 	K,K,K,K,K,K,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,K,K,K,B,B,B,K,K,
 	K,K,K,K,K,K,K,K,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,K,K,K,B,B,K,K,
