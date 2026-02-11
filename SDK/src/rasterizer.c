@@ -46,7 +46,11 @@ static inline int32_t edge_eval_at(const edge_plane_t *edge,
                                    int32_t x, int32_t y)
 {
     // edge = a*x + b*y + c
-    return edge->a * (x >> 16) + edge->b * (y >> 16) + edge->c;
+    // x and y are in 16.16 fixed-point, edge coefficients are integers
+    // Preserve fractional part: (a*x + b*y) >> 16 + c
+    int64_t ax = (int64_t)edge->a * x;  // 32-bit * 32-bit = 64-bit
+    int64_t by = (int64_t)edge->b * y;
+    return (int32_t)((ax + by) >> 16) + edge->c;
 }
 
 // This is defined in the .S file
