@@ -107,9 +107,9 @@ void RPURasterize(const triangle_t *tri, raster_block_t *screen_blocks, int scre
     // Sweep through all blocks in bounding box
     for (int block_y = min_block_y; block_y < max_block_y; block_y++) {
         for (int block_x = min_block_x; block_x < max_block_x; block_x++) {
-            // Evaluate this block
-            fixed16_t px = FLOAT_TO_FIXED16((float)(block_x * 4));
-            fixed16_t py = FLOAT_TO_FIXED16((float)(block_y * 4));
+            // Evaluate at pixel centers: (block * 4 + 0.5) in fixed-point
+            fixed16_t px = INT_TO_FIXED16(block_x * 4) + FIXED16_HALF;
+            fixed16_t py = INT_TO_FIXED16(block_y * 4) + FIXED16_HALF;
             
             int block_idx = block_y * num_blocks_x + block_x;
             rasterizer_eval_4x4_neon(tri, px, py, &screen_blocks[block_idx]);

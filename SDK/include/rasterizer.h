@@ -13,6 +13,8 @@ typedef int32_t fixed16_t;
 #define FIXED16_TO_FLOAT(f) ((float)(f) / 65536.0f)
 #define FIXED16_INT(f) ((f) >> 16)
 #define FIXED16_FRAC(f) ((f) & 0xFFFF)
+#define INT_TO_FIXED16(i) ((fixed16_t)((i) << 16))
+#define FIXED16_HALF (0x8000)  // 0.5 in 16.16 format
 
 // Edge plane equation: e = a*x + b*y + c
 typedef struct {
