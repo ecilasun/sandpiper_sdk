@@ -28,12 +28,17 @@ void RPUInitPrimitive(triangle_t *tri, float x0, float y0, float x1, float y1, f
    
     for (int i = 0; i < 3; i++) {
         int next = (i + 1) % 3;
-        int32_t dx = tri->x[next] - tri->x[i];
-        int32_t dy = tri->y[next] - tri->y[i];
+        // Convert to integer space for edge coefficients
+        int32_t dx = FIXED16_INT(tri->x[next] - tri->x[i]);
+        int32_t dy = FIXED16_INT(tri->y[next] - tri->y[i]);
         
-        tri->edges[i].a = dy;   // ddx
-        tri->edges[i].b = -dx;  // ddy
-        tri->edges[i].c = -(dy * tri->x[i] + tri->edges[i].b * tri->y[i]);
+        tri->edges[i].a = dy;   // ddx (integer units per pixel)
+        tri->edges[i].b = -dx;  // ddy (integer units per pixel)
+        
+        // Compute c using integer coordinates
+        int32_t x0 = FIXED16_INT(tri->x[i]);
+        int32_t y0 = FIXED16_INT(tri->y[i]);
+        tri->edges[i].c = -(dy * x0 + tri->edges[i].b * y0);
     }
 }
 
