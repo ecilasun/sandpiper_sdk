@@ -107,23 +107,26 @@ rasterizer_eval_4x4_neon_impl:
     vmov.u32 r4, d21[0]             /* pixel 2 of row */
     vmov.u32 r5, d21[1]             /* pixel 3 of row */
     
-    /* Shift and OR into accumulator: bit position = row * 4 + pixel_x */
-    /* Calculate base shift: r1 * 4 */
-    lsl r11, r1, #2                 /* r11 = row * 4 */
-    
-    lsl r2, r2, r11                 /* pixel 0: shift by row * 4 + 0 */
+    /* Pack bits: bit position = row * 4 + pixel_col */
+    /* Calculate base bit position for this row (row * 4) using lsl */
+    /* r1 = row, so row*4 = r1 << 2 */
+    lsl r2, r2, r1, lsl #2          /* pixel 0 << (row * 4) */
     orr r0, r0, r2
     
-    add r11, r11, #1                /* row * 4 + 1 */
-    lsl r3, r3, r11
+    /* pixel 1: shift by row*4 + 1 */
+    add r2, r1, r1, lsl #2          /* r2 = r1 + r1*4 = r1*5 (wrong!) */
+    /* Actually, we need a temp for row*4. Since we can't nest shifts, calculate it first */
+    lsl r14, r1, #2                 /* r14 = row * 4 */
+    add r2, r14, #1                 /* r2 = row * 4 + 1 */
+    lsl r3, r3, r2
     orr r0, r0, r3
     
-    add r11, r11, #1                /* row * 4 + 2 */
-    lsl r4, r4, r11
+    add r2, r14, #2                 /* row * 4 + 2 */
+    lsl r4, r4, r2
     orr r0, r0, r4
     
-    add r11, r11, #1                /* row * 4 + 3 */
-    lsl r5, r5, r11
+    add r2, r14, #3                 /* row * 4 + 3 */
+    lsl r5, r5, r2
     orr r0, r0, r5
     
     add r1, r1, #1
