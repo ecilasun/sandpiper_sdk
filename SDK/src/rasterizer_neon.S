@@ -88,10 +88,10 @@ rasterizer_eval_4x4_neon_impl:
     vdup.s32 q13, r3
     vadd.s32 q12, q12, q13
     
-    /* Test: e <= 0 for all three edges (inside triangle) - try reversed test */
-    vcle.s32 q10, q10, #0           /* q10 (e0 <= 0) */
-    vcle.s32 q11, q11, #0           /* q11 (e1 <= 0) */
-    vcle.s32 q12, q12, #0           /* q12 (e2 <= 0) */
+    /* Test: e >= 0 for all three edges (inside triangle) */
+    vcge.s32 q10, q10, #0           /* q10 (e0 >= 0) */
+    vcge.s32 q11, q11, #0           /* q11 (e1 >= 0) */
+    vcge.s32 q12, q12, #0           /* q12 (e2 >= 0) */
     
     /* AND them together */
     vand.u32 q10, q10, q11
