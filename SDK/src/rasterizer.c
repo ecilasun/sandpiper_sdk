@@ -145,9 +145,12 @@ void RPUResolve(const raster_block_t *screen_blocks, uint16_t *output, int scree
                     if (screen_x >= screen_width || screen_y >= screen_height)
                         continue;
                     
-                    int pixel_idx = py * 4 + px;
+                    // Extract bit from packed mask: bit = (row * 4 + col)
+                    int bit_idx = py * 4 + px;
+                    uint16_t pixel_val = (block->mask & (1 << bit_idx)) ? 0xFFFF : 0x0000;
+                    
                     int output_idx = screen_y * screen_width + screen_x;
-                    output[output_idx] = block->mask[pixel_idx];
+                    output[output_idx] = pixel_val;
                 }
             }
         }

@@ -13,7 +13,7 @@
  *     int32_t e0, int32_t e1, int32_t e2,        r0-r2
  *     int32_t ddx0, int32_t ddx1, int32_t ddx2,  r3, [sp+0], [sp+4]
  *     int32_t ddy0, int32_t ddy1, int32_t ddy2,  [sp+8], [sp+12], [sp+16]
- *     uint16_t *mask_out                         [sp+20]
+ *     uint16_t *mask_out                         [sp+20] - now just a single uint16_t
  * )
  */
     .globl rasterizer_eval_4x4_neon_impl
@@ -60,32 +60,33 @@ rasterizer_eval_4x4_neon_impl:
     vmul.s32 q8, q6, q1             /* q8 = x_offset for edge 1 */
     vmul.s32 q9, q6, q2             /* q9 = x_offset for edge 2 */
     
-    /* Process each row */
-    mov r0, #0                      /* row counter */
+    /* Accumulate mask bits in r0 (will build final 16-bit mask) */
+    mov r0, #0
+    mov r1, #0                      /* row counter */
     
 .row_loop:
-    cmp r0, #4
+    cmp r1, #4
     bge .done
     
     /* Compute y offset for this row */
-    mul r1, r0, r6                  /* r1 = row * ddy0 */
-    mul r2, r0, r7                  /* r2 = row * ddy1 */
-    mul r3, r0, r8                  /* r3 = row * ddy2 */
+    mul r2, r1, r6                  /* r2 = row * ddy0 */
+    mul r3, r1, r7                  /* r3 = row * ddy1 */
+    mul r4, r1, r8                  /* r4 = row * ddy2 */
     
     /* Compute edge values: e[i] + x_offset[i] + y_offset */
     vdup.s32 q10, r10               /* q10 = [e0, e0, e0, e0] */
     vadd.s32 q10, q10, q7           /* Add x offsets */
-    vdup.s32 q13, r1
+    vdup.s32 q13, r2
     vadd.s32 q10, q10, q13          /* Add y offset */
     
     vdup.s32 q11, r11               /* q11 = [e1, e1, e1, e1] */
     vadd.s32 q11, q11, q8
-    vdup.s32 q13, r2
+    vdup.s32 q13, r3
     vadd.s32 q11, q11, q13
     
     vdup.s32 q12, r12               /* q12 = [e2, e2, e2, e2] */
     vadd.s32 q12, q12, q9
-    vdup.s32 q13, r3
+    vdup.s32 q13, r4
     vadd.s32 q12, q12, q13
     
     /* Test: e >= 0 for all three edges (inside triangle) */
@@ -95,18 +96,43 @@ rasterizer_eval_4x4_neon_impl:
     
     /* AND them together */
     vand.u32 q10, q10, q11
-    vand.u32 q10, q10, q12          /* q10 = final mask */
+    vand.u32 q10, q10, q12          /* q10 = final mask (4 × 32-bit) */
     
-    /* Convert from 32-bit to 16-bit (use d0 to avoid read-write conflict) */
-    vmovn.i32 d0, q10               /* d0 = 4 × 16-bit values */
+    /* Extract bits: shift right by 31 to get 0 or 1 for each pixel */
+    vshr.u32 q10, q10, #31          /* q10 = [0/1, 0/1, 0/1, 0/1] as 32-bit */
     
-    /* Store to output */
-    vst1.u16 {d0}, [r9]!
+    /* Extract scalar values and pack into bits */
+    vmov.u32 r2, d20[0]             /* pixel 0 of row */
+    vmov.u32 r3, d20[1]             /* pixel 1 of row */
+    vmov.u32 r4, d21[0]             /* pixel 2 of row */
+    vmov.u32 r5, d21[1]             /* pixel 3 of row */
     
-    add r0, r0, #1
+    /* Shift and OR into accumulator: row * 4 + pixel_x */
+    lsl r2, r2, r1, lsl #2          /* r2 << (row * 4 + 0) */
+    orr r0, r0, r2
+    
+    add r2, r1, r1, lsl #2          /* r2 = row * 4 + 1 */
+    add r2, r2, #1
+    lsl r3, r3, r2
+    orr r0, r0, r3
+    
+    add r2, r1, r1, lsl #2          /* r2 = row * 4 + 2 */
+    add r2, r2, #2
+    lsl r4, r4, r2
+    orr r0, r0, r4
+    
+    add r2, r1, r1, lsl #2          /* r2 = row * 4 + 3 */
+    add r2, r2, #3
+    lsl r5, r5, r2
+    orr r0, r0, r5
+    
+    add r1, r1, #1
     b .row_loop
     
 .done:
+    /* Store final 16-bit mask */
+    strh r0, [r9]
+    
     vpop {d8-d15}
     pop {r4-r11, pc}
 

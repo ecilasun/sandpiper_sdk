@@ -39,8 +39,10 @@ typedef struct {
 
 // Tile output from rasterizer: 4x4 pixels laid out in linear format
 typedef struct {
-    // Mask per pixel (1: inside, 0: outside)
-    uint16_t mask[16];
+    // Mask per pixel: bit 0-15 (1: inside, 0: outside)
+    // Layout: bit 0 = (0,0), bit 1 = (1,0), bit 2 = (2,0), bit 3 = (3,0)
+    //         bit 4 = (0,1), bit 5 = (1,1), etc.
+    uint16_t mask;
     
     int32_t ddx[3];
     int32_t ddy[3];

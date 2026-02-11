@@ -18,7 +18,7 @@ static struct SPPlatform* s_platform = NULL;
 static struct SPSizeAlloc frameBufferA;
 static struct SPSizeAlloc frameBufferB;
 
-// Display raw mask data as it appears in memory (linear, not as 4x4 blocks)
+// Display raw mask data as 16-bit values (not interpreting as bits)
 static void DisplayRawRasterBlocks(const raster_block_t *screen_blocks, uint16_t *output, int screen_width, int screen_height)
 {
     int num_blocks_x = (screen_width + 3) / 4;
@@ -28,15 +28,13 @@ static void DisplayRawRasterBlocks(const raster_block_t *screen_blocks, uint16_t
     // Clear output first
     memset(output, 0, screen_width * screen_height * sizeof(uint16_t));
     
-    // Display mask data linearly: each block's 16 pixels in sequence, wrapping at screen width
-    int output_pixel = 0;
-    for (int block_idx = 0; block_idx < total_blocks && output_pixel < screen_width * screen_height; block_idx++) {
+    // Display mask data as raw 16-bit values
+    int output_idx = 0;
+    for (int block_idx = 0; block_idx < total_blocks && output_idx < screen_width * screen_height; block_idx++) {
         const raster_block_t *block = &screen_blocks[block_idx];
         
-        // Output all 16 mask values from this block sequentially
-        for (int i = 0; i < 16 && output_pixel < screen_width * screen_height; i++) {
-            output[output_pixel++] = block->mask[i];
-        }
+        // Write the raw mask value directly as a pixel
+        output[output_idx++] = block->mask;
     }
 }
 
