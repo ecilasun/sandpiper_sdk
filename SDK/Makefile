@@ -50,9 +50,12 @@ INCS = -I$(INC_DIR)
 
 # Source files
 C_SRCS := $(wildcard $(SRC_DIR)/*.c)
+ASM_SRCS := $(wildcard $(SRC_DIR)/*.S)
 
 # Object files
 C_OBJS := $(patsubst $(SRC_DIR)/%.c,$(OBJ_DIR)/%.o,$(C_SRCS))
+ASM_OBJS := $(patsubst $(SRC_DIR)/%.S,$(OBJ_DIR)/%.o,$(ASM_SRCS))
+ALL_OBJS := $(C_OBJS) $(ASM_OBJS)
 
 # Default target
 .PHONY: all
@@ -66,8 +69,12 @@ $(OBJ_DIR):
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c | $(OBJ_DIR)
 	$(ARM_CC) $(ARM_CC_OPTS) $(INCS) -c $< -o $@
 
+# Assemble ARM source files
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.S | $(OBJ_DIR)
+	$(ARM_CC) $(ARM_CC_OPTS) $(INCS) -c $< -o $@
+
 # Build static library
-$(TARGET): $(C_OBJS)
+$(TARGET): $(ALL_OBJS)
 	$(ARM_AR) rcs $@ $^
 	@echo "Built $(TARGET)"
 
