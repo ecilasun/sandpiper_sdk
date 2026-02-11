@@ -31,26 +31,26 @@
     .type rasterizer_eval_4x4_neon_impl, %function
 
 rasterizer_eval_4x4_neon_impl:
-    push {r4, lr}
+    push {r4-r12, lr}
     vpush {d8-d15}
     
     /* r0 = e0, r1 = e1, r2 = e2 */
     /* r3 = ddx0 */
-    /* stack offsets (from sp after push): 
-     *   0: ddx1
-     *   4: ddx2
-     *   8: ddy0
-     *  12: ddy1
-     *  16: ddy2
-     *  20: mask_out pointer
+    /* stack offsets (from sp after push {r4-r12, lr} and vpush {d8-d15}): 
+     *   100: ddx1
+     *   104: ddx2
+     *   108: ddy0
+     *   112: ddy1
+     *   116: ddy2
+     *   120: mask_out pointer
      */
     
-    ldr r4, [sp, #72]               /* r4 = ddx1 (offset 0 + 64 for vpush, 8 for push) */
-    ldr r5, [sp, #76]               /* r5 = ddx2 */
-    ldr r6, [sp, #80]               /* r6 = ddy0 */
-    ldr r7, [sp, #84]               /* r7 = ddy1 */
-    ldr r8, [sp, #88]               /* r8 = ddy2 */
-    ldr r9, [sp, #92]               /* r9 = mask_out */
+    ldr r4, [sp, #100]              /* r4 = ddx1 (offset 0 + 64 for vpush, 36 for push) */
+    ldr r5, [sp, #104]              /* r5 = ddx2 */
+    ldr r6, [sp, #108]              /* r6 = ddy0 */
+    ldr r7, [sp, #112]              /* r7 = ddy1 */
+    ldr r8, [sp, #116]              /* r8 = ddy2 */
+    ldr r9, [sp, #120]              /* r9 = mask_out */
     
     /* Load and splat X step values into NEON registers */
     vdup.s32 q0, r3                 /* q0 = [ddx0, ddx0, ddx0, ddx0] */
@@ -134,7 +134,7 @@ rasterizer_eval_4x4_neon_impl:
     
 .row_done:
     vpop {d8-d15}
-    pop {r4, pc}
+    pop {r4-r12, pc}
 
     .size rasterizer_eval_4x4_neon_impl, .-rasterizer_eval_4x4_neon_impl
 
