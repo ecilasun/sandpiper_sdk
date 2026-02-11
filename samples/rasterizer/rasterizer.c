@@ -30,28 +30,20 @@ static void DisplayRawRasterBlocks(const raster_block_t *screen_blocks, uint16_t
             int block_idx = block_y * num_blocks_x + block_x;
             const raster_block_t *block = &screen_blocks[block_idx];
             
-            // Draw entire 4x4 block as a single color based on whether any pixels are set
+            // Draw actual mask values for each pixel
             int base_x = block_x * 4;
             int base_y = block_y * 4;
             
-            // Check if any pixel in mask is non-zero
-            uint16_t block_color = 0x0000;  // Black by default
-            for (int i = 0; i < 16; i++) {
-                if (block->mask[i] != 0) {
-                    block_color = 0xFFFF;  // White if any pixel is set
-                    break;
-                }
-            }
-            
-            // Fill entire 4x4 block with the color
+            // Display the actual mask for each pixel in the 4x4 block
             for (int py = 0; py < 4; py++) {
                 for (int px = 0; px < 4; px++) {
                     int screen_x = base_x + px;
                     int screen_y = base_y + py;
                     
                     if (screen_x < screen_width && screen_y < screen_height) {
+                        int pixel_idx = py * 4 + px;
                         int output_idx = screen_y * screen_width + screen_x;
-                        output[output_idx] = block_color;
+                        output[output_idx] = block->mask[pixel_idx];
                     }
                 }
             }
