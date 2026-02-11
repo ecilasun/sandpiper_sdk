@@ -111,6 +111,31 @@ static inline void set_pixel16(uint16_t* fb, uint32_t stride, int x, int y, uint
 	fb[y * (stride >> 1) + x] = color;
 }
 
+static inline uint16_t get_pixel16(uint16_t* fb, uint32_t stride, int x, int y)
+{
+	if (x < 0 || y < 0 || x >= VIDEO_WIDTH || y >= VIDEO_HEIGHT)
+		return 0;
+	return fb[y * (stride >> 1) + x];
+}
+
+static inline uint16_t blend_rgb16(uint16_t fg, uint16_t bg, int alpha)
+{
+	// alpha from 0-4 (representing 0/4 to 4/4 coverage)
+	int r_fg = (fg >> 11) & 0x1F;
+	int g_fg = (fg >> 5) & 0x3F;
+	int b_fg = fg & 0x1F;
+	
+	int r_bg = (bg >> 11) & 0x1F;
+	int g_bg = (bg >> 5) & 0x3F;
+	int b_bg = bg & 0x1F;
+	
+	int r = (r_fg * alpha + r_bg * (4 - alpha)) / 4;
+	int g = (g_fg * alpha + g_bg * (4 - alpha)) / 4;
+	int b = (b_fg * alpha + b_bg * (4 - alpha)) / 4;
+	
+	return MAKECOLORRGB16(r, g, b);
+}
+
 static void draw_filled_circle16(uint16_t* fb, uint32_t stride, int cx, int cy, int radius, uint16_t color)
 {
 	int r2 = radius * radius;
@@ -163,31 +188,6 @@ static void draw_filled_circle16(uint16_t* fb, uint32_t stride, int cx, int cy, 
 static inline int edge_fn(int x0, int y0, int x1, int y1, int x, int y)
 {
 	return (x - x0) * (y1 - y0) - (y - y0) * (x1 - x0);
-}
-
-static inline uint16_t get_pixel16(uint16_t* fb, uint32_t stride, int x, int y)
-{
-	if (x < 0 || y < 0 || x >= VIDEO_WIDTH || y >= VIDEO_HEIGHT)
-		return 0;
-	return fb[y * (stride >> 1) + x];
-}
-
-static inline uint16_t blend_rgb16(uint16_t fg, uint16_t bg, int alpha)
-{
-	// alpha from 0-4 (representing 0/4 to 4/4 coverage)
-	int r_fg = (fg >> 11) & 0x1F;
-	int g_fg = (fg >> 5) & 0x3F;
-	int b_fg = fg & 0x1F;
-	
-	int r_bg = (bg >> 11) & 0x1F;
-	int g_bg = (bg >> 5) & 0x3F;
-	int b_bg = bg & 0x1F;
-	
-	int r = (r_fg * alpha + r_bg * (4 - alpha)) / 4;
-	int g = (g_fg * alpha + g_bg * (4 - alpha)) / 4;
-	int b = (b_fg * alpha + b_bg * (4 - alpha)) / 4;
-	
-	return MAKECOLORRGB16(r, g, b);
 }
 
 static void fill_triangle16(uint16_t* fb, uint32_t stride, int x0, int y0, int x1, int y1, int x2, int y2, uint16_t color)
