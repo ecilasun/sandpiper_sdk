@@ -114,19 +114,49 @@ static inline void set_pixel16(uint16_t* fb, uint32_t stride, int x, int y, uint
 static void draw_filled_circle16(uint16_t* fb, uint32_t stride, int cx, int cy, int radius, uint16_t color)
 {
 	int r2 = radius * radius;
-	for (int y = -radius; y <= radius; ++y)
+	int minx = cx - radius;
+	int maxx = cx + radius;
+	int miny = cy - radius;
+	int maxy = cy + radius;
+	
+	if (maxx < 0 || maxy < 0 || minx >= VIDEO_WIDTH || miny >= VIDEO_HEIGHT)
+		return;
+	
+	if (minx < 0) minx = 0;
+	if (miny < 0) miny = 0;
+	if (maxx >= VIDEO_WIDTH) maxx = VIDEO_WIDTH - 1;
+	if (maxy >= VIDEO_HEIGHT) maxy = VIDEO_HEIGHT - 1;
+	
+	// 2x2 MSAA for antialiased circles
+	for (int y = miny; y <= maxy; ++y)
 	{
-		int yy = y * y;
-		int dx = (int)sqrtf((float)(r2 - yy));
-		int x0 = cx - dx;
-		int x1 = cx + dx;
-		int py = cy + y;
-		if (py < 0 || py >= VIDEO_HEIGHT)
-			continue;
-		if (x0 < 0) x0 = 0;
-		if (x1 >= VIDEO_WIDTH) x1 = VIDEO_WIDTH - 1;
-		for (int x = x0; x <= x1; ++x)
-			set_pixel16(fb, stride, x, py, color);
+		for (int x = minx; x <= maxx; ++x)
+		{
+			int inside_count = 0;
+			
+			// Test at 4 sub-pixel positions (2x2 grid)
+			for (int sy = y * 2; sy < y * 2 + 2; ++sy)
+			{
+				for (int sx = x * 2; sx < x * 2 + 2; ++sx)
+				{
+					int dx = sx - cx * 2;
+					int dy = sy - cy * 2;
+					int dist2 = dx * dx + dy * dy;
+					int r2_scaled = r2 * 4;
+					
+					if (dist2 <= r2_scaled)
+						inside_count++;
+				}
+			}
+			
+			// Blend based on coverage
+			if (inside_count > 0)
+			{
+				uint16_t bg = get_pixel16(fb, stride, x, y);
+				uint16_t blended = blend_rgb16(color, bg, inside_count);
+				set_pixel16(fb, stride, x, y, blended);
+			}
+		}
 	}
 }
 
