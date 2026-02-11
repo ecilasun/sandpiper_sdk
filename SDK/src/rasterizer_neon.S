@@ -88,20 +88,20 @@ rasterizer_eval_4x4_neon_impl:
     vdup.s32 q13, r3
     vadd.s32 q12, q12, q13
     
-    /* Test: e >= 0 for all three edges */
-    vcge.s32 q10, q10, #0           /* q10 (e0 >= 0) */
-    vcge.s32 q11, q11, #0           /* q11 (e1 >= 0) */
-    vcge.s32 q12, q12, #0           /* q12 (e2 >= 0) */
+    /* Test: e <= 0 for all three edges (inside triangle) - try reversed test */
+    vcle.s32 q10, q10, #0           /* q10 (e0 <= 0) */
+    vcle.s32 q11, q11, #0           /* q11 (e1 <= 0) */
+    vcle.s32 q12, q12, #0           /* q12 (e2 <= 0) */
     
     /* AND them together */
     vand.u32 q10, q10, q11
     vand.u32 q10, q10, q12          /* q10 = final mask */
     
-    /* Convert from 32-bit to 16-bit */
-    vmovn.i32 d20, q10              /* d20 = 4 × 16-bit values */
+    /* Convert from 32-bit to 16-bit (use d0 to avoid read-write conflict) */
+    vmovn.i32 d0, q10               /* d0 = 4 × 16-bit values */
     
     /* Store to output */
-    vst1.u16 {d20}, [r9]!
+    vst1.u16 {d0}, [r9]!
     
     add r0, r0, #1
     b .row_loop
