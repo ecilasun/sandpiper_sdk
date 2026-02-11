@@ -10,7 +10,7 @@ else
 	endif
 endif
 
-TARGET = scroll
+TARGET = rasterizer
 
 default: $(TARGET)
 
