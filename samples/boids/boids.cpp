@@ -154,14 +154,30 @@ static void fill_triangle16(uint16_t* fb, uint32_t stride, int x0, int y0, int x
 	if (area == 0)
 		return;
 
+	// 2x2 MSAA - antialiased rasterization
 	for (int y = miny; y <= maxy; ++y)
 	{
 		for (int x = minx; x <= maxx; ++x)
 		{
-			int w0 = edge_fn(x1, y1, x2, y2, x, y);
-			int w1 = edge_fn(x2, y2, x0, y0, x, y);
-			int w2 = edge_fn(x0, y0, x1, y1, x, y);
-			if ((w0 >= 0 && w1 >= 0 && w2 >= 0 && area > 0) || (w0 <= 0 && w1 <= 0 && w2 <= 0 && area < 0))
+			int inside_count = 0;
+			int scaled_area = area * 4;
+			
+			// Test at 4 sub-pixel positions (2x2 grid)
+			for (int sy = y * 2; sy < y * 2 + 2; ++sy)
+			{
+				for (int sx = x * 2; sx < x * 2 + 2; ++sx)
+				{
+					int w0 = edge_fn(x1 * 2, y1 * 2, x2 * 2, y2 * 2, sx, sy);
+					int w1 = edge_fn(x2 * 2, y2 * 2, x0 * 2, y0 * 2, sx, sy);
+					int w2 = edge_fn(x0 * 2, y0 * 2, x1 * 2, y1 * 2, sx, sy);
+					
+					if ((w0 >= 0 && w1 >= 0 && w2 >= 0 && scaled_area > 0) || (w0 <= 0 && w1 <= 0 && w2 <= 0 && scaled_area < 0))
+						inside_count++;
+				}
+			}
+			
+			// Draw pixel if any sample is inside the triangle
+			if (inside_count > 0)
 				set_pixel16(fb, stride, x, y, color);
 		}
 	}
