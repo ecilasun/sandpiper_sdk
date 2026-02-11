@@ -45,12 +45,12 @@ rasterizer_eval_4x4_neon_impl:
      *  20: mask_out pointer
      */
     
-    ldr r4, [sp, #32]               /* r4 = ddx1 (offset 0 + 8 for vpush, 8 for push, 16 base) */
-    ldr r5, [sp, #36]               /* r5 = ddx2 */
-    ldr r6, [sp, #40]               /* r6 = ddy0 */
-    ldr r7, [sp, #44]               /* r7 = ddy1 */
-    ldr r8, [sp, #48]               /* r8 = ddy2 */
-    ldr r9, [sp, #52]               /* r9 = mask_out */
+    ldr r4, [sp, #72]               /* r4 = ddx1 (offset 0 + 64 for vpush, 8 for push) */
+    ldr r5, [sp, #76]               /* r5 = ddx2 */
+    ldr r6, [sp, #80]               /* r6 = ddy0 */
+    ldr r7, [sp, #84]               /* r7 = ddy1 */
+    ldr r8, [sp, #88]               /* r8 = ddy2 */
+    ldr r9, [sp, #92]               /* r9 = mask_out */
     
     /* Load and splat X step values into NEON registers */
     vdup.s32 q0, r3                 /* q0 = [ddx0, ddx0, ddx0, ddx0] */
