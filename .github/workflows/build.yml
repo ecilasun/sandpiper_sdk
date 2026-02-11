@@ -1,23 +1,23 @@
-# GitHub Actions workflow to build the Sandpiper samples
+# GitHub Actions workflow to build the Sandpiper SDK and samples
 # Triggers on push and pull request events
 
-name: Build Samples
+name: Build SDK and Samples
 
 on:
   push:
     branches: [ main, master ]
     paths:
-      - 'samples/**'
       - 'SDK/**'
+      - 'samples/**'
       - '3rdparty/**'
-      - '.github/workflows/build-samples.yml'
+      - '.github/workflows/build.yml'
   pull_request:
     branches: [ main, master ]
     paths:
-      - 'samples/**'
       - 'SDK/**'
+      - 'samples/**'
       - '3rdparty/**'
-      - '.github/workflows/build-samples.yml'
+      - '.github/workflows/build.yml'
   workflow_dispatch:  # Allow manual triggering
 
 jobs:
@@ -46,7 +46,7 @@ jobs:
           arm-linux-gnueabihf-gcc --version
           arm-linux-gnueabihf-g++ --version
 
-      - name: Build SDK first
+      - name: Build SDK
         run: |
           cd SDK
           make clean || true
@@ -58,7 +58,14 @@ jobs:
           make clean || true
           make
 
-      - name: Upload build artifacts
+      - name: Upload SDK artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: libsandpiper
+          path: SDK/libsandpiper.a
+          retention-days: 30
+
+      - name: Upload sample artifacts
         uses: actions/upload-artifact@v4
         with:
           name: samples-binaries
@@ -73,13 +80,14 @@ jobs:
             !samples/**/Makefile
           retention-days: 30
 
-      - name: Commit and push built binaries
+      - name: Commit and push all built binaries
         if: github.event_name == 'push'
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-          git add -A samples
-          git diff --staged --quiet || git commit -m "Auto-build: Update sample binaries [skip ci]"
+          git add SDK/libsandpiper.a
+          git add samples/
+          git diff --staged --quiet || git commit -m "Auto-build: Update SDK and sample binaries [skip ci]"
           if [[ -n "$(git status --porcelain)" ]]; then
             echo "Working tree dirty before rebase. Showing status:"
             git status --porcelain
