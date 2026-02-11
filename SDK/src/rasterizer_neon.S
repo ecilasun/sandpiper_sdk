@@ -137,3 +137,5 @@ rasterizer_eval_4x4_neon_impl:
     pop {r4, pc}
 
     .size rasterizer_eval_4x4_neon_impl, .-rasterizer_eval_4x4_neon_impl
+
+    .section .note.GNU-stack,"",%progbits

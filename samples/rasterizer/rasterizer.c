@@ -1,20 +1,19 @@
 #include "rasterizer.h"
 #include <stdio.h>
 #include <stdint.h>
-
-/*
- * Example usage of the software rasterizer
- */
+#include <stdlib.h>
 
 int main(void)
 {
-    /* Initialize a triangle with vertices in floating-point */
+    int screen_width = 64;
+    int screen_height = 64;
+    
     triangle_t triangle;
     
     /* Define a simple triangle centered in the screen
      * Vertices: (10.5, 10.5), (50.5, 10.5), (30.5, 50.5)
      */
-    rasterizer_init_triangle(&triangle,
+    RPUInitPrimitive(&triangle,
                             10.5f, 10.5f,
                             50.5f, 10.5f,
                             30.5f, 50.5f);
@@ -32,33 +31,47 @@ int main(void)
                triangle.edges[i].a, triangle.edges[i].b, triangle.edges[i].c);
     }
     
-    /* Example: Rasterize a 4x4 block at position (10, 10) */
-    fixed16_t block_x = FLOAT_TO_FIXED16(10.0f);
-    fixed16_t block_y = FLOAT_TO_FIXED16(10.0f);
+    /* Allocate screen-sized block buffer */
+    int num_blocks_x = (screen_width + 3) / 4;
+    int num_blocks_y = (screen_height + 3) / 4;
+    raster_block_t *screen_blocks = (raster_block_t *)malloc(
+        num_blocks_x * num_blocks_y * sizeof(raster_block_t));
     
-    raster_block_t block_result;
-    rasterizer_eval_4x4_neon(&triangle, block_x, block_y, &block_result);
+    /* Rasterize entire triangle to screen blocks */
+    printf("\nRasterizing triangle to %dx%d screen (%dx%d blocks)...\n",
+           screen_width, screen_height, num_blocks_x, num_blocks_y);
+    RPURasterize(&triangle, screen_blocks, screen_width, screen_height);
     
-    printf("\n4x4 block at (10, 10):\n");
-    printf("  Linear pixel masks (in order):\n  ");
-    for (int i = 0; i < 16; i++) {
-        printf("%c ", block_result.mask[i] ? 'X' : '.');
-        if ((i + 1) % 4 == 0) printf("\n  ");
-    }
+    /* Allocate output buffer */
+    uint16_t *output = (uint16_t *)malloc(screen_width * screen_height * sizeof(uint16_t));
     
-    /* Unpack to tile format */
-    tile_t tile;
-    rasterizer_unpack_tile(&block_result, &tile);
+    /* Resolve entire screen */
+    printf("Resolving screen...\n");
+    RPUResolve(screen_blocks, output, screen_width, screen_height);
     
-    printf("\n4x4 tile representation:\n");
-    for (int row = 0; row < 4; row++) {
+    /* Display result */
+    printf("\nRasterized triangle (screen view):\n");
+    for (int y = 0; y < screen_height; y++) {
         printf("  ");
-        for (int col = 0; col < 4; col++) {
-            printf("%c ", tile.tile[row][col] ? 'X' : '.');
+        for (int x = 0; x < screen_width; x++) {
+            printf("%c", output[y * screen_width + x] ? 'X' : '.');
         }
         printf("\n");
     }
-    printf("  Coverage: %d/16 pixels\n", tile.coverage);
+    
+    /* Count total coverage */
+    int total_coverage = 0;
+    for (int y = 0; y < screen_height; y++) {
+        for (int x = 0; x < screen_width; x++) {
+            if (output[y * screen_width + x])
+                total_coverage++;
+        }
+    }
+    printf("\nTotal coverage: %d/%d pixels\n", total_coverage, screen_width * screen_height);
+    
+    /* Cleanup */
+    free(screen_blocks);
+    free(output);
     
     return 0;
 }
