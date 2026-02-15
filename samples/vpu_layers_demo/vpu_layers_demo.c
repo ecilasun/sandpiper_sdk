@@ -20,15 +20,15 @@
 #define VIDEO_WIDTH    320
 #define VIDEO_HEIGHT   240
 
-#define SPRITE_W 40
-#define SPRITE_H 40
+#define SPRITE_W 32
+#define SPRITE_H 32
 
 #define RGB565_CONST(_r, _g, _b) (uint16_t)((((_r) & 0xF8) << 8) | (((_g) & 0xFC) << 3) | (((_b) & 0xF8) >> 3))
 #define KEY_COLOR_565 0xF81F
-#define BODY_COLOR RGB565_CONST(180, 120, 60)
-#define WING_COLOR RGB565_CONST(120, 80, 40)
-#define BEAK_COLOR RGB565_CONST(250, 200, 40)
-#define EYE_COLOR RGB565_CONST(20, 20, 20)
+#define METAL_COLOR RGB565_CONST(180, 180, 200)
+#define DARK_METAL RGB565_CONST(80, 80, 100)
+#define LED_RED RGB565_CONST(255, 0, 0)
+#define LED_BLUE RGB565_CONST(0, 150, 255)
 
 static struct SPPlatform* s_platform = NULL;
 static struct SPSizeAlloc frameBufferA;
@@ -42,56 +42,48 @@ static inline uint16_t rgb565(uint8_t r, uint8_t g, uint8_t b)
 
 static const uint16_t s_sandpiper_sprite[SPRITE_W * SPRITE_H] = {
 #define K KEY_COLOR_565
-#define B BODY_COLOR
-#define W WING_COLOR
-#define Q BEAK_COLOR
-#define E EYE_COLOR
-	// 0-13
-	K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,
-	K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,
-	K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,
-	K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,
-	K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,W,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,
-	K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,K,K,K,K,K,K,K,K,K,K,
-	K,K,K,K,K,K,K,K,K,K,K,K,B,B,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,K,K,K,K,K,K,K,
-	K,K,K,K,K,K,K,K,K,K,B,B,B,B,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,K,K,K,K,K,
-	K,K,K,K,K,K,K,K,K,B,B,B,B,B,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,K,K,K,K,
-	K,K,K,K,K,K,K,K,K,B,B,B,B,B,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,K,K,K,K,
-	K,K,K,K,K,K,K,K,B,B,B,B,B,B,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,K,K,K,
-	K,K,K,K,K,K,K,K,K,B,B,B,B,B,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,K,K,K,K,
-	K,K,K,K,K,K,K,K,K,B,B,B,B,B,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,K,K,K,K,
-	K,K,K,K,K,K,K,K,K,K,B,B,B,B,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,K,K,K,K,K,
-	K,K,K,K,K,K,K,K,K,K,K,K,B,B,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,K,K,K,K,K,K,K,
-	K,K,K,K,K,K,K,K,B,K,K,K,K,K,B,B,B,B,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,B,K,K,K,K,K,K,
-	K,K,K,K,B,B,B,B,B,B,B,K,B,B,B,B,B,B,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,B,B,K,K,K,K,K,
-	K,K,K,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,B,B,B,B,B,K,K,
-	K,K,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,B,B,B,B,B,K,
-	K,K,K,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,W,W,W,W,W,W,W,W,W,W,W,W,W,W,K,K,B,B,B,B,K,K,
-	K,K,K,K,K,K,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,K,K,K,B,B,B,K,K,
-	K,K,K,K,K,K,K,K,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,K,K,K,B,B,K,K,
-	K,K,K,K,K,K,K,K,K,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,K,K,K,K,K,K,K,K,
-	K,K,K,K,K,K,K,K,K,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,K,K,K,K,K,K,K,K,
-	K,K,K,K,K,K,K,K,K,K,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,K,K,K,K,K,K,K,K,K,
-	K,K,K,K,K,K,K,K,K,K,K,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,K,K,K,K,K,K,K,K,K,K,
-	K,K,K,K,K,K,K,K,K,K,K,K,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,K,K,K,K,K,K,K,K,K,K,K,
-	K,K,K,K,K,K,K,K,K,K,K,K,K,K,B,B,B,B,B,B,B,B,B,B,B,B,B,K,K,K,K,K,K,K,K,K,K,K,K,K,
-	K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,B,K,Q,K,Q,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,
-	K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,Q,K,Q,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,
-	K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,Q,K,Q,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,
-	K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,Q,K,Q,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,
-	K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,Q,K,Q,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,
-	K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,Q,K,Q,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,
-	K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,Q,K,Q,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,
-	K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,Q,K,Q,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,
-	K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,Q,Q,Q,Q,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,
-	K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,Q,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,
-	K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,Q,Q,Q,Q,K,K,K,K,K,K,K,K,K,K,K,K,K,
-	K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,
+#define M METAL_COLOR
+#define D DARK_METAL
+#define R LED_RED
+#define B LED_BLUE
+	// Robot sprite 32x32
+	K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,
+	K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,
+	K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,
+	K,K,K,K,K,K,K,K,K,M,M,M,M,M,M,M,M,M,M,M,M,M,M,K,K,K,K,K,K,K,K,K,
+	K,K,K,K,K,K,K,M,M,M,M,M,M,M,M,M,M,M,M,M,M,M,M,M,M,K,K,K,K,K,K,K,
+	K,K,K,K,K,K,M,M,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D,M,M,K,K,K,K,K,K,
+	K,K,K,K,K,K,M,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D,M,K,K,K,K,K,K,
+	K,K,K,K,K,K,M,D,D,R,R,R,D,D,D,D,D,D,D,D,R,R,R,D,D,M,K,K,K,K,K,K,
+	K,K,K,K,K,K,M,D,D,R,R,R,D,D,D,D,D,D,D,D,R,R,R,D,D,M,K,K,K,K,K,K,
+	K,K,K,K,K,K,M,D,D,R,R,R,D,D,D,D,D,D,D,D,R,R,R,D,D,M,K,K,K,K,K,K,
+	K,K,K,K,K,K,M,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D,M,K,K,K,K,K,K,
+	K,K,K,K,K,K,M,D,D,D,D,D,D,D,M,M,M,M,D,D,D,D,D,D,D,M,K,K,K,K,K,K,
+	K,K,K,K,K,K,M,D,D,D,D,D,D,M,M,M,M,M,M,D,D,D,D,D,D,M,K,K,K,K,K,K,
+	K,K,K,K,K,K,M,M,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D,M,M,K,K,K,K,K,K,
+	K,K,K,K,K,K,K,M,M,M,M,M,M,M,M,M,M,M,M,M,M,M,M,M,M,K,K,K,K,K,K,K,
+	K,K,K,K,K,K,K,K,M,M,M,M,M,M,M,M,M,M,M,M,M,M,M,M,K,K,K,K,K,K,K,K,
+	K,K,K,K,K,K,K,D,D,D,M,M,M,M,M,M,M,M,M,M,M,M,D,D,D,K,K,K,K,K,K,K,
+	K,K,K,K,K,K,D,D,D,D,M,M,M,M,M,M,M,M,M,M,M,M,D,D,D,D,K,K,K,K,K,K,
+	K,K,K,K,K,K,D,D,D,D,M,M,M,M,M,M,M,M,M,M,M,M,D,D,D,D,K,K,K,K,K,K,
+	K,K,K,K,K,K,K,D,D,D,M,M,M,M,M,M,M,M,M,M,M,M,D,D,D,K,K,K,K,K,K,K,
+	K,K,K,K,K,K,K,K,K,M,M,M,M,M,M,M,M,M,M,M,M,M,M,K,K,K,K,K,K,K,K,K,
+	K,K,K,K,K,K,K,K,M,M,M,M,M,M,M,M,M,M,M,M,M,M,M,M,K,K,K,K,K,K,K,K,
+	K,K,K,K,K,K,M,M,M,M,M,D,D,D,D,D,D,D,D,D,D,M,M,M,M,M,K,K,K,K,K,K,
+	K,K,K,K,K,M,M,M,M,M,D,D,D,D,D,D,D,D,D,D,D,D,M,M,M,M,M,K,K,K,K,K,
+	K,K,K,K,K,M,M,M,M,M,D,D,M,M,K,K,K,K,M,M,D,D,M,M,M,M,M,K,K,K,K,K,
+	K,K,K,K,K,M,M,M,M,M,D,D,M,M,K,K,K,K,M,M,D,D,M,M,M,M,M,K,K,K,K,K,
+	K,K,K,K,K,M,M,M,M,M,D,D,M,M,K,K,K,K,M,M,D,D,M,M,M,M,M,K,K,K,K,K,
+	K,K,K,K,K,K,M,M,M,D,D,D,M,M,K,K,K,K,M,M,D,D,D,M,M,M,K,K,K,K,K,K,
+	K,K,K,K,K,K,K,M,D,D,D,D,M,M,M,M,M,M,M,M,D,D,D,D,M,K,K,K,K,K,K,K,
+	K,K,K,K,K,K,K,K,D,D,D,D,D,M,M,M,M,M,M,D,D,D,D,D,K,K,K,K,K,K,K,K,
+	K,K,K,K,K,K,K,K,K,D,D,D,D,D,D,D,D,D,D,D,D,D,D,K,K,K,K,K,K,K,K,K,
+	K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,
 #undef K
+#undef M
+#undef D
+#undef R
 #undef B
-#undef W
-#undef Q
-#undef E
 };
 
 static void fill16(uint8_t* base, uint32_t strideBytes, uint32_t width, uint32_t height, uint16_t color)
@@ -132,15 +124,62 @@ static void blit_sprite16(uint8_t* base, uint32_t strideBytes, uint32_t width, u
 
 static void draw_background(uint8_t* base, uint32_t strideBytes)
 {
+	// Sky, mountains, and grass background
 	for (uint32_t y = 0; y < VIDEO_HEIGHT; ++y)
 	{
 		uint16_t* row = (uint16_t*)(base + y * strideBytes);
-		for (uint32_t x = 0; x < VIDEO_WIDTH; ++x)
+		
+		// Sky gradient (top 60% of screen)
+		if (y < VIDEO_HEIGHT * 60 / 100)
 		{
-			uint8_t r = (uint8_t)((x * 255) / (VIDEO_WIDTH - 1));
-			uint8_t g = (uint8_t)((y * 255) / (VIDEO_HEIGHT - 1));
-			uint8_t b = 40;
-			row[x] = rgb565(r, g, b);
+			uint8_t skyB = 200 + (55 * y / (VIDEO_HEIGHT * 60 / 100));
+			uint16_t skyColor = rgb565(100, 150, skyB);
+			for (uint32_t x = 0; x < VIDEO_WIDTH; ++x)
+				row[x] = skyColor;
+		}
+		// Grass (bottom 40% of screen)
+		else
+		{
+			uint8_t grassG = 120 + (30 * (y - VIDEO_HEIGHT * 60 / 100)) / (VIDEO_HEIGHT * 40 / 100);
+			uint16_t grassColor = rgb565(50, grassG, 40);
+			for (uint32_t x = 0; x < VIDEO_WIDTH; ++x)
+				row[x] = grassColor;
+		}
+	}
+	
+	// Draw mountains
+	uint16_t mountainColor = rgb565(80, 80, 90);
+	uint16_t mountainDark = rgb565(60, 60, 70);
+	
+	// Left mountain
+	for (uint32_t y = VIDEO_HEIGHT * 35 / 100; y < VIDEO_HEIGHT * 60 / 100; ++y)
+	{
+		uint16_t* row = (uint16_t*)(base + y * strideBytes);
+		uint32_t mountainHeight = VIDEO_HEIGHT * 60 / 100 - y;
+		uint32_t mountainBase = VIDEO_HEIGHT * 25 / 100;
+		uint32_t leftEdge = 30 + (mountainBase - mountainHeight) * 60 / mountainBase;
+		uint32_t rightEdge = 30 + (mountainBase + mountainHeight) * 60 / mountainBase;
+		
+		for (uint32_t x = leftEdge; x < rightEdge && x < VIDEO_WIDTH; ++x)
+		{
+			uint16_t color = (x < leftEdge + (rightEdge - leftEdge) / 2) ? mountainDark : mountainColor;
+			row[x] = color;
+		}
+	}
+	
+	// Right mountain
+	for (uint32_t y = VIDEO_HEIGHT * 40 / 100; y < VIDEO_HEIGHT * 60 / 100; ++y)
+	{
+		uint16_t* row = (uint16_t*)(base + y * strideBytes);
+		uint32_t mountainHeight = VIDEO_HEIGHT * 60 / 100 - y;
+		uint32_t mountainBase = VIDEO_HEIGHT * 20 / 100;
+		uint32_t leftEdge = 180 + (mountainBase - mountainHeight) * 70 / mountainBase;
+		uint32_t rightEdge = 180 + (mountainBase + mountainHeight) * 70 / mountainBase;
+		
+		for (uint32_t x = leftEdge; x < rightEdge && x < VIDEO_WIDTH; ++x)
+		{
+			uint16_t color = (x < leftEdge + (rightEdge - leftEdge) / 2) ? mountainDark : mountainColor;
+			row[x] = color;
 		}
 	}
 }
