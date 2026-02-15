@@ -152,33 +152,42 @@ static void draw_background(uint8_t* base, uint32_t strideBytes)
 	uint16_t mountainDark = rgb565(60, 60, 70);
 	
 	// Left mountain
-	for (uint32_t y = VIDEO_HEIGHT * 35 / 100; y < VIDEO_HEIGHT * 60 / 100; ++y)
+	uint32_t leftPeakY = VIDEO_HEIGHT * 35 / 100;
+	uint32_t horizonY = VIDEO_HEIGHT * 60 / 100;
+	for (uint32_t y = leftPeakY; y < horizonY; ++y)
 	{
 		uint16_t* row = (uint16_t*)(base + y * strideBytes);
-		uint32_t mountainHeight = VIDEO_HEIGHT * 60 / 100 - y;
-		uint32_t mountainBase = VIDEO_HEIGHT * 25 / 100;
-		uint32_t leftEdge = 30 + (mountainBase - mountainHeight) * 60 / mountainBase;
-		uint32_t rightEdge = 30 + (mountainBase + mountainHeight) * 60 / mountainBase;
+		uint32_t distFromPeak = y - leftPeakY;
+		uint32_t mountainHeight = horizonY - leftPeakY;
+		uint32_t centerX = 60;
+		uint32_t halfWidth = (distFromPeak * 50) / mountainHeight;
+		
+		uint32_t leftEdge = centerX - halfWidth;
+		uint32_t rightEdge = centerX + halfWidth;
 		
 		for (uint32_t x = leftEdge; x < rightEdge && x < VIDEO_WIDTH; ++x)
 		{
-			uint16_t color = (x < leftEdge + (rightEdge - leftEdge) / 2) ? mountainDark : mountainColor;
+			uint16_t color = (x < centerX) ? mountainDark : mountainColor;
 			row[x] = color;
 		}
 	}
 	
 	// Right mountain
-	for (uint32_t y = VIDEO_HEIGHT * 40 / 100; y < VIDEO_HEIGHT * 60 / 100; ++y)
+	uint32_t rightPeakY = VIDEO_HEIGHT * 40 / 100;
+	for (uint32_t y = rightPeakY; y < horizonY; ++y)
 	{
 		uint16_t* row = (uint16_t*)(base + y * strideBytes);
-		uint32_t mountainHeight = VIDEO_HEIGHT * 60 / 100 - y;
-		uint32_t mountainBase = VIDEO_HEIGHT * 20 / 100;
-		uint32_t leftEdge = 180 + (mountainBase - mountainHeight) * 70 / mountainBase;
-		uint32_t rightEdge = 180 + (mountainBase + mountainHeight) * 70 / mountainBase;
+		uint32_t distFromPeak = y - rightPeakY;
+		uint32_t mountainHeight = horizonY - rightPeakY;
+		uint32_t centerX = 220;
+		uint32_t halfWidth = (distFromPeak * 60) / mountainHeight;
+		
+		uint32_t leftEdge = centerX - halfWidth;
+		uint32_t rightEdge = centerX + halfWidth;
 		
 		for (uint32_t x = leftEdge; x < rightEdge && x < VIDEO_WIDTH; ++x)
 		{
-			uint16_t color = (x < leftEdge + (rightEdge - leftEdge) / 2) ? mountainDark : mountainColor;
+			uint16_t color = (x < centerX) ? mountainDark : mountainColor;
 			row[x] = color;
 		}
 	}
