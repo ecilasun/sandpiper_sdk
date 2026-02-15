@@ -84,6 +84,7 @@ void VPUSetWriteAddress(struct EVideoContext *_context, const uint32_t _cpuWrite
 void VPUSwapPages(struct EVideoContext* _context, struct EVideoSwapContext *_sc);
 void VPUWaitVSync(struct EVideoContext *_context);
 void VPUPrintString(struct EVideoContext *_context, const uint8_t _foregroundIndex, const uint8_t _backgroundIndex, const uint16_t _x, const uint16_t _y, const char *_message, int _length);
+void VPUPrintStringRGB565(uint8_t* _base, uint32_t _strideBytes, uint32_t _width, uint32_t _height, uint16_t _x, uint16_t _y, const char* _text, uint16_t _fgColor, uint16_t _bgColor, int _length);
 
 void VPUConsoleResolve(struct EVideoContext *_context);
 void VPUConsoleScrollUp(struct EVideoContext *_context);

@@ -30,9 +30,6 @@
 #define LED_RED RGB565_CONST(255, 0, 0)
 #define LED_BLUE RGB565_CONST(0, 150, 255)
 
-// Font data from SDK (subset of resident font)
-extern const uint8_t residentfont[];
-
 static struct SPPlatform* s_platform = NULL;
 static struct SPSizeAlloc frameBufferA;
 static struct SPSizeAlloc frameBufferB0;
@@ -121,39 +118,6 @@ static void blit_sprite16(uint8_t* base, uint32_t strideBytes, uint32_t width, u
 			uint16_t c = src[x];
 			if (c != keyColor)
 				row[x0 + x] = c;
-		}
-	}
-}
-
-static void print_string_rgb565(uint8_t* base, uint32_t strideBytes, uint32_t width, uint32_t height,
-	uint16_t x, uint16_t y, const char* text, uint16_t fgColor, uint16_t bgColor)
-{
-	int len = strlen(text);
-	for (int i = 0; i < len; ++i)
-	{
-		int ch = text[i];
-		if (ch < 32) continue;
-		
-		int charRow = (ch >> 4) * 8;
-		int charCol = ch % 16;
-		
-		for (int cy = 0; cy < 8; ++cy)
-		{
-			uint32_t yPos = y + cy;
-			if (yPos >= height) break;
-			
-			uint16_t* row = (uint16_t*)(base + yPos * strideBytes);
-			uint8_t charData = residentfont[charCol + ((charRow + cy) * 16)];
-			
-			for (int cx = 0; cx < 8; ++cx)
-			{
-				uint32_t xPos = x + i * 8 + cx;
-				if (xPos >= width) break;
-				
-				int bitPos = (cx < 4) ? (3 - cx) : (11 - cx);
-				uint8_t bit = (charData >> bitPos) & 1;
-				row[xPos] = bit ? fgColor : bgColor;
-			}
 		}
 	}
 }
@@ -255,8 +219,8 @@ int main(int argc, char** argv)
 	draw_background(frameBufferA.cpuAddress, stride);
 
 	// Print "Background layer" on layer A
-	print_string_rgb565(frameBufferA.cpuAddress, stride, VIDEO_WIDTH, VIDEO_HEIGHT,
-		8, 8, "Background layer", rgb565(255, 255, 255), rgb565(0, 0, 0));
+	VPUPrintStringRGB565(frameBufferA.cpuAddress, stride, VIDEO_WIDTH, VIDEO_HEIGHT,
+		8, 8, "Background layer", rgb565(255, 255, 255), rgb565(0, 0, 0), strlen("Background layer"));
 
 	uint16_t keyColor = KEY_COLOR_565;
 	VPUSetScanoutAddress(s_platform->vx, (uint32_t)frameBufferA.dmaAddress);
@@ -294,15 +258,15 @@ int main(int argc, char** argv)
 		blit_sprite16(layerB, stride, VIDEO_WIDTH, VIDEO_HEIGHT, x, y, s_sandpiper_sprite, keyColor);
 
 		// Print "Foreground layer" at bottom left
-		print_string_rgb565(layerB, stride, VIDEO_WIDTH, VIDEO_HEIGHT,
-			8, VIDEO_HEIGHT - 16, "Foreground layer", rgb565(255, 255, 0), keyColor);
+		VPUPrintStringRGB565(layerB, stride, VIDEO_WIDTH, VIDEO_HEIGHT,
+			8, VIDEO_HEIGHT - 16, "Foreground layer", rgb565(255, 255, 0), keyColor, strlen("Foreground layer"));
 
 		// Print "Blend Mode: X" at bottom right
 		char modeText[20];
 		snprintf(modeText, sizeof(modeText), "Blend Mode: %d", mixMode);
 		int modeTextLen = strlen(modeText);
-		print_string_rgb565(layerB, stride, VIDEO_WIDTH, VIDEO_HEIGHT,
-			VIDEO_WIDTH - (modeTextLen * 8) - 8, VIDEO_HEIGHT - 16, modeText, rgb565(255, 255, 0), keyColor);
+		VPUPrintStringRGB565(layerB, stride, VIDEO_WIDTH, VIDEO_HEIGHT,
+			VIDEO_WIDTH - (modeTextLen * 8) - 8, VIDEO_HEIGHT - 16, modeText, rgb565(255, 255, 0), keyColor, strlen(modeText));
 
 		VPUSyncSwapB(s_platform->vx, 0);
 		VPUNoop(s_platform->vx);

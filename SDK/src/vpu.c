@@ -559,6 +559,48 @@ void VPUPrintString(struct EVideoContext *_context, const uint8_t _foregroundInd
 }
 
 /*
+ * Renders a string of text in RGB565 format at the specified position with the given foreground and background colors.
+ * _base is the base address of the framebuffer.
+ * _strideBytes is the stride of the framebuffer in bytes.
+ * _width and _height are the dimensions of the framebuffer.
+ * _x and _y specify the starting pixel coordinates for the text.
+ * _text is a pointer to the null-terminated string to be rendered.
+ * _fgColor and _bgColor are RGB565 color values for the text color and background color, respectively.
+ * _length is the number of characters to render from the _message array.
+ */
+void VPUPrintStringRGB565(uint8_t* _base, uint32_t _strideBytes, uint32_t _width, uint32_t _height,
+	uint16_t _x, uint16_t _y, const char* _text, uint16_t _fgColor, uint16_t _bgColor, int _length)
+{
+	for (int i = 0; i < _length; ++i)
+	{
+		int ch = _text[i];
+		if (ch < 32) continue;
+		
+		int charRow = (ch >> 4) * 8;
+		int charCol = ch % 16;
+		
+		for (int cy = 0; cy < 8; ++cy)
+		{
+			uint32_t yPos = _y + cy;
+			if (yPos >= _height) break;
+			
+			uint16_t* row = (uint16_t*)(_base + yPos * _strideBytes);
+			uint8_t charData = residentfont[charCol + ((charRow + cy) * 16)];
+			
+			for (int cx = 0; cx < 8; ++cx)
+			{
+				uint32_t xPos = _x + i * 8 + cx;
+				if (xPos >= _width) break;
+				
+				int bitPos = (cx < 4) ? (3 - cx) : (11 - cx);
+				uint8_t bit = (charData >> bitPos) & 1;
+				row[xPos] = bit ? _fgColor : _bgColor;
+			}
+		}
+	}
+}
+
+/*
  * Resolves the console's character and color buffers into the current CPU write page,
  * rendering all visible characters with their respective colors.
  * Also handles the rendering of the blinking caret if it is set to be visible.
