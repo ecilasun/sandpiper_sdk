@@ -41,45 +41,45 @@ static inline uint16_t rgb565(uint8_t r, uint8_t g, uint8_t b)
 }
 
 static const uint16_t s_sandpiper_sprite[SPRITE_W * SPRITE_H] = {
-#define K KEY_COLOR_565
+#define Y KEY_COLOR_565
 #define M METAL_COLOR
 #define D DARK_METAL
 #define R LED_RED
 #define B LED_BLUE
 	// Robot sprite 32x32
-	K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,
-	K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,
-	K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,
-	K,K,K,K,K,K,K,K,K,M,M,M,M,M,M,M,M,M,M,M,M,M,M,K,K,K,K,K,K,K,K,K,
-	K,K,K,K,K,K,K,M,M,M,M,M,M,M,M,M,M,M,M,M,M,M,M,M,M,K,K,K,K,K,K,K,
-	K,K,K,K,K,K,M,M,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D,M,M,K,K,K,K,K,K,
-	K,K,K,K,K,K,M,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D,M,K,K,K,K,K,K,
-	K,K,K,K,K,K,M,D,D,R,R,R,D,D,D,D,D,D,D,D,R,R,R,D,D,M,K,K,K,K,K,K,
-	K,K,K,K,K,K,M,D,D,R,R,R,D,D,D,D,D,D,D,D,R,R,R,D,D,M,K,K,K,K,K,K,
-	K,K,K,K,K,K,M,D,D,R,R,R,D,D,D,D,D,D,D,D,R,R,R,D,D,M,K,K,K,K,K,K,
-	K,K,K,K,K,K,M,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D,M,K,K,K,K,K,K,
-	K,K,K,K,K,K,M,D,D,D,D,D,D,D,M,M,M,M,D,D,D,D,D,D,D,M,K,K,K,K,K,K,
-	K,K,K,K,K,K,M,D,D,D,D,D,D,M,M,M,M,M,M,D,D,D,D,D,D,M,K,K,K,K,K,K,
-	K,K,K,K,K,K,M,M,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D,M,M,K,K,K,K,K,K,
-	K,K,K,K,K,K,K,M,M,M,M,M,M,M,M,M,M,M,M,M,M,M,M,M,M,K,K,K,K,K,K,K,
-	K,K,K,K,K,K,K,K,M,M,M,M,M,M,M,M,M,M,M,M,M,M,M,M,K,K,K,K,K,K,K,K,
-	K,K,K,K,K,K,K,D,D,D,M,M,M,M,M,M,M,M,M,M,M,M,D,D,D,K,K,K,K,K,K,K,
-	K,K,K,K,K,K,D,D,D,D,M,M,M,M,M,M,M,M,M,M,M,M,D,D,D,D,K,K,K,K,K,K,
-	K,K,K,K,K,K,D,D,D,D,M,M,M,M,M,M,M,M,M,M,M,M,D,D,D,D,K,K,K,K,K,K,
-	K,K,K,K,K,K,K,D,D,D,M,M,M,M,M,M,M,M,M,M,M,M,D,D,D,K,K,K,K,K,K,K,
-	K,K,K,K,K,K,K,K,K,M,M,M,M,M,M,M,M,M,M,M,M,M,M,K,K,K,K,K,K,K,K,K,
-	K,K,K,K,K,K,K,K,M,M,M,M,M,M,M,M,M,M,M,M,M,M,M,M,K,K,K,K,K,K,K,K,
-	K,K,K,K,K,K,M,M,M,M,M,D,D,D,D,D,D,D,D,D,D,M,M,M,M,M,K,K,K,K,K,K,
-	K,K,K,K,K,M,M,M,M,M,D,D,D,D,D,D,D,D,D,D,D,D,M,M,M,M,M,K,K,K,K,K,
-	K,K,K,K,K,M,M,M,M,M,D,D,M,M,K,K,K,K,M,M,D,D,M,M,M,M,M,K,K,K,K,K,
-	K,K,K,K,K,M,M,M,M,M,D,D,M,M,K,K,K,K,M,M,D,D,M,M,M,M,M,K,K,K,K,K,
-	K,K,K,K,K,M,M,M,M,M,D,D,M,M,K,K,K,K,M,M,D,D,M,M,M,M,M,K,K,K,K,K,
-	K,K,K,K,K,K,M,M,M,D,D,D,M,M,K,K,K,K,M,M,D,D,D,M,M,M,K,K,K,K,K,K,
-	K,K,K,K,K,K,K,M,D,D,D,D,M,M,M,M,M,M,M,M,D,D,D,D,M,K,K,K,K,K,K,K,
-	K,K,K,K,K,K,K,K,D,D,D,D,D,M,M,M,M,M,M,D,D,D,D,D,K,K,K,K,K,K,K,K,
-	K,K,K,K,K,K,K,K,K,D,D,D,D,D,D,D,D,D,D,D,D,D,D,K,K,K,K,K,K,K,K,K,
-	K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,
-#undef K
+	Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,
+	Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,
+	Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,
+	Y,Y,Y,Y,Y,Y,Y,Y,Y,M,M,M,M,M,M,M,M,M,M,M,M,M,M,Y,Y,Y,Y,Y,Y,Y,Y,Y,
+	Y,Y,Y,Y,Y,Y,Y,M,M,M,M,M,M,M,M,M,M,M,M,M,M,M,M,M,M,Y,Y,Y,Y,Y,Y,Y,
+	Y,Y,Y,Y,Y,Y,M,M,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D,M,M,Y,Y,Y,Y,Y,Y,
+	Y,Y,Y,Y,Y,Y,M,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D,M,Y,Y,Y,Y,Y,Y,
+	Y,Y,Y,Y,Y,Y,M,D,D,R,R,R,D,D,D,D,D,D,D,D,R,R,R,D,D,M,Y,Y,Y,Y,Y,Y,
+	Y,Y,Y,Y,Y,Y,M,D,D,R,R,R,D,D,D,D,D,D,D,D,R,R,R,D,D,M,Y,Y,Y,Y,Y,Y,
+	Y,Y,Y,Y,Y,Y,M,D,D,R,R,R,D,D,D,D,D,D,D,D,R,R,R,D,D,M,Y,Y,Y,Y,Y,Y,
+	Y,Y,Y,Y,Y,Y,M,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D,M,Y,Y,Y,Y,Y,Y,
+	Y,Y,Y,Y,Y,Y,M,D,D,D,D,D,D,D,M,M,M,M,D,D,D,D,D,D,D,M,Y,Y,Y,Y,Y,Y,
+	Y,Y,Y,Y,Y,Y,M,D,D,D,D,D,D,M,M,M,M,M,M,D,D,D,D,D,D,M,Y,Y,Y,Y,Y,Y,
+	Y,Y,Y,Y,Y,Y,M,M,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D,M,M,Y,Y,Y,Y,Y,Y,
+	Y,Y,Y,Y,Y,Y,Y,M,M,M,M,M,M,M,M,M,M,M,M,M,M,M,M,M,M,Y,Y,Y,Y,Y,Y,Y,
+	Y,Y,Y,Y,Y,Y,Y,Y,M,M,M,M,M,M,M,M,M,M,M,M,M,M,M,M,Y,Y,Y,Y,Y,Y,Y,Y,
+	Y,Y,Y,Y,Y,Y,Y,D,D,D,M,M,M,M,M,M,M,M,M,M,M,M,D,D,D,Y,Y,Y,Y,Y,Y,Y,
+	Y,Y,Y,Y,Y,Y,D,D,D,D,M,M,M,M,M,M,M,M,M,M,M,M,D,D,D,D,Y,Y,Y,Y,Y,Y,
+	Y,Y,Y,Y,Y,Y,D,D,D,D,M,M,M,M,M,M,M,M,M,M,M,M,D,D,D,D,Y,Y,Y,Y,Y,Y,
+	Y,Y,Y,Y,Y,Y,Y,D,D,D,M,M,M,M,M,M,M,M,M,M,M,M,D,D,D,Y,Y,Y,Y,Y,Y,Y,
+	Y,Y,Y,Y,Y,Y,Y,Y,Y,M,M,M,M,M,M,M,M,M,M,M,M,M,M,Y,Y,Y,Y,Y,Y,Y,Y,Y,
+	Y,Y,Y,Y,Y,Y,Y,Y,M,M,M,M,M,M,M,M,M,M,M,M,M,M,M,M,Y,Y,Y,Y,Y,Y,Y,Y,
+	Y,Y,Y,Y,Y,Y,M,M,M,M,M,D,D,D,D,D,D,D,D,D,D,M,M,M,M,M,Y,Y,Y,Y,Y,Y,
+	Y,Y,Y,Y,Y,M,M,M,M,M,D,D,D,D,D,D,D,D,D,D,D,D,M,M,M,M,M,Y,Y,Y,Y,Y,
+	Y,Y,Y,Y,Y,M,M,M,M,M,D,D,M,M,Y,Y,Y,Y,M,M,D,D,M,M,M,M,M,Y,Y,Y,Y,Y,
+	Y,Y,Y,Y,Y,M,M,M,M,M,D,D,M,M,Y,Y,Y,Y,M,M,D,D,M,M,M,M,M,Y,Y,Y,Y,Y,
+	Y,Y,Y,Y,Y,M,M,M,M,M,D,D,M,M,Y,Y,Y,Y,M,M,D,D,M,M,M,M,M,Y,Y,Y,Y,Y,
+	Y,Y,Y,Y,Y,Y,M,M,M,D,D,D,M,M,Y,Y,Y,Y,M,M,D,D,D,M,M,M,Y,Y,Y,Y,Y,Y,
+	Y,Y,Y,Y,Y,Y,Y,M,D,D,D,D,M,M,M,Y,Y,M,M,M,D,D,D,D,M,Y,Y,Y,Y,Y,Y,Y,
+	Y,Y,Y,Y,Y,Y,Y,Y,D,D,D,D,D,M,M,Y,Y,M,M,D,D,D,D,D,Y,Y,Y,Y,Y,Y,Y,Y,
+	Y,Y,Y,Y,Y,Y,Y,Y,Y,D,D,D,D,Y,Y,Y,Y,Y,Y,D,D,D,D,Y,Y,Y,Y,Y,Y,Y,Y,Y,
+	Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,
+#undef Y
 #undef M
 #undef D
 #undef R
