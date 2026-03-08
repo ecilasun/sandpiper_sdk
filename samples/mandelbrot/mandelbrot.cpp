@@ -226,6 +226,18 @@ void PickNextTile(int* tilex, int* tiley, float* R)
 	}
 }
 
+int get_cpu_count()
+{
+    int nprocs = -1;
+    nprocs = (int)sysconf(_SC_NPROCESSORS_ONLN);
+    if (nprocs == -1)
+	{
+        perror("sysconf(_SC_NPROCESSORS_ONLN) failed");
+    }
+
+    return nprocs;
+}
+
 int main()
 {
 	// Initialize platform and video system
@@ -266,6 +278,8 @@ int main()
 	threadData2 = new SThreadData();
 	InitThreadData(threadData1, platform, framebuffer, 0, R, 0, 0);
 	InitThreadData(threadData2, platform, framebuffer, 1, R, 0, 0);
+
+	printf("CPU count: %d\n", get_cpu_count());
 
 	CPU_ZERO(&cpuset1);
 	CPU_ZERO(&cpuset2);
