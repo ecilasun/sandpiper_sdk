@@ -154,7 +154,7 @@ static void buildPlasma(uint32_t *dst, uint32_t strideWords, uint32_t width, uin
             uint32_t word = 0;
             for (uint32_t b = 0; b < 4; ++b)
             {
-                float fx = (float)(wx * 4 - b);
+                float fx = (float)(wx * 4 + b);
                 float dx = fx - cx;
                 float dy = fy - cy;
 
