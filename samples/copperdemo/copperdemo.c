@@ -4,19 +4,19 @@
  *
  * \ingroup examples
  *
- * Demonstrates per-scanline palette animation driven entirely by the VCP
- * (Video Co-Processor), analogous to the "copper list" on the Amiga.
+ * Demonstrates an indexed-colour plasma where the framebuffer holds a static
+ * scalar field and the VCP (Video Co-Processor) supplies the motion by
+ * rewriting the palette continuously.
  *
- * The CPU renders a static plasma-like texture into both framebuffers once
- * at startup using palette indices 0–15.  After that the CPU is completely
- * idle — the VCP rewrites all 16 palette entries on every scanline with
- * smoothly cycling RGB hue values derived from:
+ * The CPU builds a proper plasma field once at startup from several blended
+ * sine and radial terms. Each pixel stores only a palette index in the range
+ * 0-15. After that the CPU stops touching the image data.
  *
- *   colour(scanline, entry) = hue( scanline*3 + frame_phase + entry*16 )
- *
- * Because the palette meaning of each index changes on every scanline the
- * static pixel pattern animates as a full-screen plasma with zero CPU cost
- * after initialisation.
+ * The VCP then updates those 16 palette entries on every scanline. The
+ * palette phase advances every frame, and each scanline gets a small extra
+ * phase offset, so the colour bands drift smoothly across the scalar field.
+ * The visible motion comes from palette animation, not from re-rendering the
+ * plasma on the CPU.
  *
  * VCP register assignments
  *   R0  (VREG_ZERO) – hardware zero (always 0)
@@ -27,20 +27,20 @@
  *   R5  – 85           (1/3 of 256 — hue offset between colour channels)
  *   R6  – 640          (end-of-scanline pixel position)
  *   R7  – current scanline (refreshed each iteration)
- *   R8  – t_base = scanline*3 + frame_phase
+ *   R8  – line_phase = frame_phase + (scanline >> 2)
  *   R9  – palette entry index  (0 … 15)
  *   RA  – 16           (entry count AND per-entry hue step — same value)
  *   RB  – colour being assembled (R8G8B8 packed)
- *   RC  – t_entry = t_base + entry_index*16  (advanced each inner iteration)
- *   RD  – (unused)
+ *   RC  – t_entry = line_phase + entry_index*16  (advanced each inner iteration)
+ *   RD  – 2            (scanline attenuation shift)
  *   RE  – green channel scratch
  *   RF  – red channel scratch
  *
  * Program byte-address map
- *   0x00 – 0x18  initialisation block (7 instructions, executed once)
- *   0x1C         scanline_wait  (outer loop top)
- *   0x40         palette_loop   (inner loop top, 15 instructions)
- *   0x80         frame_code     (scanline-0 handler)
+ *   0x00 – 0x20  initialisation block (8 instructions, executed once)
+ *   0x20         scanline_wait  (outer loop top)
+ *   0x44         palette_loop   (inner loop top, 15 instructions)
+ *   0x88         frame_code     (scanline-0 handler)
  */
 
 #include <stdint.h>
@@ -69,58 +69,61 @@ static struct SPSizeAlloc s_frameBufferB;
  * Branch / jump offset verification (offsets are PC-relative from the
  * address of the branch/jump instruction itself):
  *
- *   instr 10  branchim(+0x58)  addr 40  →  40+88=128  = instr 32 (frame_code)  ✓
- *   instr 30  branchim(-0x38)  addr 120 → 120-56= 64  = instr 16 (palette_loop) ✓
- *   instr 31  jumpim  (-0x60)  addr 124 → 124-96= 28  = instr  7 (scanline_wait) ✓
- *   instr 33  jumpim  (-0x68)  addr 132 → 132-104=28  = instr  7 (scanline_wait) ✓
+ *   instr 11  branchim(+0x5C)  addr 44  →  44+92=136  = instr 34 (frame_code)  ✓
+ *   instr 31  branchim(-0x38)  addr 124 → 124-56= 68  = instr 17 (palette_loop) ✓
+ *   instr 32  jumpim  (-0x60)  addr 128 → 128-96= 32  = instr  8 (scanline_wait) ✓
+ *   instr 37  jumpim  (-0x74)  addr 148 → 148-116=32  = instr  8 (scanline_wait) ✓
  * --------------------------------------------------------------------------- */
 static const uint32_t s_vcpprogram[64] = {
     /* --- initialisation (runs once at program start) -------------------- */
-    /* 00 */ vcp_ldim(VREG_2, 0xFF),                    /* R2 = 0xFF  (byte mask)          */
-    /* 01 */ vcp_ldim(VREG_3, 8),                       /* R3 = 8     (green shift)        */
-    /* 02 */ vcp_ldim(VREG_4, 16),                      /* R4 = 16    (red shift / step)   */
-    /* 03 */ vcp_ldim(VREG_5, 85),                      /* R5 = 85    (hue offset 1/3×256) */
-    /* 04 */ vcp_ldim(VREG_6, 640),                     /* R6 = 640   (end-of-line pixel)  */
-    /* 05 */ vcp_ldim(VREG_A, 16),                      /* RA = 16    (entry count & step) */
-    /* 06 */ vcp_ldim(VREG_1, 0),                       /* R1 = 0     (initial phase)      */
+    /* 00 */ vcp_ldim(VREG_2, 0xFF),                    /* R2 = 0xFF  (byte mask)              */
+    /* 01 */ vcp_ldim(VREG_3, 8),                       /* R3 = 8     (green shift)            */
+    /* 02 */ vcp_ldim(VREG_4, 16),                      /* R4 = 16    (red shift / hue step)   */
+    /* 03 */ vcp_ldim(VREG_5, 85),                      /* R5 = 85    (120 degree hue offset)  */
+    /* 04 */ vcp_ldim(VREG_6, 640),                     /* R6 = 640   (end-of-line pixel)      */
+    /* 05 */ vcp_ldim(VREG_A, 16),                      /* RA = 16    (entry count & step)     */
+    /* 06 */ vcp_ldim(VREG_D, 2),                       /* RD = 2     (scanline >> 2)          */
+    /* 07 */ vcp_ldim(VREG_1, 0),                       /* R1 = 0     (initial phase)          */
 
-    /* --- scanline_wait: outer loop top (addr 0x1C = 28) ---------------- */
-    /* 07 */ vcp_wpix(VREG_6),                          /* wait for pixel 640 (end of line)   */
-    /* 08 */ vcp_scanline_read(VREG_7),                 /* R7 = current scanline              */
-    /* 09 */ vcp_cmp(COND_EQ, VREG_7, VREG_ZERO),      /* scanline == 0 ?                    */
-    /* 10 */ vcp_branchim(0x58),                        /* branch.EQ → frame_code  (+0x58)    */
+    /* --- scanline_wait: outer loop top (addr 0x20 = 32) ---------------- */
+    /* 08 */ vcp_wpix(VREG_6),                          /* wait for pixel 640 (end of line)    */
+    /* 09 */ vcp_scanline_read(VREG_7),                 /* R7 = current scanline               */
+    /* 10 */ vcp_cmp(COND_EQ, VREG_7, VREG_ZERO),      /* scanline == 0 ?                     */
+    /* 11 */ vcp_branchim(0x5C),                        /* branch.EQ → frame_code  (+0x5C)     */
 
-    /* --- scanline_setup: compute t_base = scanline*3 + phase ----------- */
-    /* 11 */ vcp_radd(VREG_8, VREG_7, VREG_7),         /* R8 = scanline * 2                  */
-    /* 12 */ vcp_radd(VREG_8, VREG_8, VREG_7),         /* R8 = scanline * 3                  */
-    /* 13 */ vcp_radd(VREG_8, VREG_8, VREG_1),         /* R8 = scanline*3 + phase            */
-    /* 14 */ vcp_clr(VREG_9),                           /* R9 = 0  (palette entry index)      */
-    /* 15 */ vcp_mv(VREG_C, VREG_8),                    /* RC = t_entry = t_base              */
+    /* --- scanline_setup: line_phase = frame + (scanline >> 2) ---------- */
+    /* 12 */ vcp_rshr(VREG_8, VREG_7, VREG_D),         /* R8 = scanline >> 2                  */
+    /* 13 */ vcp_radd(VREG_8, VREG_8, VREG_1),         /* R8 = phase + (scanline >> 2)        */
+    /* 14 */ vcp_clr(VREG_9),                           /* R9 = 0 (palette entry index)        */
+    /* 15 */ vcp_mv(VREG_C, VREG_8),                    /* RC = t_entry = line_phase           */
+    /* 16 */ vcp_noop(),
 
-    /* --- palette_loop: write entries 0..15 (addr 0x40 = 64) ----------- */
-    /* 16 */ vcp_rand(VREG_B, VREG_C, VREG_2),         /* RB  = t_entry & 0xFF  (blue ch.)   */
-    /* 17 */ vcp_radd(VREG_E, VREG_C, VREG_5),         /* RE  = t_entry + 85                 */
-    /* 18 */ vcp_rand(VREG_E, VREG_E, VREG_2),         /* RE  = (t_entry+85) & 0xFF          */
-    /* 19 */ vcp_rshl(VREG_E, VREG_E, VREG_3),         /* RE <<= 8  (place in bits 8–15)     */
-    /* 20 */ vcp_ror(VREG_B, VREG_B, VREG_E),          /* RB |= green                        */
-    /* 21 */ vcp_radd(VREG_F, VREG_C, VREG_5),         /* RF  = t_entry + 85                 */
-    /* 22 */ vcp_radd(VREG_F, VREG_F, VREG_5),         /* RF  = t_entry + 170                */
-    /* 23 */ vcp_rand(VREG_F, VREG_F, VREG_2),         /* RF  = (t_entry+170) & 0xFF         */
-    /* 24 */ vcp_rshl(VREG_F, VREG_F, VREG_4),         /* RF <<= 16 (place in bits 16–23)    */
-    /* 25 */ vcp_ror(VREG_B, VREG_B, VREG_F),          /* RB |= red                          */
-    /* 26 */ vcp_pwrt(VREG_9, VREG_B),                 /* palette[entry_index] = R8G8B8      */
-    /* 27 */ vcp_radd(VREG_C, VREG_C, VREG_A),         /* t_entry += 16  (next hue step)     */
-    /* 28 */ vcp_rinc(VREG_9, VREG_9),                 /* entry_index++                      */
-    /* 29 */ vcp_cmp(COND_NE, VREG_9, VREG_A),         /* entry_index != 16 ?                */
-    /* 30 */ vcp_branchim(-0x38),                       /* branch.NE → palette_loop  (-0x38)  */
-    /* 31 */ vcp_jumpim(-0x60),                         /* jmp → scanline_wait       (-0x60)  */
+    /* --- palette_loop: write entries 0..15 (addr 0x44 = 68) ----------- */
+    /* 17 */ vcp_rand(VREG_B, VREG_C, VREG_2),         /* RB  = t_entry & 0xFF  (blue)        */
+    /* 18 */ vcp_radd(VREG_E, VREG_C, VREG_5),         /* RE  = t_entry + 85                  */
+    /* 19 */ vcp_rand(VREG_E, VREG_E, VREG_2),         /* RE  = (t_entry+85) & 0xFF           */
+    /* 20 */ vcp_rshl(VREG_E, VREG_E, VREG_3),         /* RE <<= 8                            */
+    /* 21 */ vcp_ror(VREG_B, VREG_B, VREG_E),          /* RB |= green                         */
+    /* 22 */ vcp_radd(VREG_F, VREG_C, VREG_5),         /* RF  = t_entry + 85                  */
+    /* 23 */ vcp_radd(VREG_F, VREG_F, VREG_5),         /* RF  = t_entry + 170                 */
+    /* 24 */ vcp_rand(VREG_F, VREG_F, VREG_2),         /* RF  = (t_entry+170) & 0xFF          */
+    /* 25 */ vcp_rshl(VREG_F, VREG_F, VREG_4),         /* RF <<= 16                           */
+    /* 26 */ vcp_ror(VREG_B, VREG_B, VREG_F),          /* RB |= red                           */
+    /* 27 */ vcp_pwrt(VREG_9, VREG_B),                 /* palette[entry_index] = R8G8B8       */
+    /* 28 */ vcp_radd(VREG_C, VREG_C, VREG_A),         /* t_entry += 16                       */
+    /* 29 */ vcp_rinc(VREG_9, VREG_9),                 /* entry_index++                       */
+    /* 30 */ vcp_cmp(COND_NE, VREG_9, VREG_A),         /* entry_index != 16 ?                 */
+    /* 31 */ vcp_branchim(-0x38),                       /* branch.NE → palette_loop  (-0x38)   */
+    /* 32 */ vcp_jumpim(-0x60),                         /* jmp → scanline_wait       (-0x60)   */
 
-    /* --- frame_code: scanline-0 handler (addr 0x80 = 128) -------------- */
-    /* 32 */ vcp_rinc(VREG_1, VREG_1),                 /* phase++                            */
-    /* 33 */ vcp_jumpim(-0x68),                         /* jmp → scanline_wait       (-0x68)  */
+    /* --- frame_code: scanline-0 handler (addr 0x88 = 136) -------------- */
+    /* 33 */ vcp_noop(),
+    /* 34 */ vcp_rinc(VREG_1, VREG_1),                 /* phase += 3                          */
+    /* 35 */ vcp_rinc(VREG_1, VREG_1),
+    /* 36 */ vcp_rinc(VREG_1, VREG_1),
+    /* 37 */ vcp_jumpim(-0x74),                         /* jmp → scanline_wait       (-0x74)   */
 
     /* --- padding to fill PRG_256Bytes (64 words) ----------------------- */
-    /* 34 */ vcp_noop(), /* 35 */ vcp_noop(), /* 36 */ vcp_noop(), /* 37 */ vcp_noop(),
     /* 38 */ vcp_noop(), /* 39 */ vcp_noop(), /* 40 */ vcp_noop(), /* 41 */ vcp_noop(),
     /* 42 */ vcp_noop(), /* 43 */ vcp_noop(), /* 44 */ vcp_noop(), /* 45 */ vcp_noop(),
     /* 46 */ vcp_noop(), /* 47 */ vcp_noop(), /* 48 */ vcp_noop(), /* 49 */ vcp_noop(),
@@ -133,41 +136,52 @@ static const uint32_t s_vcpprogram[64] = {
 /* ---------------------------------------------------------------------------
  * buildPlasma
  *
- * Fills both framebuffers with a static indexed-colour plasma texture using
- * palette indices 0–15.  Four pixels are packed into each 32-bit word so the
- * write pattern matches the 8-bit indexed mode stride layout.
+ * Fills the framebuffer with a static scalar field using palette indices
+ * 0-15. The field is a proper plasma: multiple orthogonal and radial waves
+ * are blended together and then quantised to palette entries.
  *
- * The formula combines four sine-wave terms in X, Y, X+Y, and radial
- * distance to produce a classic plasma pattern.  This runs once at startup;
- * all subsequent animation is handled entirely by the VCP.
+ * This runs once at startup. The image data never changes after that; motion
+ * comes from the VCP animating the palette over the index field.
  * --------------------------------------------------------------------------- */
-static void buildPlasma(uint32_t *dst, uint32_t strideWords, uint32_t width, uint32_t height)
+static void buildPlasma(uint8_t *dst, uint32_t strideBytes, uint32_t width, uint32_t height)
 {
-    float cx = width  * 0.5f;
-    float cy = height * 0.5f;
+    float cx0 = width * 0.50f;
+    float cy0 = height * 0.50f;
+    float cx1 = width * 0.28f;
+    float cy1 = height * 0.34f;
+    float cx2 = width * 0.72f;
+    float cy2 = height * 0.66f;
 
     for (uint32_t y = 0; y < height; ++y)
     {
         float fy = (float)y;
-        for (uint32_t wx = 0; wx < strideWords; ++wx)
+        uint8_t *row = dst + (y * strideBytes);
+        for (uint32_t x = 0; x < width; ++x)
         {
-            uint32_t word = 0;
-            for (uint32_t b = 0; b < 4; ++b)
-            {
-                float fx = (float)(wx * 4 + b);
-                float dx = fx - cx;
-                float dy = fy - cy;
+            float fx = (float)x;
+            float d0x = fx - cx0;
+            float d0y = fy - cy0;
+            float d1x = fx - cx1;
+            float d1y = fy - cy1;
+            float d2x = fx - cx2;
+            float d2y = fy - cy2;
 
-                float v  = sinf(fx * 0.05f);
-                v       += sinf(fy * 0.07f);
-                v       += sinf((fx + fy) * 0.04f);
-                v       += sinf(sqrtf(dx*dx + dy*dy) * 0.10f);
+            float value  = sinf(fx * 0.047f);
+            value       += sinf((fx + fy) * 0.028f);
+            value       += sinf(sqrtf(d0x * d0x + d0y * d0y) * 0.090f);
+            value       += cosf(sqrtf(d1x * d1x + d1y * d1y) * 0.075f);
+            value       += sinf(sqrtf(d2x * d2x + d2y * d2y) * 0.061f);
 
-                /* v is in [-4, 4]; map to palette index 0–15 */
-                uint32_t idx = (uint32_t)((v + 4.0f) * 2.0f) & 0x0F;
-                word |= idx << (b * 8);
-            }
-            dst[y * strideWords + wx] = word;
+            if (value < -5.0f)
+                value = -5.0f;
+            else if (value > 5.0f)
+                value = 5.0f;
+
+            uint32_t idx = (uint32_t)((value + 5.0f) * 1.6f);
+            if (idx > 15)
+                idx = 15;
+
+            row[x] = (uint8_t)idx;
         }
     }
 }
@@ -194,8 +208,7 @@ int main(int argc, char **argv)
 
     /* Build the static plasma texture into both framebuffers */
     printf("Building plasma texture...\n");
-    uint32_t strideWords = s_platform->vx->m_strideInWords;
-    buildPlasma((uint32_t *)s_frameBufferA.cpuAddress, strideWords, VIDEO_WIDTH, VIDEO_HEIGHT);
+    buildPlasma(s_frameBufferA.cpuAddress, stride, VIDEO_WIDTH, VIDEO_HEIGHT);
     memcpy(s_frameBufferB.cpuAddress, s_frameBufferA.cpuAddress, stride * VIDEO_HEIGHT);
 
     /* Stop any previously running VCP programs */
