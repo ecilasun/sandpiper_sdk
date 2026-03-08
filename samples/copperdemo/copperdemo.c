@@ -74,10 +74,11 @@ static struct SPSizeAlloc s_frameBufferB;
  * Branch / jump offset verification (offsets are PC-relative from the
  * address of the branch/jump instruction itself):
  *
- *   instr 13  branchim(+0x08)  addr 52  ->  52+8  =60  = instr 15 (frame_code)
- *   instr 32  branchim(-0x38)  addr 128 -> 128-56 =72  = instr 18 (palette_loop)
- *   instr 35  branchim(-0x64)  addr 140 -> 140-100=40 = instr 10 (wait_loop)
- *   instr 36  jumpim  (-0x0C)  addr 144 -> 144-12 =132 = instr 33 (rearm_wait)
+ *   instr 13  branchim(+0x04)  nextPC 56  ->  56+4   =60  = instr 15 (frame_code)
+ *   instr 14  jumpim  (-0x14)  nextPC 60  ->  60-20  =40  = instr 10 (wait_loop)
+ *   instr 32  branchim(-0x3C)  nextPC 132 -> 132-60  =72  = instr 18 (palette_loop)
+ *   instr 35  branchim(-0x68)  nextPC 144 -> 144-104 =40  = instr 10 (wait_loop)
+ *   instr 36  jumpim  (-0x10)  nextPC 148 -> 148-16  =132 = instr 33 (rearm_wait)
  * --------------------------------------------------------------------------- */
 static const uint32_t s_vcpprogram[64] = {
     /* --- initialisation (runs once at program start) -------------------- */
@@ -96,8 +97,8 @@ static const uint32_t s_vcpprogram[64] = {
     /* 10 */ vcp_wpix(VREG_6),
     /* 11 */ vcp_scanline_read(VREG_7),
     /* 12 */ vcp_cmp(COND_EQ, VREG_7, VREG_B),
-    /* 13 */ vcp_branchim(0x08),
-    /* 14 */ vcp_jumpim(-0x10),
+    /* 13 */ vcp_branchim(0x04),
+    /* 14 */ vcp_jumpim(-0x14),
 
     /* --- frame_code: advance phase and rebuild palette ----------------- */
     /* 15 */ vcp_radd(VREG_1, VREG_1, VREG_C),
@@ -119,13 +120,13 @@ static const uint32_t s_vcpprogram[64] = {
     /* 29 */ vcp_radd(VREG_8, VREG_8, VREG_D),
     /* 30 */ vcp_rinc(VREG_9, VREG_9),
     /* 31 */ vcp_cmp(COND_NE, VREG_9, VREG_A),
-    /* 32 */ vcp_branchim(-0x38),
+    /* 32 */ vcp_branchim(-0x3C),
 
     /* --- rearm_wait: prevent multiple updates on the same line --------- */
     /* 33 */ vcp_scanline_read(VREG_7),
     /* 34 */ vcp_cmp(COND_NE, VREG_7, VREG_B),
-    /* 35 */ vcp_branchim(-0x64),
-    /* 36 */ vcp_jumpim(-0x0C),
+    /* 35 */ vcp_branchim(-0x68),
+    /* 36 */ vcp_jumpim(-0x10),
 
     /* --- padding to fill PRG_256Bytes (64 words) ----------------------- */
     /* 37 */ vcp_noop(), /* 38 */ vcp_noop(), /* 39 */ vcp_noop(), /* 40 */ vcp_noop(),
