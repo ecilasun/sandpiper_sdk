@@ -281,18 +281,30 @@ int main()
 
 	printf("CPU count: %d\n", get_cpu_count());
 
-	CPU_ZERO(&cpuset1);
-	CPU_ZERO(&cpuset2);
-	CPU_SET(0, &cpuset1); // Only on CPU#0
-	CPU_SET(1, &cpuset2); // Only on CPU#1
+	if (get_cpu_count() >= 2)
+	{
+		CPU_ZERO(&cpuset1);
+		CPU_ZERO(&cpuset2);
+		CPU_SET(0, &cpuset1); // Only on CPU#0
+		CPU_SET(1, &cpuset2); // Only on CPU#1
 
-	pthread_attr_init(&attr1);
-	pthread_attr_setaffinity_np(&attr1, sizeof(cpu_set_t), &cpuset1);
-	pthread_attr_setdetachstate(&attr1, PTHREAD_CREATE_DETACHED);
+		pthread_attr_init(&attr1);
+		pthread_attr_setaffinity_np(&attr1, sizeof(cpu_set_t), &cpuset1);
+		pthread_attr_setdetachstate(&attr1, PTHREAD_CREATE_DETACHED);
 
-	pthread_attr_init(&attr2);
-	pthread_attr_setaffinity_np(&attr2, sizeof(cpu_set_t), &cpuset2);
-	pthread_attr_setdetachstate(&attr2, PTHREAD_CREATE_DETACHED);
+		pthread_attr_init(&attr2);
+		pthread_attr_setaffinity_np(&attr2, sizeof(cpu_set_t), &cpuset2);
+		pthread_attr_setdetachstate(&attr2, PTHREAD_CREATE_DETACHED);
+	}
+	else
+	{
+		// Emulator only has 1 CPU, so just create threads without affinity
+		pthread_attr_init(&attr1);
+		pthread_attr_setdetachstate(&attr1, PTHREAD_CREATE_DETACHED);
+
+		pthread_attr_init(&attr2);
+		pthread_attr_setdetachstate(&attr2, PTHREAD_CREATE_DETACHED);
+	}
 
 	// Create threads
 	int success = pthread_create(&thread1, &attr1, mandelbrot, (void*)threadData1);
