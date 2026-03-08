@@ -273,7 +273,6 @@ int main(int argc, char** argv)
 
 		++frame;
 		++cycle;
-		usleep(16000);
 	}
 
 	return 0;
