@@ -10,37 +10,37 @@
  *
  * The CPU builds a proper plasma field once at startup from several blended
  * sine and radial terms. Each pixel stores only a palette index in the range
- * 0-15. After that the CPU stops touching the image data.
+ * 0-31. After that the CPU stops touching the image data.
  *
- * The VCP then updates those 16 palette entries on every scanline. The
- * palette phase advances every frame, and each scanline gets a small extra
- * phase offset, so the colour bands drift smoothly across the scalar field.
- * The visible motion comes from palette animation, not from re-rendering the
- * plasma on the CPU.
+ * The VCP then updates the full plasma palette once per frame during the
+ * frame boundary. The palette phase advances every frame, so the colour bands
+ * drift smoothly across the scalar field while the underlying index field
+ * stays fixed. The visible motion comes from palette animation, not from
+ * re-rendering the plasma on the CPU.
  *
  * VCP register assignments
  *   R0  (VREG_ZERO) – hardware zero (always 0)
- *   R1  – frame_phase  (incremented at scanline 0 each frame)
+ *   R1  – frame_phase  (incremented at the frame boundary)
  *   R2  – 0xFF         (byte mask)
  *   R3  – 8            (green channel bit-shift into bits 8–15)
- *   R4  – 16           (red channel bit-shift into bits 16–23, palette step, entry count)
+ *   R4  – 16           (red channel bit-shift into bits 16–23)
  *   R5  – 85           (1/3 of 256 — hue offset between colour channels)
  *   R6  – 640          (end-of-scanline pixel position)
  *   R7  – current scanline (refreshed each iteration)
- *   R8  – line_phase = frame_phase + (scanline >> 2)
- *   R9  – palette entry index  (0 … 15)
- *   RA  – 16           (entry count AND per-entry hue step — same value)
- *   RB  – colour being assembled (R8G8B8 packed)
- *   RC  – t_entry = line_phase + entry_index*16  (advanced each inner iteration)
- *   RD  – 2            (scanline attenuation shift)
+ *   R8  – t_entry = frame_phase + entry_index*8
+ *   R9  – palette entry index  (0 … 31)
+ *   RA  – 32           (palette entry count)
+ *   RB  – last visible scanline (239)
+ *   RC  – frame phase increment (5)
+ *   RD  – palette hue step (8)
  *   RE  – green channel scratch
  *   RF  – red channel scratch
  *
  * Program byte-address map
- *   0x00 – 0x20  initialisation block (8 instructions, executed once)
- *   0x20         scanline_wait  (outer loop top)
- *   0x44         palette_loop   (inner loop top, 15 instructions)
- *   0x88         frame_code     (scanline-0 handler)
+ *   0x00 – 0x24  initialisation block (10 instructions, executed once)
+ *   0x28         wait_loop      (outer loop top)
+ *   0x3C         frame_code     (frame-boundary handler)
+ *   0x48         palette_loop   (inner loop top)
  */
 
 #include <stdint.h>
@@ -69,61 +69,55 @@ static struct SPSizeAlloc s_frameBufferB;
  * Branch / jump offset verification (offsets are PC-relative from the
  * address of the branch/jump instruction itself):
  *
- *   instr 11  branchim(+0x5C)  addr 44  →  44+92=136  = instr 34 (frame_code)  ✓
- *   instr 31  branchim(-0x38)  addr 124 → 124-56= 68  = instr 17 (palette_loop) ✓
- *   instr 32  jumpim  (-0x60)  addr 128 → 128-96= 32  = instr  8 (scanline_wait) ✓
- *   instr 37  jumpim  (-0x74)  addr 148 → 148-116=32  = instr  8 (scanline_wait) ✓
+ *   instr 13  branchim(+0x08)  addr 52  →  52+8 =60  = instr 15 (frame_code)    ✓
+ *   instr 32  branchim(-0x38)  addr 128 → 128-56=72  = instr 18 (palette_loop)  ✓
+ *   instr 33  jumpim  (-0x5C)  addr 132 → 132-92=40  = instr 10 (wait_loop)     ✓
  * --------------------------------------------------------------------------- */
 static const uint32_t s_vcpprogram[64] = {
     /* --- initialisation (runs once at program start) -------------------- */
-    /* 00 */ vcp_ldim(VREG_2, 0xFF),                    /* R2 = 0xFF  (byte mask)              */
-    /* 01 */ vcp_ldim(VREG_3, 8),                       /* R3 = 8     (green shift)            */
-    /* 02 */ vcp_ldim(VREG_4, 16),                      /* R4 = 16    (red shift / hue step)   */
-    /* 03 */ vcp_ldim(VREG_5, 85),                      /* R5 = 85    (120 degree hue offset)  */
-    /* 04 */ vcp_ldim(VREG_6, 640),                     /* R6 = 640   (end-of-line pixel)      */
-    /* 05 */ vcp_ldim(VREG_A, 16),                      /* RA = 16    (entry count & step)     */
-    /* 06 */ vcp_ldim(VREG_D, 2),                       /* RD = 2     (scanline >> 2)          */
-    /* 07 */ vcp_ldim(VREG_1, 0),                       /* R1 = 0     (initial phase)          */
+    /* 00 */ vcp_ldim(VREG_2, 0xFF),                    /* R2 = 0xFF  (byte mask)            */
+    /* 01 */ vcp_ldim(VREG_3, 8),                       /* R3 = 8     (green shift)          */
+    /* 02 */ vcp_ldim(VREG_4, 16),                      /* R4 = 16    (red shift)            */
+    /* 03 */ vcp_ldim(VREG_5, 85),                      /* R5 = 85    (120 degree hue split) */
+    /* 04 */ vcp_ldim(VREG_6, 640),                     /* R6 = 640   (end-of-line pixel)    */
+    /* 05 */ vcp_ldim(VREG_A, 32),                      /* RA = 32    (palette entry count)  */
+    /* 06 */ vcp_ldim(VREG_B, 239),                     /* RB = 239   (last visible line)    */
+    /* 07 */ vcp_ldim(VREG_C, 5),                       /* RC = 5     (frame phase step)     */
+    /* 08 */ vcp_ldim(VREG_D, 8),                       /* RD = 8     (palette hue step)     */
+    /* 09 */ vcp_ldim(VREG_1, 0),                       /* R1 = 0     (initial phase)        */
 
-    /* --- scanline_wait: outer loop top (addr 0x20 = 32) ---------------- */
-    /* 08 */ vcp_wpix(VREG_6),                          /* wait for pixel 640 (end of line)    */
-    /* 09 */ vcp_scanline_read(VREG_7),                 /* R7 = current scanline               */
-    /* 10 */ vcp_cmp(COND_EQ, VREG_7, VREG_ZERO),      /* scanline == 0 ?                     */
-    /* 11 */ vcp_branchim(0x5C),                        /* branch.EQ → frame_code  (+0x5C)     */
+    /* --- wait_loop: spin until the final visible line ------------------ */
+    /* 10 */ vcp_wpix(VREG_6),                          /* wait for end-of-line              */
+    /* 11 */ vcp_scanline_read(VREG_7),                 /* R7 = current scanline             */
+    /* 12 */ vcp_cmp(COND_EQ, VREG_7, VREG_B),         /* scanline == 239 ?                 */
+    /* 13 */ vcp_branchim(0x08),                        /* branch.EQ → frame_code  (+0x08)   */
+    /* 14 */ vcp_jumpim(-0x10),                         /* jmp → wait_loop         (-0x10)   */
 
-    /* --- scanline_setup: line_phase = frame + (scanline >> 2) ---------- */
-    /* 12 */ vcp_rshr(VREG_8, VREG_7, VREG_D),         /* R8 = scanline >> 2                  */
-    /* 13 */ vcp_radd(VREG_8, VREG_8, VREG_1),         /* R8 = phase + (scanline >> 2)        */
-    /* 14 */ vcp_clr(VREG_9),                           /* R9 = 0 (palette entry index)        */
-    /* 15 */ vcp_mv(VREG_C, VREG_8),                    /* RC = t_entry = line_phase           */
-    /* 16 */ vcp_noop(),
+    /* --- frame_code: advance phase and rebuild palette ----------------- */
+    /* 15 */ vcp_radd(VREG_1, VREG_1, VREG_C),         /* phase += frame_step               */
+    /* 16 */ vcp_clr(VREG_9),                           /* entry_index = 0                   */
+    /* 17 */ vcp_mv(VREG_8, VREG_1),                    /* t_entry = phase                   */
 
-    /* --- palette_loop: write entries 0..15 (addr 0x44 = 68) ----------- */
-    /* 17 */ vcp_rand(VREG_B, VREG_C, VREG_2),         /* RB  = t_entry & 0xFF  (blue)        */
-    /* 18 */ vcp_radd(VREG_E, VREG_C, VREG_5),         /* RE  = t_entry + 85                  */
-    /* 19 */ vcp_rand(VREG_E, VREG_E, VREG_2),         /* RE  = (t_entry+85) & 0xFF           */
-    /* 20 */ vcp_rshl(VREG_E, VREG_E, VREG_3),         /* RE <<= 8                            */
-    /* 21 */ vcp_ror(VREG_B, VREG_B, VREG_E),          /* RB |= green                         */
-    /* 22 */ vcp_radd(VREG_F, VREG_C, VREG_5),         /* RF  = t_entry + 85                  */
-    /* 23 */ vcp_radd(VREG_F, VREG_F, VREG_5),         /* RF  = t_entry + 170                 */
-    /* 24 */ vcp_rand(VREG_F, VREG_F, VREG_2),         /* RF  = (t_entry+170) & 0xFF          */
-    /* 25 */ vcp_rshl(VREG_F, VREG_F, VREG_4),         /* RF <<= 16                           */
-    /* 26 */ vcp_ror(VREG_B, VREG_B, VREG_F),          /* RB |= red                           */
-    /* 27 */ vcp_pwrt(VREG_9, VREG_B),                 /* palette[entry_index] = R8G8B8       */
-    /* 28 */ vcp_radd(VREG_C, VREG_C, VREG_A),         /* t_entry += 16                       */
-    /* 29 */ vcp_rinc(VREG_9, VREG_9),                 /* entry_index++                       */
-    /* 30 */ vcp_cmp(COND_NE, VREG_9, VREG_A),         /* entry_index != 16 ?                 */
-    /* 31 */ vcp_branchim(-0x38),                       /* branch.NE → palette_loop  (-0x38)   */
-    /* 32 */ vcp_jumpim(-0x60),                         /* jmp → scanline_wait       (-0x60)   */
-
-    /* --- frame_code: scanline-0 handler (addr 0x88 = 136) -------------- */
-    /* 33 */ vcp_noop(),
-    /* 34 */ vcp_rinc(VREG_1, VREG_1),                 /* phase += 3                          */
-    /* 35 */ vcp_rinc(VREG_1, VREG_1),
-    /* 36 */ vcp_rinc(VREG_1, VREG_1),
-    /* 37 */ vcp_jumpim(-0x74),                         /* jmp → scanline_wait       (-0x74)   */
+    /* --- palette_loop: write entries 0..31 ----------------------------- */
+    /* 18 */ vcp_rand(VREG_7, VREG_8, VREG_2),         /* R7  = t_entry & 0xFF  (blue)      */
+    /* 19 */ vcp_radd(VREG_E, VREG_8, VREG_5),         /* RE  = t_entry + 85                */
+    /* 20 */ vcp_rand(VREG_E, VREG_E, VREG_2),         /* RE  = (t_entry+85) & 0xFF         */
+    /* 21 */ vcp_rshl(VREG_E, VREG_E, VREG_3),         /* RE <<= 8                          */
+    /* 22 */ vcp_ror(VREG_7, VREG_7, VREG_E),          /* R7 |= green                       */
+    /* 23 */ vcp_radd(VREG_F, VREG_8, VREG_5),         /* RF  = t_entry + 85                */
+    /* 24 */ vcp_radd(VREG_F, VREG_F, VREG_5),         /* RF  = t_entry + 170               */
+    /* 25 */ vcp_rand(VREG_F, VREG_F, VREG_2),         /* RF  = (t_entry+170) & 0xFF        */
+    /* 26 */ vcp_rshl(VREG_F, VREG_F, VREG_4),         /* RF <<= 16                         */
+    /* 27 */ vcp_ror(VREG_7, VREG_7, VREG_F),          /* R7 |= red                         */
+    /* 28 */ vcp_pwrt(VREG_9, VREG_7),                 /* palette[index] = R8G8B8           */
+    /* 29 */ vcp_radd(VREG_8, VREG_8, VREG_D),         /* t_entry += palette_step           */
+    /* 30 */ vcp_rinc(VREG_9, VREG_9),                 /* entry_index++                     */
+    /* 31 */ vcp_cmp(COND_NE, VREG_9, VREG_A),         /* entry_index != 32 ?               */
+    /* 32 */ vcp_branchim(-0x38),                       /* branch.NE → palette_loop (-0x38)  */
+    /* 33 */ vcp_jumpim(-0x5C),                         /* jmp → wait_loop         (-0x5C)   */
 
     /* --- padding to fill PRG_256Bytes (64 words) ----------------------- */
+    /* 34 */ vcp_noop(), /* 35 */ vcp_noop(), /* 36 */ vcp_noop(), /* 37 */ vcp_noop(),
     /* 38 */ vcp_noop(), /* 39 */ vcp_noop(), /* 40 */ vcp_noop(), /* 41 */ vcp_noop(),
     /* 42 */ vcp_noop(), /* 43 */ vcp_noop(), /* 44 */ vcp_noop(), /* 45 */ vcp_noop(),
     /* 46 */ vcp_noop(), /* 47 */ vcp_noop(), /* 48 */ vcp_noop(), /* 49 */ vcp_noop(),
@@ -133,11 +127,24 @@ static const uint32_t s_vcpprogram[64] = {
     /* 62 */ vcp_noop(), /* 63 */ vcp_noop(),
 };
 
+static void seedPalette(struct EVideoContext *context, uint8_t phase)
+{
+    for (uint32_t index = 0; index < 32; ++index)
+    {
+        uint32_t t = phase + (index * 8u);
+        uint32_t blue = t & 0xFFu;
+        uint32_t green = (t + 85u) & 0xFFu;
+        uint32_t red = (t + 170u) & 0xFFu;
+
+        VPUSetPal(context, (uint8_t)index, red, green, blue);
+    }
+}
+
 /* ---------------------------------------------------------------------------
  * buildPlasma
  *
  * Fills the framebuffer with a static scalar field using palette indices
- * 0-15. The field is a proper plasma: multiple orthogonal and radial waves
+ * 0-31. The field is a proper plasma: multiple orthogonal and radial waves
  * are blended together and then quantised to palette entries.
  *
  * This runs once at startup. The image data never changes after that; motion
@@ -177,9 +184,9 @@ static void buildPlasma(uint8_t *dst, uint32_t strideBytes, uint32_t width, uint
             else if (value > 5.0f)
                 value = 5.0f;
 
-            uint32_t idx = (uint32_t)((value + 5.0f) * 1.6f);
-            if (idx > 15)
-                idx = 15;
+            uint32_t idx = (uint32_t)((value + 5.0f) * 3.2f);
+            if (idx > 31)
+                idx = 31;
 
             row[x] = (uint8_t)idx;
         }
@@ -210,6 +217,9 @@ int main(int argc, char **argv)
     printf("Building plasma texture...\n");
     buildPlasma(s_frameBufferA.cpuAddress, stride, VIDEO_WIDTH, VIDEO_HEIGHT);
     memcpy(s_frameBufferB.cpuAddress, s_frameBufferA.cpuAddress, stride * VIDEO_HEIGHT);
+
+    /* Seed the plasma palette before the VCP takes over so the first frame is valid */
+    seedPalette(s_platform->vx, 0);
 
     /* Stop any previously running VCP programs */
     VPUWriteControlRegister(s_platform->vx, 0x0F, 0x00);
