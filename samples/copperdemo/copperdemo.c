@@ -30,12 +30,12 @@
  *   R3  - 8, green shift into bits 8-15
  *   R4  - 16, red shift into bits 16-23
  *   R5  - 85, 120 degree hue offset between channels
- *   R6  - 640, end-of-line pixel position
- *   R7  - current scanline / packed colour scratch
+ *   R6  - rearm scanline (1)
+ *   R7  - packed colour scratch
  *   R8  - t_entry = frame_phase + entry_index * hue_step
  *   R9  - palette entry index
  *   RA  - palette entry count
- *   RB  - last visible signal-space scanline (479)
+ *   RB  - frame sync scanline (0)
  *   RC  - frame phase increment
  *   RD  - palette hue step
  *   RE  - green channel scratch
@@ -57,7 +57,8 @@
 #define VIDEO_COLOR ECM_8bit_Indexed
 #define VIDEO_WIDTH 320
 #define VIDEO_HEIGHT 240
-#define VIDEO_LAST_VISIBLE_SCANLINE 479u
+#define VIDEO_FRAME_SYNC_SCANLINE 0u
+#define VIDEO_REARM_SCANLINE 1u
 
 #define PLASMA_PALETTE_SIZE 32u
 #define PLASMA_HUE_STEP 8u
@@ -74,11 +75,8 @@ static struct SPSizeAlloc s_frameBufferB;
  * Branch / jump offset verification (offsets are PC-relative from the
  * address of the branch/jump instruction itself):
  *
- *   instr 13  branchim(+0x08)  PC 52  ->  52+8   =60  = instr 15 (frame_code)
- *   instr 14  jumpim  (-0x10)  PC 56  ->  56-16  =40  = instr 10 (wait_loop)
- *   instr 32  branchim(-0x38)  PC 128 -> 128-56 =72  = instr 18 (palette_loop)
- *   instr 35  branchim(-0x64)  PC 140 -> 140-100=40 = instr 10 (wait_loop)
- *   instr 36  jumpim  (-0x0C)  PC 144 -> 144-12 =132 = instr 33 (rearm_wait)
+ *   instr 28  branchim(-0x38)  PC 112 -> 112-56 =56  = instr 14 (palette_loop)
+ *   instr 30  jumpim  (-0x50)  PC 120 -> 120-80 =40  = instr 10 (wait_loop)
  * --------------------------------------------------------------------------- */
 static const uint32_t s_vcpprogram[64] = {
     /* --- initialisation (runs once at program start) -------------------- */
@@ -86,56 +84,52 @@ static const uint32_t s_vcpprogram[64] = {
     /* 01 */ vcp_ldim(VREG_3, 8),
     /* 02 */ vcp_ldim(VREG_4, 16),
     /* 03 */ vcp_ldim(VREG_5, 85),
-    /* 04 */ vcp_ldim(VREG_6, 640),
+    /* 04 */ vcp_ldim(VREG_6, VIDEO_REARM_SCANLINE),
     /* 05 */ vcp_ldim(VREG_A, PLASMA_PALETTE_SIZE),
-    /* 06 */ vcp_ldim(VREG_B, VIDEO_LAST_VISIBLE_SCANLINE),
+    /* 06 */ vcp_ldim(VREG_B, VIDEO_FRAME_SYNC_SCANLINE),
     /* 07 */ vcp_ldim(VREG_C, PLASMA_PHASE_STEP),
     /* 08 */ vcp_ldim(VREG_D, PLASMA_HUE_STEP),
     /* 09 */ vcp_ldim(VREG_1, 0),
 
-    /* --- wait_loop: spin until the final visible line ------------------ */
-    /* 10 */ vcp_wpix(VREG_6),
-    /* 11 */ vcp_scanline_read(VREG_7),
-    /* 12 */ vcp_cmp(COND_EQ, VREG_7, VREG_B),
-    /* 13 */ vcp_branchim(0x08),
-    /* 14 */ vcp_jumpim(-0x10),
+    /* --- wait_loop: wait for start-of-frame scanline ------------------- */
+    /* 10 */ vcp_wscn(VREG_B),
 
     /* --- frame_code: advance phase and rebuild palette ----------------- */
-    /* 15 */ vcp_radd(VREG_1, VREG_1, VREG_C),
-    /* 16 */ vcp_clr(VREG_9),
-    /* 17 */ vcp_mv(VREG_8, VREG_1),
+    /* 11 */ vcp_radd(VREG_1, VREG_1, VREG_C),
+    /* 12 */ vcp_clr(VREG_9),
+    /* 13 */ vcp_mv(VREG_8, VREG_1),
 
     /* --- palette_loop: write entries 0..31 ----------------------------- */
-    /* 18 */ vcp_rand(VREG_7, VREG_8, VREG_2),
-    /* 19 */ vcp_radd(VREG_E, VREG_8, VREG_5),
-    /* 20 */ vcp_rand(VREG_E, VREG_E, VREG_2),
-    /* 21 */ vcp_rshl(VREG_E, VREG_E, VREG_3),
-    /* 22 */ vcp_ror(VREG_7, VREG_7, VREG_E),
-    /* 23 */ vcp_radd(VREG_F, VREG_8, VREG_5),
-    /* 24 */ vcp_radd(VREG_F, VREG_F, VREG_5),
-    /* 25 */ vcp_rand(VREG_F, VREG_F, VREG_2),
-    /* 26 */ vcp_rshl(VREG_F, VREG_F, VREG_4),
-    /* 27 */ vcp_ror(VREG_7, VREG_7, VREG_F),
-    /* 28 */ vcp_pwrt(VREG_9, VREG_7),
-    /* 29 */ vcp_radd(VREG_8, VREG_8, VREG_D),
-    /* 30 */ vcp_rinc(VREG_9, VREG_9),
-    /* 31 */ vcp_cmp(COND_NE, VREG_9, VREG_A),
-    /* 32 */ vcp_branchim(-0x38),
+    /* 14 */ vcp_rand(VREG_7, VREG_8, VREG_2),
+    /* 15 */ vcp_radd(VREG_E, VREG_8, VREG_5),
+    /* 16 */ vcp_rand(VREG_E, VREG_E, VREG_2),
+    /* 17 */ vcp_rshl(VREG_E, VREG_E, VREG_3),
+    /* 18 */ vcp_ror(VREG_7, VREG_7, VREG_E),
+    /* 19 */ vcp_radd(VREG_F, VREG_8, VREG_5),
+    /* 20 */ vcp_radd(VREG_F, VREG_F, VREG_5),
+    /* 21 */ vcp_rand(VREG_F, VREG_F, VREG_2),
+    /* 22 */ vcp_rshl(VREG_F, VREG_F, VREG_4),
+    /* 23 */ vcp_ror(VREG_7, VREG_7, VREG_F),
+    /* 24 */ vcp_pwrt(VREG_9, VREG_7),
+    /* 25 */ vcp_radd(VREG_8, VREG_8, VREG_D),
+    /* 26 */ vcp_rinc(VREG_9, VREG_9),
+    /* 27 */ vcp_cmp(COND_NE, VREG_9, VREG_A),
+    /* 28 */ vcp_branchim(-0x38),
 
-    /* --- rearm_wait: prevent multiple updates on the same line --------- */
-    /* 33 */ vcp_scanline_read(VREG_7),
-    /* 34 */ vcp_cmp(COND_NE, VREG_7, VREG_B),
-    /* 35 */ vcp_branchim(-0x64),
-    /* 36 */ vcp_jumpim(-0x0C),
+    /* --- rearm_wait: leave scanline 0 before re-arming ----------------- */
+    /* 29 */ vcp_wscn(VREG_6),
+    /* 30 */ vcp_jumpim(-0x50),
 
     /* --- padding to fill PRG_256Bytes (64 words) ----------------------- */
-    /* 37 */ vcp_noop(), /* 38 */ vcp_noop(), /* 39 */ vcp_noop(), /* 40 */ vcp_noop(),
-    /* 41 */ vcp_noop(), /* 42 */ vcp_noop(), /* 43 */ vcp_noop(), /* 44 */ vcp_noop(),
-    /* 45 */ vcp_noop(), /* 46 */ vcp_noop(), /* 47 */ vcp_noop(), /* 48 */ vcp_noop(),
-    /* 49 */ vcp_noop(), /* 50 */ vcp_noop(), /* 51 */ vcp_noop(), /* 52 */ vcp_noop(),
-    /* 53 */ vcp_noop(), /* 54 */ vcp_noop(), /* 55 */ vcp_noop(), /* 56 */ vcp_noop(),
-    /* 57 */ vcp_noop(), /* 58 */ vcp_noop(), /* 59 */ vcp_noop(), /* 60 */ vcp_noop(),
-    /* 61 */ vcp_noop(), /* 62 */ vcp_noop(), /* 63 */ vcp_noop(),
+    /* 31 */ vcp_noop(), /* 32 */ vcp_noop(), /* 33 */ vcp_noop(), /* 34 */ vcp_noop(),
+    /* 35 */ vcp_noop(), /* 36 */ vcp_noop(), /* 37 */ vcp_noop(), /* 38 */ vcp_noop(),
+    /* 39 */ vcp_noop(), /* 40 */ vcp_noop(), /* 41 */ vcp_noop(), /* 42 */ vcp_noop(),
+    /* 43 */ vcp_noop(), /* 44 */ vcp_noop(), /* 45 */ vcp_noop(), /* 46 */ vcp_noop(),
+    /* 47 */ vcp_noop(), /* 48 */ vcp_noop(), /* 49 */ vcp_noop(), /* 50 */ vcp_noop(),
+    /* 51 */ vcp_noop(), /* 52 */ vcp_noop(), /* 53 */ vcp_noop(), /* 54 */ vcp_noop(),
+    /* 55 */ vcp_noop(), /* 56 */ vcp_noop(), /* 57 */ vcp_noop(), /* 58 */ vcp_noop(),
+    /* 59 */ vcp_noop(), /* 60 */ vcp_noop(), /* 61 */ vcp_noop(), /* 62 */ vcp_noop(),
+    /* 63 */ vcp_noop(),
 };
 
 static void seedPalette(struct EVideoContext *context, uint8_t phase)
