@@ -114,11 +114,11 @@ static const uint32_t s_vcpprogram[64] = {
     /* 25 */ vcp_radd(VREG_8, VREG_8, VREG_D),
     /* 26 */ vcp_rinc(VREG_9, VREG_9),
     /* 27 */ vcp_cmp(COND_NE, VREG_9, VREG_A),
-    /* 28 */ vcp_branchim(-0x38),
+    /* 28 */ vcp_branchim(-0x38),               // -14 instructions (palette_loop)
 
     /* --- rearm_wait: leave scanline 0 before re-arming ----------------- */
     /* 29 */ vcp_wscn(VREG_6),
-    /* 30 */ vcp_jumpim(-0x50),
+    /* 30 */ vcp_jumpim(-0x50),                 // -20 instructions (wait_loop)
 
     /* --- padding to fill PRG_256Bytes (64 words) ----------------------- */
     /* 31 */ vcp_noop(), /* 32 */ vcp_noop(), /* 33 */ vcp_noop(), /* 34 */ vcp_noop(),
