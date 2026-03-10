@@ -35,6 +35,9 @@
 #define PLASMA_PHASE_STEP 4u
 #define PLASMA_CONTOUR_DENSITY 6.0f
 
+#define HUD_ROW (VIDEO_HEIGHT - 1u)
+#define HUD_COLOR_INDEX 255u
+
 static struct SPPlatform *s_platform = NULL;
 static struct SPSizeAlloc s_frameBufferA;
 static struct SPSizeAlloc s_frameBufferB;
@@ -47,18 +50,18 @@ static struct SPSizeAlloc s_mailbox;
  * address of the branch/jump instruction itself):
  *
  *   instr 29  branchim(-0x38)  PC 116 -> 116-56 =60  = instr 15 (palette_loop)
- *   instr 32  jumpim  (-0x58)  PC 128 -> 128-88 =40  = instr 10 (wait_loop)
+ *   instr 33  jumpim  (-0x5C)  PC 132 -> 132-92 =40  = instr 10 (wait_loop)
  * --------------------------------------------------------------------------- */
 static uint32_t s_vcpprogram[64] = {
     /* --- mailbox address setup------------------------------------------- */
     /* 00 */ vcp_ldim(VREG_B, 0x0),             // High 8 bits of mailbox - patched in by main() with the actual address
     /* 01 */ vcp_ldim(VREG_C, 0x0),             // Low 24 bits of mailbox - patched in by main() with the actual address
-    /* 05 */ vcp_ldim(VREG_3, 8),               // Generic shift amount
-    /* 02 */ vcp_rshl(VREG_B, VREG_B, VREG_3),  // Shift high bits into position
-    /* 03 */ vcp_ror(VREG_C, VREG_B, VREG_C),   // Combine high and low bits into full 32-bit address
+    /* 02 */ vcp_ldim(VREG_3, 8),               // Generic shift amount
+    /* 03 */ vcp_rshl(VREG_B, VREG_B, VREG_3),  // Shift high bits into position
+    /* 04 */ vcp_ror(VREG_C, VREG_B, VREG_C),   // Combine high and low bits into full 32-bit address
 
     /* --- initialisation (runs once at program start) -------------------- */
-    /* 04 */ vcp_ldim(VREG_2, 0xFF),
+    /* 05 */ vcp_ldim(VREG_2, 0xFF),
     /* 06 */ vcp_ldim(VREG_4, 16),
     /* 07 */ vcp_ldim(VREG_5, 85),
     /* 08 */ vcp_ldim(VREG_A, PLASMA_PALETTE_SIZE),
@@ -90,21 +93,32 @@ static uint32_t s_vcpprogram[64] = {
     /* 28 */ vcp_cmp(COND_NE, VREG_9, VREG_A),
     /* 29 */ vcp_branchim(-0x38),
 
+    /* --- mailbox writeback: publish current phase for CPU HUD ---------- */
+    /* 30 */ vcp_sysmemwrite(VREG_C, VREG_1),
+
     /* --- rearm_wait: leave scanline 0 before re-arming ----------------- */
-    /* 30 */ vcp_ldim(VREG_6, VIDEO_REARM_SCANLINE),
-    /* 31 */ vcp_wscn(VREG_6),
-    /* 32 */ vcp_jumpim(-0x58),
+    /* 31 */ vcp_ldim(VREG_6, VIDEO_REARM_SCANLINE),
+    /* 32 */ vcp_wscn(VREG_6),
+    /* 33 */ vcp_jumpim(-0x5C),
 
     /* --- padding to fill PRG_256Bytes (64 words) ----------------------- */
-    /* 33 */ vcp_noop(), /* 34 */ vcp_noop(), /* 35 */ vcp_noop(), /* 36 */ vcp_noop(),
-    /* 37 */ vcp_noop(), /* 38 */ vcp_noop(), /* 39 */ vcp_noop(), /* 40 */ vcp_noop(),
-    /* 41 */ vcp_noop(), /* 42 */ vcp_noop(), /* 43 */ vcp_noop(), /* 44 */ vcp_noop(),
-    /* 45 */ vcp_noop(), /* 46 */ vcp_noop(), /* 47 */ vcp_noop(), /* 48 */ vcp_noop(),
-    /* 49 */ vcp_noop(), /* 50 */ vcp_noop(), /* 51 */ vcp_noop(), /* 52 */ vcp_noop(),
-    /* 53 */ vcp_noop(), /* 54 */ vcp_noop(), /* 55 */ vcp_noop(), /* 56 */ vcp_noop(),
-    /* 57 */ vcp_noop(), /* 58 */ vcp_noop(), /* 59 */ vcp_noop(), /* 60 */ vcp_noop(),
-    /* 61 */ vcp_noop(), /* 62 */ vcp_noop(), /* 63 */ vcp_noop(),
+    /* 34 */ vcp_noop(), /* 35 */ vcp_noop(), /* 36 */ vcp_noop(), /* 37 */ vcp_noop(),
+    /* 38 */ vcp_noop(), /* 39 */ vcp_noop(), /* 40 */ vcp_noop(), /* 41 */ vcp_noop(),
+    /* 42 */ vcp_noop(), /* 43 */ vcp_noop(), /* 44 */ vcp_noop(), /* 45 */ vcp_noop(),
+    /* 46 */ vcp_noop(), /* 47 */ vcp_noop(), /* 48 */ vcp_noop(), /* 49 */ vcp_noop(),
+    /* 50 */ vcp_noop(), /* 51 */ vcp_noop(), /* 52 */ vcp_noop(), /* 53 */ vcp_noop(),
+    /* 54 */ vcp_noop(), /* 55 */ vcp_noop(), /* 56 */ vcp_noop(), /* 57 */ vcp_noop(),
+    /* 58 */ vcp_noop(), /* 59 */ vcp_noop(), /* 60 */ vcp_noop(), /* 61 */ vcp_noop(),
+    /* 62 */ vcp_noop(), /* 63 */ vcp_noop(),
 };
+
+static void drawHudPixel(uint8_t *framebuffer, uint32_t strideBytes, uint32_t x)
+{
+    uint8_t *row = framebuffer + (HUD_ROW * strideBytes);
+
+    memset(row, 0, VIDEO_WIDTH);
+    row[x % 255u] = HUD_COLOR_INDEX;
+}
 
 static void seedPalette(struct EVideoContext *context, uint8_t phase)
 {
@@ -181,15 +195,18 @@ int main(int argc, char **argv)
     // Allocate mailbox
     s_mailbox.size = 4; // We only need to send one 32-bit data, so 4 bytes is sufficient
     SPAllocateBuffer(s_platform, &s_mailbox);
+    *(uint32_t *)s_mailbox.cpuAddress = 0;
+
     // Patch program with mailbox address
-    s_vcpprogram[0] = (((uint32_t)s_frameBufferA.dmaAddress) >> 8) & 0xFFu; // High 8 bits of mailbox
-    s_vcpprogram[1] = ((uint32_t)s_frameBufferA.dmaAddress) & 0xFFFFFFu;    // Low 24 bits of mailbox
+    s_vcpprogram[0] = vcp_ldim(VREG_B, (((uint32_t)s_mailbox.dmaAddress) >> 8) & 0x00FF0000u);
+    s_vcpprogram[1] = vcp_ldim(VREG_C, ((uint32_t)s_mailbox.dmaAddress) & 0x00FFFFFFu);
 
     printf("Building wrapped plasma phase field...\n");
     buildPlasma(s_frameBufferA.cpuAddress, stride, VIDEO_WIDTH, VIDEO_HEIGHT);
     memcpy(s_frameBufferB.cpuAddress, s_frameBufferA.cpuAddress, stride * VIDEO_HEIGHT);
 
     seedPalette(s_platform->vx, 0);
+    VPUSetPal(s_platform->vx, HUD_COLOR_INDEX, 255u, 255u, 255u);
 
     VPUWriteControlRegister(s_platform->vx, 0x0F, 0x00);
 
@@ -203,6 +220,11 @@ int main(int argc, char **argv)
     {
         while (VPUGetFIFONotEmpty(s_platform->vx)) { }
         VPUSwapPages(s_platform->vx, s_platform->sc);
+
+        // Scroll a single pixel at the position written by the VCP
+        uint32_t hudPhase = *(volatile uint32_t *)s_mailbox.cpuAddress;
+        drawHudPixel(s_platform->sc->writepage, stride, hudPhase);
+
         VPUSyncSwap(s_platform->vx, 0);
         VPUNoop(s_platform->vx);
     }
