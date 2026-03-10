@@ -26,8 +26,8 @@ extern "C" {
 #define VCP_READSCANINFO	0x0B
 #define VCP_LOADPC			0x0C
 #define VCP_LOGICOP			0x0D
-#define VCP_UNUSED2			0x0E
-#define VCP_UNUSED1			0x0F
+#define VCP_SYSMEMWRITE		0x0E
+#define VCP_SYSMEMREAD		0x0F
 
 #define DESTREG(reg)			((reg & 0xF) << 4)
 #define SRCREG1(reg)			((reg & 0xF) << 8)
@@ -121,6 +121,8 @@ extern "C" {
 #define vcp_rneg(dest, src1)					(	IMMED8(OPL_NEG)		| 0					| SRCREG1(src1)		| DESTREG(dest)		| VCP_LOGICOP		)
 #define vcp_rcmp(dest)							(	IMMED8(OPL_RCMP)	| 0					| 0					| DESTREG(dest)		| VCP_LOGICOP		)
 #define vcp_rctl(dest)							(	IMMED8(OPL_RCTL)	| 0					| 0					| DESTREG(dest)		| VCP_LOGICOP		)
+#define vcp_sysmemwrite(addrs, src)				(	0					| SRCREG2(src)		| SRCREG1(addrs)	| 0					| VCP_SYSMEMWRITE	)
+#define vcp_sysmemread(addrs, dest)				(	0					| 0					| SRCREG1(addrs)	| DESTREG(dest)		| VCP_SYSMEMREAD	)
 
 // Pseudo instructions
 #define vcp_mv(dest, src)		vcp_radd(dest, src, VREG_ZERO)
