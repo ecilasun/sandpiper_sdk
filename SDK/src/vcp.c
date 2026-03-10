@@ -9,6 +9,9 @@
 #define SP_IOCTL_VCP_READ			_IOR('k', 7, void*)
 #define SP_IOCTL_VCP_WRITE			_IOW('k', 8, void*)
 
+#define VCP_STATUS_COPY_ACTIVE	(1u << 22)
+#define VCP_UPLOAD_WAIT_LIMIT	1000000u
+
 // Internal function to read a 32-bit value from a VCP register
 uint32_t vcpread32(struct SPPlatform* _platform, uint32_t offset)
 {
