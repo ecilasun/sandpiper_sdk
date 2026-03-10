@@ -75,8 +75,8 @@ static struct SPSizeAlloc s_frameBufferB;
  * Branch / jump offset verification (offsets are PC-relative from the
  * address of the branch/jump instruction itself):
  *
- *   instr 28  branchim(-0x38)  PC 112 -> 112-56 =56  = instr 14 (palette_loop)
- *   instr 30  jumpim  (-0x50)  PC 120 -> 120-80 =40  = instr 10 (wait_loop)
+ *   instr 27  branchim(-0x38)  PC 108 -> 108-56 =52  = instr 13 (palette_loop)
+ *   instr 30  jumpim  (-0x54)  PC 120 -> 120-84 =36  = instr 09 (wait_loop)
  * --------------------------------------------------------------------------- */
 static const uint32_t s_vcpprogram[64] = {
     /* --- initialisation (runs once at program start) -------------------- */
@@ -84,41 +84,41 @@ static const uint32_t s_vcpprogram[64] = {
     /* 01 */ vcp_ldim(VREG_3, 8),
     /* 02 */ vcp_ldim(VREG_4, 16),
     /* 03 */ vcp_ldim(VREG_5, 85),
-    /* 04 */ vcp_ldim(VREG_6, VIDEO_REARM_SCANLINE),
-    /* 05 */ vcp_ldim(VREG_A, PLASMA_PALETTE_SIZE),
-    /* 06 */ vcp_ldim(VREG_B, VIDEO_FRAME_SYNC_SCANLINE),
-    /* 07 */ vcp_ldim(VREG_C, PLASMA_PHASE_STEP),
-    /* 08 */ vcp_ldim(VREG_D, PLASMA_HUE_STEP),
-    /* 09 */ vcp_ldim(VREG_1, 0),
+    /* 04 */ vcp_ldim(VREG_A, PLASMA_PALETTE_SIZE),
+    /* 05 */ vcp_ldim(VREG_B, VIDEO_FRAME_SYNC_SCANLINE),
+    /* 06 */ vcp_ldim(VREG_C, PLASMA_PHASE_STEP),
+    /* 07 */ vcp_ldim(VREG_D, PLASMA_HUE_STEP),
+    /* 08 */ vcp_ldim(VREG_1, 0),
 
     /* --- wait_loop: wait for start-of-frame scanline ------------------- */
-    /* 10 */ vcp_wscn(VREG_B),
+    /* 09 */ vcp_wscn(VREG_B),
 
     /* --- frame_code: advance phase and rebuild palette ----------------- */
-    /* 11 */ vcp_radd(VREG_1, VREG_1, VREG_C),
-    /* 12 */ vcp_clr(VREG_9),
-    /* 13 */ vcp_mv(VREG_8, VREG_1),
+    /* 10 */ vcp_radd(VREG_1, VREG_1, VREG_C),
+    /* 11 */ vcp_clr(VREG_9),
+    /* 12 */ vcp_mv(VREG_8, VREG_1),
 
     /* --- palette_loop: write entries 0..31 ----------------------------- */
-    /* 14 */ vcp_rand(VREG_7, VREG_8, VREG_2),
-    /* 15 */ vcp_radd(VREG_E, VREG_8, VREG_5),
-    /* 16 */ vcp_rand(VREG_E, VREG_E, VREG_2),
-    /* 17 */ vcp_rshl(VREG_E, VREG_E, VREG_3),
-    /* 18 */ vcp_ror(VREG_7, VREG_7, VREG_E),
-    /* 19 */ vcp_radd(VREG_F, VREG_8, VREG_5),
-    /* 20 */ vcp_radd(VREG_F, VREG_F, VREG_5),
-    /* 21 */ vcp_rand(VREG_F, VREG_F, VREG_2),
-    /* 22 */ vcp_rshl(VREG_F, VREG_F, VREG_4),
-    /* 23 */ vcp_ror(VREG_7, VREG_7, VREG_F),
-    /* 24 */ vcp_pwrt(VREG_9, VREG_7),
-    /* 25 */ vcp_radd(VREG_8, VREG_8, VREG_D),
-    /* 26 */ vcp_rinc(VREG_9, VREG_9),
-    /* 27 */ vcp_cmp(COND_NE, VREG_9, VREG_A),
-    /* 28 */ vcp_branchim(-0x38),               // -14 instructions (palette_loop)
+    /* 13 */ vcp_rand(VREG_7, VREG_8, VREG_2),
+    /* 14 */ vcp_radd(VREG_E, VREG_8, VREG_5),
+    /* 15 */ vcp_rand(VREG_E, VREG_E, VREG_2),
+    /* 16 */ vcp_rshl(VREG_E, VREG_E, VREG_3),
+    /* 17 */ vcp_ror(VREG_7, VREG_7, VREG_E),
+    /* 18 */ vcp_radd(VREG_F, VREG_8, VREG_5),
+    /* 19 */ vcp_radd(VREG_F, VREG_F, VREG_5),
+    /* 20 */ vcp_rand(VREG_F, VREG_F, VREG_2),
+    /* 21 */ vcp_rshl(VREG_F, VREG_F, VREG_4),
+    /* 22 */ vcp_ror(VREG_7, VREG_7, VREG_F),
+    /* 23 */ vcp_pwrt(VREG_9, VREG_7),
+    /* 24 */ vcp_radd(VREG_8, VREG_8, VREG_D),
+    /* 25 */ vcp_rinc(VREG_9, VREG_9),
+    /* 26 */ vcp_cmp(COND_NE, VREG_9, VREG_A),
+    /* 27 */ vcp_branchim(-0x38),
 
     /* --- rearm_wait: leave scanline 0 before re-arming ----------------- */
+    /* 28 */ vcp_ldim(VREG_6, VIDEO_REARM_SCANLINE),
     /* 29 */ vcp_wscn(VREG_6),
-    /* 30 */ vcp_jumpim(-0x50),                 // -20 instructions (wait_loop)
+    /* 30 */ vcp_jumpim(-0x54),
 
     /* --- padding to fill PRG_256Bytes (64 words) ----------------------- */
     /* 31 */ vcp_noop(), /* 32 */ vcp_noop(), /* 33 */ vcp_noop(), /* 34 */ vcp_noop(),
