@@ -36,6 +36,7 @@
 #define PLASMA_CONTOUR_DENSITY 6.0f
 
 #define HUD_ROW (VIDEO_HEIGHT - 1u)
+#define HUD_HEIGHT 4u
 #define HUD_COLOR_INDEX 255u
 
 static struct SPPlatform *s_platform = NULL;
@@ -116,10 +117,15 @@ static uint32_t s_vcpprogram[64] = {
 
 static void drawHudPixel(uint8_t *framebuffer, uint32_t strideBytes, uint32_t x)
 {
-    uint8_t *row = framebuffer + (HUD_ROW * strideBytes);
+    uint32_t hudX = x % 255u;
 
-    memset(row, 0, VIDEO_WIDTH);
-    row[x % 255u] = HUD_COLOR_INDEX;
+    for (uint32_t offset = 0; offset < HUD_HEIGHT; ++offset)
+    {
+        uint8_t *row = framebuffer + ((HUD_ROW - offset) * strideBytes);
+
+        memset(row, 0, VIDEO_WIDTH);
+        row[hudX] = HUD_COLOR_INDEX;
+    }
 }
 
 static void seedPalette(struct EVideoContext *context, uint8_t phase)
