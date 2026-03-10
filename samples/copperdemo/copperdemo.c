@@ -7,39 +7,9 @@
  * Demonstrates an indexed-colour plasma where the framebuffer holds a static
  * wrapped phase field and the VCP (Video Co-Processor) supplies the motion by
  * rebuilding the plasma palette every frame.
+ * 
+ * This sample also demonstrates memory read / write from VCP to implement a simple mailbox
  *
- * The CPU computes a scalar field once at startup and stores palette indices
- * 0-31 in VRAM. Those indices are not a one-shot brightness ramp; they are a
- * wrapped contour field designed for palette cycling. After startup the CPU
- * stops touching the image data.
- *
- * The VCP updates the full plasma palette once per frame during the frame
- * boundary. The phase advances every frame, so the contour bands appear to
- * flow through the field while the underlying index map remains fixed.
- *
- * Tuning choices:
- *   N = 32 palette entries
- *   hue step = 8 across the 0..255 colour wheel
- *   frame phase step = 4 for smooth sub-slot palette motion
- *   contour density k = 6.0 for visible travelling bands without aliasing
- *
- * VCP register assignments
- *   R0  (VREG_ZERO) - hardware zero (always 0)
- *   R1  - frame_phase
- *   R2  - 0xFF byte mask
- *   R3  - 8, green shift into bits 8-15
- *   R4  - 16, red shift into bits 16-23
- *   R5  - 85, 120 degree hue offset between channels
- *   R6  - rearm scanline (1)
- *   R7  - packed colour scratch
- *   R8  - t_entry = frame_phase + entry_index * hue_step
- *   R9  - palette entry index
- *   RA  - palette entry count
- *   RB  - frame sync scanline (0)
- *   RC  - frame phase increment
- *   RD  - palette hue step
- *   RE  - green channel scratch
- *   RF  - red channel scratch
  */
 
 #include <stdint.h>
@@ -68,6 +38,7 @@
 static struct SPPlatform *s_platform = NULL;
 static struct SPSizeAlloc s_frameBufferA;
 static struct SPSizeAlloc s_frameBufferB;
+static struct SPSizeAlloc s_mailbox;
 
 /* ---------------------------------------------------------------------------
  * VCP copper plasma program  (PRG_256Bytes = 64 words)
@@ -75,61 +46,64 @@ static struct SPSizeAlloc s_frameBufferB;
  * Branch / jump offset verification (offsets are PC-relative from the
  * address of the branch/jump instruction itself):
  *
- *   instr 27  branchim(-0x38)  PC 108 -> 108-56 =52  = instr 13 (palette_loop)
- *   instr 30  jumpim  (-0x54)  PC 120 -> 120-84 =36  = instr 09 (wait_loop)
+ *   instr 29  branchim(-0x38)  PC 116 -> 116-56 =60  = instr 15 (palette_loop)
+ *   instr 32  jumpim  (-0x58)  PC 128 -> 128-88 =40  = instr 10 (wait_loop)
  * --------------------------------------------------------------------------- */
-static const uint32_t s_vcpprogram[64] = {
+static uint32_t s_vcpprogram[64] = {
+    /* --- mailbox address setup------------------------------------------- */
+    /* 00 */ vcp_ldim(VREG_B, 0x0),             // High 8 bits of mailbox - patched in by main() with the actual address
+    /* 01 */ vcp_ldim(VREG_C, 0x0),             // Low 24 bits of mailbox - patched in by main() with the actual address
+    /* 05 */ vcp_ldim(VREG_3, 8),               // Generic shift amount
+    /* 02 */ vcp_rshl(VREG_B, VREG_B, VREG_3),  // Shift high bits into position
+    /* 03 */ vcp_ror(VREG_C, VREG_B, VREG_C),   // Combine high and low bits into full 32-bit address
+
     /* --- initialisation (runs once at program start) -------------------- */
-    /* 00 */ vcp_ldim(VREG_2, 0xFF),
-    /* 01 */ vcp_ldim(VREG_3, 8),
-    /* 02 */ vcp_ldim(VREG_4, 16),
-    /* 03 */ vcp_ldim(VREG_5, 85),
-    /* 04 */ vcp_ldim(VREG_A, PLASMA_PALETTE_SIZE),
-    /* 05 */ vcp_ldim(VREG_B, VIDEO_FRAME_SYNC_SCANLINE),
-    /* 06 */ vcp_ldim(VREG_C, PLASMA_PHASE_STEP),
-    /* 07 */ vcp_ldim(VREG_D, PLASMA_HUE_STEP),
-    /* 08 */ vcp_ldim(VREG_1, 0),
+    /* 04 */ vcp_ldim(VREG_2, 0xFF),
+    /* 06 */ vcp_ldim(VREG_4, 16),
+    /* 07 */ vcp_ldim(VREG_5, 85),
+    /* 08 */ vcp_ldim(VREG_A, PLASMA_PALETTE_SIZE),
+    /* 09 */ vcp_ldim(VREG_1, 0),
 
     /* --- wait_loop: wait for start-of-frame scanline ------------------- */
-    /* 09 */ vcp_wscn(VREG_B),
+    /* 10 */ vcp_wscn(VREG_ZERO),
 
     /* --- frame_code: advance phase and rebuild palette ----------------- */
-    /* 10 */ vcp_radd(VREG_1, VREG_1, VREG_C),
-    /* 11 */ vcp_clr(VREG_9),
-    /* 12 */ vcp_mv(VREG_8, VREG_1),
+    /* 11 */ vcp_ldim(VREG_6, PLASMA_PHASE_STEP),
+    /* 12 */ vcp_radd(VREG_1, VREG_1, VREG_6),
+    /* 13 */ vcp_clr(VREG_9),
+    /* 14 */ vcp_mv(VREG_8, VREG_1),
 
     /* --- palette_loop: write entries 0..31 ----------------------------- */
-    /* 13 */ vcp_rand(VREG_7, VREG_8, VREG_2),
-    /* 14 */ vcp_radd(VREG_E, VREG_8, VREG_5),
-    /* 15 */ vcp_rand(VREG_E, VREG_E, VREG_2),
-    /* 16 */ vcp_rshl(VREG_E, VREG_E, VREG_3),
-    /* 17 */ vcp_ror(VREG_7, VREG_7, VREG_E),
-    /* 18 */ vcp_radd(VREG_F, VREG_8, VREG_5),
-    /* 19 */ vcp_radd(VREG_F, VREG_F, VREG_5),
-    /* 20 */ vcp_rand(VREG_F, VREG_F, VREG_2),
-    /* 21 */ vcp_rshl(VREG_F, VREG_F, VREG_4),
-    /* 22 */ vcp_ror(VREG_7, VREG_7, VREG_F),
-    /* 23 */ vcp_pwrt(VREG_9, VREG_7),
-    /* 24 */ vcp_radd(VREG_8, VREG_8, VREG_D),
-    /* 25 */ vcp_rinc(VREG_9, VREG_9),
-    /* 26 */ vcp_cmp(COND_NE, VREG_9, VREG_A),
-    /* 27 */ vcp_branchim(-0x38),
+    /* 15 */ vcp_rand(VREG_7, VREG_8, VREG_2),
+    /* 16 */ vcp_radd(VREG_6, VREG_8, VREG_5),
+    /* 17 */ vcp_rand(VREG_6, VREG_6, VREG_2),
+    /* 18 */ vcp_rshl(VREG_6, VREG_6, VREG_3),
+    /* 19 */ vcp_ror(VREG_7, VREG_7, VREG_6),
+    /* 20 */ vcp_radd(VREG_6, VREG_8, VREG_5),
+    /* 21 */ vcp_radd(VREG_6, VREG_6, VREG_5),
+    /* 22 */ vcp_rand(VREG_6, VREG_6, VREG_2),
+    /* 23 */ vcp_rshl(VREG_6, VREG_6, VREG_4),
+    /* 24 */ vcp_ror(VREG_7, VREG_7, VREG_6),
+    /* 25 */ vcp_pwrt(VREG_9, VREG_7),
+    /* 26 */ vcp_radd(VREG_8, VREG_8, VREG_3),
+    /* 27 */ vcp_rinc(VREG_9, VREG_9),
+    /* 28 */ vcp_cmp(COND_NE, VREG_9, VREG_A),
+    /* 29 */ vcp_branchim(-0x38),
 
     /* --- rearm_wait: leave scanline 0 before re-arming ----------------- */
-    /* 28 */ vcp_ldim(VREG_6, VIDEO_REARM_SCANLINE),
-    /* 29 */ vcp_wscn(VREG_6),
-    /* 30 */ vcp_jumpim(-0x54),
+    /* 30 */ vcp_ldim(VREG_6, VIDEO_REARM_SCANLINE),
+    /* 31 */ vcp_wscn(VREG_6),
+    /* 32 */ vcp_jumpim(-0x58),
 
     /* --- padding to fill PRG_256Bytes (64 words) ----------------------- */
-    /* 31 */ vcp_noop(), /* 32 */ vcp_noop(), /* 33 */ vcp_noop(), /* 34 */ vcp_noop(),
-    /* 35 */ vcp_noop(), /* 36 */ vcp_noop(), /* 37 */ vcp_noop(), /* 38 */ vcp_noop(),
-    /* 39 */ vcp_noop(), /* 40 */ vcp_noop(), /* 41 */ vcp_noop(), /* 42 */ vcp_noop(),
-    /* 43 */ vcp_noop(), /* 44 */ vcp_noop(), /* 45 */ vcp_noop(), /* 46 */ vcp_noop(),
-    /* 47 */ vcp_noop(), /* 48 */ vcp_noop(), /* 49 */ vcp_noop(), /* 50 */ vcp_noop(),
-    /* 51 */ vcp_noop(), /* 52 */ vcp_noop(), /* 53 */ vcp_noop(), /* 54 */ vcp_noop(),
-    /* 55 */ vcp_noop(), /* 56 */ vcp_noop(), /* 57 */ vcp_noop(), /* 58 */ vcp_noop(),
-    /* 59 */ vcp_noop(), /* 60 */ vcp_noop(), /* 61 */ vcp_noop(), /* 62 */ vcp_noop(),
-    /* 63 */ vcp_noop(),
+    /* 33 */ vcp_noop(), /* 34 */ vcp_noop(), /* 35 */ vcp_noop(), /* 36 */ vcp_noop(),
+    /* 37 */ vcp_noop(), /* 38 */ vcp_noop(), /* 39 */ vcp_noop(), /* 40 */ vcp_noop(),
+    /* 41 */ vcp_noop(), /* 42 */ vcp_noop(), /* 43 */ vcp_noop(), /* 44 */ vcp_noop(),
+    /* 45 */ vcp_noop(), /* 46 */ vcp_noop(), /* 47 */ vcp_noop(), /* 48 */ vcp_noop(),
+    /* 49 */ vcp_noop(), /* 50 */ vcp_noop(), /* 51 */ vcp_noop(), /* 52 */ vcp_noop(),
+    /* 53 */ vcp_noop(), /* 54 */ vcp_noop(), /* 55 */ vcp_noop(), /* 56 */ vcp_noop(),
+    /* 57 */ vcp_noop(), /* 58 */ vcp_noop(), /* 59 */ vcp_noop(), /* 60 */ vcp_noop(),
+    /* 61 */ vcp_noop(), /* 62 */ vcp_noop(), /* 63 */ vcp_noop(),
 };
 
 static void seedPalette(struct EVideoContext *context, uint8_t phase)
@@ -203,6 +177,13 @@ int main(int argc, char **argv)
     s_platform->sc->cycle = 0;
     s_platform->sc->framebufferA = &s_frameBufferA;
     s_platform->sc->framebufferB = &s_frameBufferB;
+
+    // Allocate mailbox
+    s_mailbox.size = 4; // We only need to send one 32-bit data, so 4 bytes is sufficient
+    SPAllocateBuffer(s_platform, &s_mailbox);
+    // Patch program with mailbox address
+    s_vcpprogram[0] = (((uint32_t)s_frameBufferA.dmaAddress) >> 8) & 0xFFu; // High 8 bits of mailbox
+    s_vcpprogram[1] = ((uint32_t)s_frameBufferA.dmaAddress) & 0xFFFFFFu;    // Low 24 bits of mailbox
 
     printf("Building wrapped plasma phase field...\n");
     buildPlasma(s_frameBufferA.cpuAddress, stride, VIDEO_WIDTH, VIDEO_HEIGHT);
