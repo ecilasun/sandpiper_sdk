@@ -43,15 +43,17 @@ static struct SPSizeAlloc s_frameBufferA;
 static struct SPSizeAlloc s_frameBufferB;
 static struct SPSizeAlloc s_mailbox;
 
-/* ---------------------------------------------------------------------------
- * VCP copper plasma program  (PRG_256Bytes = 64 words)
- *
- * Branch / jump offset verification (offsets are PC-relative from the
- * address of the branch/jump instruction itself):
- *
- *   instr 29  branchim(-0x38)  PC 116 -> 116-56 =60  = instr 15 (palette_loop)
- *   instr 33  jumpim  (-0x5C)  PC 132 -> 132-92 =40  = instr 10 (wait_loop)
- * --------------------------------------------------------------------------- */
+// VCP copper plasma program  (PRG_256Bytes = 64 words)
+// Register map:
+// C = Mailbox address (generated from B and C registers at program start)
+// 1 = Phase accumulator (updated every frame, written to mailbox every frame)
+// 8 = Generic shift amount (8 for byte shifts)
+// 9 = Palette index (0..31)
+// A = Palette size (32)
+// 0..7 = Temporary registers for palette generation
+// 
+// The program waits for the start of vertical blank, then updates the palette based on the current phase,
+// and finally writes the current phase to the mailbox for the CPU to read and display on the HUD.
 static uint32_t s_vcpprogram[64] = {
     /* --- mailbox address setup------------------------------------------- */
     /* 00 */ vcp_ldim(VREG_B, 0x0),             // High 8 bits of mailbox - patched in by main() with the actual address
@@ -197,10 +199,6 @@ int main(int argc, char **argv)
     SPAllocateBuffer(s_platform, &s_mailbox);
     *(uint32_t *)s_mailbox.cpuAddress = 0;
 
-    // Patch program with mailbox address
-    s_vcpprogram[0] = vcp_ldim(VREG_B, (((uint32_t)s_mailbox.dmaAddress) >> 8) & 0x00FF0000u);
-    s_vcpprogram[1] = vcp_ldim(VREG_C, ((uint32_t)s_mailbox.dmaAddress) & 0x00FFFFFFu);
-
     printf("Building wrapped plasma phase field...\n");
     buildPlasma(s_frameBufferA.cpuAddress, stride, VIDEO_WIDTH, VIDEO_HEIGHT);
     memcpy(s_frameBufferB.cpuAddress, s_frameBufferA.cpuAddress, stride * VIDEO_HEIGHT);
@@ -211,10 +209,11 @@ int main(int argc, char **argv)
     VPUWriteControlRegister(s_platform->vx, 0x0F, 0x00);
 
     printf("Launching copper plasma VCP program...\n");
+    // Patch program with mailbox address before we upload it to the VCP
+    s_vcpprogram[0] = vcp_ldim(VREG_B, (((uint32_t)s_mailbox.dmaAddress) >> 8) & 0x00FF0000u);
+    s_vcpprogram[1] = vcp_ldim(VREG_C, ((uint32_t)s_mailbox.dmaAddress) & 0x00FFFFFFu);
     VCPUploadProgram(s_platform, s_vcpprogram, PRG_256Bytes);
     VCPExecProgram(s_platform, 0x1);
-
-    printf("Running - VCP drives palette cycling over a static phase field.\n");
 
     while (1)
     {
