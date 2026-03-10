@@ -41,6 +41,7 @@ void vcpwrite32(struct SPPlatform* _platform, uint32_t offset, uint32_t value)
  */
 void VCPUploadProgram(struct SPPlatform *ctx, const uint32_t* _program, enum EVCPBufferSize size)
 {
+	uint32_t bufferSizeCode = (uint32_t)size;
 	uint32_t bufferSize = 128 << (uint32_t)size;
 
 	// Set aside some space for program uploads
@@ -59,13 +60,20 @@ void VCPUploadProgram(struct SPPlatform *ctx, const uint32_t* _program, enum EVC
 
 	// Set upload size
 	vcpwrite32(ctx, 0, VCPSETBUFFERSIZE);
-	vcpwrite32(ctx, 0, bufferSize);
+	vcpwrite32(ctx, 0, bufferSizeCode);
 
 	// Kick the DMA from the upload buffer to the VCP
 	vcpwrite32(ctx, 0, VCPSTARTDMA);
 	vcpwrite32(ctx, 0, (uint32_t)programUploadBuffer.dmaAddress);
 
-	// TODO: We can wait for DMA completion by polling VCP status if needed
+	// Wait for the upload to finish by polling the status register so we don't run half-baked programs
+	for (uint32_t spins = 0; spins < VCP_UPLOAD_WAIT_LIMIT; ++spins)
+	{
+		if ((vcpread32(ctx, 0) & VCP_STATUS_COPY_ACTIVE) == 0)
+			return;
+	}
+
+	printf("Warning: Timed out waiting for VCP program upload to finish\n");
 }
 
 /*
