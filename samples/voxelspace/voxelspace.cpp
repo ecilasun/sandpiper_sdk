@@ -15,8 +15,8 @@
  * automatically without any per-pixel blending in software.
  *
  * Terrain is generated procedurally (sum-of-sines height field) so no external
- * data files are needed.  Core 0 renders screen columns 0..319 and core 1
- * renders columns 320..639 simultaneously using the same barrier pattern as the
+ * data files are needed.  Core 0 renders screen columns 0..159 and core 1
+ * renders columns 160..319 simultaneously using the same barrier pattern as the
  * boids and mandelbrot samples.
  *
  * Algorithm reference: https://github.com/s-macke/VoxelSpace
@@ -37,10 +37,10 @@
 // ---------------------------------------------------------------------------
 // Video configuration
 // ---------------------------------------------------------------------------
-#define VIDEO_MODE      EVM_640_480
+#define VIDEO_MODE      EVM_320_240
 #define VIDEO_COLOR     ECM_16bit_RGB
-#define VIDEO_WIDTH     640
-#define VIDEO_HEIGHT    480
+#define VIDEO_WIDTH     320
+#define VIDEO_HEIGHT    240
 
 // Magenta key-color: Layer B pixels with this color become transparent,
 // revealing Layer A (sky) behind them.
