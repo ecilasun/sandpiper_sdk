@@ -36,6 +36,9 @@ static const float kAlignWeight = 0.050f;
 static const float kCohesionWeight = 0.0030f;
 static const float kSeparationWeight = 0.140f;
 static const float kObstacleWeight = 0.180f;
+static const float kOrbitRadius1 = 55.0f;  // inner orbit (obstacle 1, r=16); |R2-R1|=40 > r1+r2=34 => never intersect
+static const float kOrbitRadius2 = 95.0f;  // outer orbit (obstacle 2, r=18)
+static const float kOrbitSpeed = 0.008f;
 static const float kWaterDrag = 0.985f;
 static const float kPostBurstDrag = 0.920f;
 
@@ -72,6 +75,8 @@ static pthread_cond_t g_doneCond = PTHREAD_COND_INITIALIZER;
 static int g_frameCounter = 0;
 static int g_jobsRemaining = 0;
 static bool g_shutdown = false;
+static float g_obstacleAngle1 = 0.0f;        // obstacle 1: rotates CW
+static float g_obstacleAngle2 = 1.5707963f;  // obstacle 2: starts 90° offset, rotates CCW
 
 static Boid* g_readBoids = NULL;
 static Boid* g_writeBoids = NULL;
@@ -519,8 +524,8 @@ int main(int argc, char** argv)
 	Boid boidsA[kBoidCount];
 	Boid boidsB[kBoidCount];
 	g_obstacles[0] = { VIDEO_WIDTH * 0.50f, VIDEO_HEIGHT * 0.50f, 22.0f };
-	g_obstacles[1] = { VIDEO_WIDTH * 0.25f, VIDEO_HEIGHT * 0.30f, 16.0f };
-	g_obstacles[2] = { VIDEO_WIDTH * 0.75f, VIDEO_HEIGHT * 0.70f, 18.0f };
+	g_obstacles[1] = { g_obstacles[0].x + cosf(g_obstacleAngle1) * kOrbitRadius1, g_obstacles[0].y + sinf(g_obstacleAngle1) * kOrbitRadius1, 16.0f };
+	g_obstacles[2] = { g_obstacles[0].x + cosf(g_obstacleAngle2) * kOrbitRadius2, g_obstacles[0].y + sinf(g_obstacleAngle2) * kOrbitRadius2, 18.0f };
 	for (int i = 0; i < kBoidCount; ++i)
 	{
 		boidsA[i].x = frand_range(0.0f, (float)VIDEO_WIDTH);
@@ -567,6 +572,16 @@ int main(int argc, char** argv)
 		Boid* tmp = boidsRead;
 		boidsRead = boidsWrite;
 		boidsWrite = tmp;
+
+		// Rotate the two outer obstacles in opposite directions at different radii
+		g_obstacleAngle1 += kOrbitSpeed;
+		if (g_obstacleAngle1 > 6.28318f) g_obstacleAngle1 -= 6.28318f;
+		g_obstacleAngle2 -= kOrbitSpeed;
+		if (g_obstacleAngle2 < 0.0f) g_obstacleAngle2 += 6.28318f;
+		g_obstacles[1].x = g_obstacles[0].x + cosf(g_obstacleAngle1) * kOrbitRadius1;
+		g_obstacles[1].y = g_obstacles[0].y + sinf(g_obstacleAngle1) * kOrbitRadius1;
+		g_obstacles[2].x = g_obstacles[0].x + cosf(g_obstacleAngle2) * kOrbitRadius2;
+		g_obstacles[2].y = g_obstacles[0].y + sinf(g_obstacleAngle2) * kOrbitRadius2;
 
 		uint16_t* fb = (uint16_t*)platform->sc->writepage;
 		memset(fb, 0, stride * VIDEO_HEIGHT);
