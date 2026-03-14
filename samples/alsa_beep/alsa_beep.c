@@ -4,6 +4,9 @@
 #include <dlfcn.h>
 #include <string.h>
 
+// NOTE: This is not a recommended way to play audio,
+// it is only included as a sample of how to dynamically load a library and use it without linking at compile time.
+
 /* ALSA Definitions for runtime loading */
 typedef struct _snd_pcm snd_pcm_t;
 typedef unsigned long snd_pcm_uframes_t;
