@@ -355,6 +355,7 @@ static void rasterize_triangle_t(
     int32x4_t   vA0x4  = vdupq_n_s32(A0 * 4);
     int32x4_t   vA1x4  = vdupq_n_s32(A1 * 4);
     int32x4_t   vA2x4  = vdupq_n_s32(A2 * 4);
+    int32x4_t   vzero  = vdupq_n_s32(0);
 
     /* Row-start edge values at y=miny, then increment per row. */
     int e0r = A0*minx + B0*miny + C0;
@@ -382,9 +383,9 @@ static void rasterize_triangle_t(
         for (; x + 3 <= maxx; x += 4) {
 
             /* Inside test: all edge functions >= 0 */
-            uint32x4_t in0    = vcgeq_s32(ve0, vdupq_n_s32(0));
-            uint32x4_t in1    = vcgeq_s32(ve1, vdupq_n_s32(0));
-            uint32x4_t in2    = vcgeq_s32(ve2, vdupq_n_s32(0));
+            uint32x4_t in0    = vcgeq_s32(ve0, vzero);
+            uint32x4_t in1    = vcgeq_s32(ve1, vzero);
+            uint32x4_t in2    = vcgeq_s32(ve2, vzero);
             uint32x4_t inside = vandq_u32(vandq_u32(in0, in1), in2);
 
             uint32_t any_in[4];
@@ -425,9 +426,9 @@ static void rasterize_triangle_t(
 
                     iqv = vmaxq_f32(iqv, veps);
 
-                    /* u = (u/w)/(1/w), v = (v/w)/(1/w) using reciprocal NR. */
+                    /* u = (u/w)/(1/w), v = (v/w)/(1/w) — single NR step
+                     * (~22-bit precision, sufficient for 320×240 texturing). */
                     float32x4_t rinv = vrecpeq_f32(iqv);
-                    rinv = vmulq_f32(rinv, vrecpsq_f32(iqv, rinv));
                     rinv = vmulq_f32(rinv, vrecpsq_f32(iqv, rinv));
 
                     float32x4_t tuv = vmulq_f32(tuw, rinv);
@@ -441,33 +442,53 @@ static void rasterize_triangle_t(
                     int32x4_t itu = vandq_s32(vcvtq_s32_f32(tuv), v_wmask);
                     int32x4_t itv = vandq_s32(vcvtq_s32_f32(tvv), v_hmask);
 
-                    float   dz[4];
-                    float   sh[4];
-                    vst1q_f32(dz, zv);
-                    vst1q_f32(sh, shv);
-
-                    /* Conditional write — ARMv7 has no masked scatter store */
+                    /* Gather 4 texels (scalar — no ARMv7 gather instr.) */
+                    uint16_t texels[4];
                     if constexpr (UseBC1) {
-                        int32_t ui[4];
-                        int32_t vi[4];
+                        int32_t ui[4], vi[4];
                         vst1q_s32(ui, itu);
                         vst1q_s32(vi, itv);
-
-                        if (wm[0]) { row[x]   = modulate_rgb565(texture_sample_rgb565(tex, ui[0], vi[0]), sh[0]); drow[x]   = dz[0]; }
-                        if (wm[1]) { row[x+1] = modulate_rgb565(texture_sample_rgb565(tex, ui[1], vi[1]), sh[1]); drow[x+1] = dz[1]; }
-                        if (wm[2]) { row[x+2] = modulate_rgb565(texture_sample_rgb565(tex, ui[2], vi[2]), sh[2]); drow[x+2] = dz[2]; }
-                        if (wm[3]) { row[x+3] = modulate_rgb565(texture_sample_rgb565(tex, ui[3], vi[3]), sh[3]); drow[x+3] = dz[3]; }
+                        texels[0] = texture_sample_rgb565(tex, ui[0], vi[0]);
+                        texels[1] = texture_sample_rgb565(tex, ui[1], vi[1]);
+                        texels[2] = texture_sample_rgb565(tex, ui[2], vi[2]);
+                        texels[3] = texture_sample_rgb565(tex, ui[3], vi[3]);
                     } else {
-                        /* Linear index: itv * tex_width + itu */
                         int32x4_t tidx = vmlaq_s32(itu, itv, v_tw);
                         int32_t ti[4];
                         vst1q_s32(ti, tidx);
-
-                        if (wm[0]) { row[x]   = modulate_rgb565(tex->pixels[ti[0]], sh[0]); drow[x]   = dz[0]; }
-                        if (wm[1]) { row[x+1] = modulate_rgb565(tex->pixels[ti[1]], sh[1]); drow[x+1] = dz[1]; }
-                        if (wm[2]) { row[x+2] = modulate_rgb565(tex->pixels[ti[2]], sh[2]); drow[x+2] = dz[2]; }
-                        if (wm[3]) { row[x+3] = modulate_rgb565(tex->pixels[ti[3]], sh[3]); drow[x+3] = dz[3]; }
+                        texels[0] = tex->pixels[ti[0]];
+                        texels[1] = tex->pixels[ti[1]];
+                        texels[2] = tex->pixels[ti[2]];
+                        texels[3] = tex->pixels[ti[3]];
                     }
+
+                    /* NEON shade modulation: shade*256 → fixed-point multiply */
+                    float32x4_t s256 = vmulq_n_f32(shv, 256.0f);
+                    int32x4_t   si32 = vmaxq_s32(vcvtq_s32_f32(s256), vzero);
+                    si32 = vminq_s32(si32, vdupq_n_s32(512));
+                    uint16x4_t vsi = vmovn_u32(vreinterpretq_u32_s32(si32));
+
+                    uint16x4_t vtex = vld1_u16(texels);
+                    uint16x4_t vr = vshr_n_u16(vtex, 11);
+                    uint16x4_t vg = vand_u16(vshr_n_u16(vtex, 5), vdup_n_u16(63));
+                    uint16x4_t vb = vand_u16(vtex, vdup_n_u16(31));
+
+                    vr = vmin_u16(vshr_n_u16(vmul_u16(vr, vsi), 8), vdup_n_u16(31));
+                    vg = vmin_u16(vshr_n_u16(vmul_u16(vg, vsi), 8), vdup_n_u16(63));
+                    vb = vmin_u16(vshr_n_u16(vmul_u16(vb, vsi), 8), vdup_n_u16(31));
+
+                    uint16x4_t new_color = vorr_u16(vorr_u16(vshl_n_u16(vr, 11),
+                                                             vshl_n_u16(vg, 5)), vb);
+
+                    /* Branchless masked write via NEON bit-select */
+                    uint16x4_t wmask16   = vmovn_u32(wmask4);
+                    uint16x4_t old_color = vld1_u16(row + x);
+                    vst1_u16(row + x, vbsl_u16(wmask16, new_color, old_color));
+
+                    uint32x4_t new_dep = vbslq_u32(wmask4,
+                                                   vreinterpretq_u32_f32(zv),
+                                                   vreinterpretq_u32_f32(cur_dep));
+                    vst1q_f32(drow + x, vreinterpretq_f32_u32(new_dep));
                 }
             }
 
