@@ -54,5 +54,50 @@ void texture_create_checkerboard(Texture* tex, int w, int h,
  * Returns RGB565 color for both ETF_RGB565 and ETF_BC1 textures. */
 uint16_t texture_sample_rgb565(const Texture* tex, int u, int v);
 
+/* Inline BC1 sampler — u, v must already be wrapped (pre-masked).
+ * Skips format dispatch and redundant masking for the rasterizer hot path.
+ * Palette interpolation is branchless (ternaries compile to predicated
+ * instructions on ARMv7 Cortex-A9). */
+static inline uint16_t texture_sample_bc1_direct(const Texture* tex,
+                                                 int u, int v)
+{
+    int bx = u >> 2;
+    int by = v >> 2;
+    int lx = u & 3;
+    int ly = v & 3;
+    const uint8_t* blk = tex->bc1_blocks +
+                         (by * tex->bc1_stride_blocks + bx) * 8;
+
+    uint16_t c0 = (uint16_t)(blk[0] | (blk[1] << 8));
+    uint16_t c1 = (uint16_t)(blk[2] | (blk[3] << 8));
+    uint32_t bits = (uint32_t)blk[4]         |
+                    ((uint32_t)blk[5] <<  8) |
+                    ((uint32_t)blk[6] << 16) |
+                    ((uint32_t)blk[7] << 24);
+
+    int sel = (int)((bits >> (2 * (ly * 4 + lx))) & 3u);
+
+    int r0 = (c0 >> 11) & 31, g0 = (c0 >> 5) & 63, b0 = c0 & 31;
+    int r1 = (c1 >> 11) & 31, g1 = (c1 >> 5) & 63, b1 = c1 & 31;
+
+    /* Build full palette branchlessly.  The ternaries on simple ints
+     * compile to IT-predicated MOV on ARMv7 (no branch). */
+    int f = (c0 > c1);  /* 4-color mode flag */
+
+    uint16_t pal[4];
+    pal[0] = c0;
+    pal[1] = c1;
+    pal[2] = (uint16_t)(
+        ((f ? (2*r0+r1)/3 : (r0+r1)>>1) << 11) |
+        ((f ? (2*g0+g1)/3 : (g0+g1)>>1) <<  5) |
+         (f ? (2*b0+b1)/3 : (b0+b1)>>1));
+    pal[3] = (uint16_t)(
+        (f * ((r0+2*r1)/3) << 11) |
+        (f * ((g0+2*g1)/3) <<  5) |
+        (f * ((b0+2*b1)/3)));
+
+    return pal[sel];
+}
+
 /* Release memory allocated by texture_load_dds or texture_create_checkerboard. */
 void texture_free(Texture* tex);

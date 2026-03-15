@@ -448,10 +448,10 @@ static void rasterize_triangle_t(
                         int32_t ui[4], vi[4];
                         vst1q_s32(ui, itu);
                         vst1q_s32(vi, itv);
-                        texels[0] = texture_sample_rgb565(tex, ui[0], vi[0]);
-                        texels[1] = texture_sample_rgb565(tex, ui[1], vi[1]);
-                        texels[2] = texture_sample_rgb565(tex, ui[2], vi[2]);
-                        texels[3] = texture_sample_rgb565(tex, ui[3], vi[3]);
+                        texels[0] = texture_sample_bc1_direct(tex, ui[0], vi[0]);
+                        texels[1] = texture_sample_bc1_direct(tex, ui[1], vi[1]);
+                        texels[2] = texture_sample_bc1_direct(tex, ui[2], vi[2]);
+                        texels[3] = texture_sample_bc1_direct(tex, ui[3], vi[3]);
                     } else {
                         int32x4_t tidx = vmlaq_s32(itu, itv, v_tw);
                         int32_t ti[4];
@@ -527,7 +527,7 @@ static void rasterize_triangle_t(
                     int vi = (int)tvf & hmask;
                     uint16_t texel;
                     if constexpr (UseBC1)
-                        texel = texture_sample_rgb565(tex, ui, vi);
+                        texel = texture_sample_bc1_direct(tex, ui, vi);
                     else
                         texel = tex->pixels[vi * tw_int + ui];
                     row[x] = modulate_rgb565(texel, shd);
