@@ -1,0 +1,1 @@
+python png_to_bc1_dds.py test.png test.dds 64
