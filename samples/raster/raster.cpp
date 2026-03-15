@@ -659,21 +659,35 @@ int main(int argc, char** argv)
         clear_fb(BG_COLOR);
         clear_depth();
 
-        /* Rasterize all triangles */
-        for (int t = 0; t < mesh.triangle_count; ++t) {
-            const MeshTriangle* tri = &mesh.triangles[t];
+        /* Rasterize all triangles (cheap pre-cull before entering hot rasterizer). */
+        const MeshTriangle* tris = mesh.triangles;
+        int tri_count = mesh.triangle_count;
+        for (int t = 0; t < tri_count; ++t) {
+            const MeshTriangle* tri = &tris[t];
             const SV* a = &sv[tri->v[0]];
             const SV* b = &sv[tri->v[1]];
             const SV* c = &sv[tri->v[2]];
 
             /*
-             * Coarse rejection to prevent pathological giant projected triangles
-             * when geometry is behind or crossing the camera with no clipping.
+             * Coarse rejection to prevent giant projected triangles when geometry
+             * is behind or crossing the camera with no clipping.
              */
             if (a->inv_w <= 0.0f || b->inv_w <= 0.0f || c->inv_w <= 0.0f)
                 continue;
             if ((a->z <= 0.0f && b->z <= 0.0f && c->z <= 0.0f) ||
                 (a->z >= 1.0f && b->z >= 1.0f && c->z >= 1.0f))
+                continue;
+
+            /* Degenerate or fully offscreen: skip function-call and setup cost. */
+            int area2 = (b->x - a->x) * (c->y - a->y) - (c->x - a->x) * (b->y - a->y);
+            if (area2 == 0)
+                continue;
+
+            int minx = a->x < b->x ? (a->x < c->x ? a->x : c->x) : (b->x < c->x ? b->x : c->x);
+            int maxx = a->x > b->x ? (a->x > c->x ? a->x : c->x) : (b->x > c->x ? b->x : c->x);
+            int miny = a->y < b->y ? (a->y < c->y ? a->y : c->y) : (b->y < c->y ? b->y : c->y);
+            int maxy = a->y > b->y ? (a->y > c->y ? a->y : c->y) : (b->y > c->y ? b->y : c->y);
+            if (maxx < 0 || minx >= SCREEN_W || maxy < 0 || miny >= SCREEN_H)
                 continue;
 
             rasterize_triangle(a, b, c, &tex);
