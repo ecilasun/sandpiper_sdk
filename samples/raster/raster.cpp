@@ -8,20 +8,39 @@
  *
  *   ./raster [texture.dds [model.obj]]
  *
- * NEON optimisation strategy
- * --------------------------
- * The inner triangle-fill loop processes 4 horizontal pixels per iteration
- * using ARMv7 NEON intrinsics:
- *   • Edge-function inside-test      — integer 4-wide compare
- *   • Barycentric weight computation — float 4-wide multiply/accumulate
- *   • Depth test                     — float 4-wide compare against depth buf
- *   • UV texture-index computation   — integer shift + mask + multiply-add
- *   • Texture gather                 — 4 scalar loads (no ARMv7 gather instr.)
- *   • Pixel store                    — vst1_u16 (4 uint16_t = 8 bytes)
+ * Pipeline overview
+ * -----------------
+ * The rendering is split into three stages that mirror a hardware GPU
+ * pipeline and run across the Cortex-A9's two cores:
  *
- * Perspective correction: UVs are interpolated as (u/w, v/w, 1/w) and
- * reconstructed per-pixel using u = (u_over_w) / (1/w),
- * v = (v_over_w) / (1/w).
+ *   Stage 1 — Vertex shader (main thread)
+ *     Projects every mesh vertex through the MVP matrix, evaluates
+ *     Gouraud lighting, and writes an array of screen-space SV records.
+ *
+ *   Stage 2 — Primitive assembly / triangle setup (main thread)
+ *     For each triangle: computes edge-function coefficients (A,B,C),
+ *     pre-scales perspective-correct UV/depth attributes, and pushes a
+ *     TriSetup record into a SPSC ring buffer.
+ *     Degenerate and fully off-screen triangles are culled here.
+ *
+ *   Stage 3 — Fragment shader / rasterizer (worker thread, core 1)
+ *     Drains the ring buffer and executes the NEON 4-pixel-wide
+ *     half-space fill loop for each TriSetup record:
+ *       • Edge-function inside-test      — integer 4-wide compare
+ *       • Barycentric weight computation — float 4-wide multiply/accumulate
+ *       • Depth test                     — float 4-wide compare/write
+ *       • Perspective-correct UV         — NR reciprocal, integer UV wrap
+ *       • Texture gather                 — 4 scalar loads (no ARMv7 gather)
+ *       • Shade + pixel store            — NEON bsl masked write
+ *
+ * Synchronisation
+ * ---------------
+ * A lock-free SPSC ring buffer (power-of-two slots, two atomic indices)
+ * connects stages 2 and 3.  The main thread signals end-of-frame by
+ * pushing a sentinel TriSetup (is_sentinel = true) and then waiting on
+ * a semaphore that the worker posts once it has drained the sentinel.
+ * All memory used by each stage (framebuffer, depth buffer, vertex buffer)
+ * is disjoint so no other locking is needed.
  */
 
 #include "mesh.h"
@@ -31,6 +50,9 @@
 #include "vec.h"
 
 #include <arm_neon.h>
+#include <pthread.h>
+#include <semaphore.h>
+#include <atomic>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -57,6 +79,67 @@ static struct SPSizeAlloc s_fbA;
 static struct SPSizeAlloc s_fbB;
 static uint32_t           s_stride   = 0;   /* bytes per framebuffer row */
 static float*             s_depth    = nullptr;
+
+/* -------------------------------------------------------------------------
+ * Stage 2→3 SPSC ring buffer
+ *
+ * TriSetup holds everything the fragment stage needs for one triangle.
+ * The ring capacity must be a power of two; 512 is ample for a single mesh
+ * rendered at 60 Hz (typical scene << 512 triangles per frame).
+ * ------------------------------------------------------------------------- */
+
+#define RING_CAPACITY  512u  /* must be power of two */
+#define RING_MASK      (RING_CAPACITY - 1u)
+
+/* Per-triangle data produced by primitive assembly (stage 2)
+ * and consumed by the rasterizer (stage 3). */
+struct TriSetup {
+    /* Edge-function coefficients (already sign-correct for CCW fill) */
+    int A0, B0, C0;
+    int A1, B1, C1;
+    int A2, B2, C2;
+    float inv_area;
+
+    /* Screen-space bounding box (clamped to screen) */
+    int minx, maxx, miny, maxy;
+
+    /* Perspective-correct vertex attributes (differential form):
+     *   attrib = base + fw1*(d1) + fw2*(d2)
+     * where fw1 = e1*inv_area, fw2 = e2*inv_area. */
+    float z0, dz1, dz2;         /* depth */
+    float tu0, dtu1, dtu2;      /* u/w * tex_width  */
+    float tv0, dtv1, dtv2;      /* v/w * tex_height */
+    float iq0, diq1, diq2;      /* 1/w              */
+    float s0,  ds1,  ds2;       /* shade            */
+
+    /* Texture parameters */
+    int   tw_int;
+    int   wmask, hmask;
+    bool  use_bc1;
+
+    /* Sentinel: when true the worker thread ends the frame. */
+    bool  is_sentinel;
+};
+
+/* SPSC ring buffer — one producer (main), one consumer (worker). */
+struct TriRing {
+    TriSetup   slots[RING_CAPACITY];
+    std::atomic<uint32_t> head;  /* written by producer */
+    std::atomic<uint32_t> tail;  /* written by consumer */
+};
+
+/* -------------------------------------------------------------------------
+ * Worker-thread context
+ * ------------------------------------------------------------------------- */
+
+struct WorkerCtx {
+    TriRing*      ring;
+    const Texture* tex;   /* updated each frame before sentinel */
+    sem_t         frame_done; /* worker posts when sentinel is processed */
+    pthread_t     thread;
+}
+
+;
 
 /* -------------------------------------------------------------------------
  * Screen-space projected vertex (intermediate rasterizer input)
@@ -254,159 +337,95 @@ static void project_vertex(const MeshVertex* mv, const mat4_t* model,
 }
 
 /* -------------------------------------------------------------------------
- * NEON-accelerated textured triangle rasterizer
+ * Stage 3 — Fragment shader
  *
- * Uses the half-space (edge-function) method with 4-pixel-wide NEON passes.
- * Both winding orders are handled automatically.  No back-face culling is
- * applied — the depth buffer provides correct occlusion for any mesh.
- *
- * Texture dimensions must be powers of two.
+ * Executes one TriSetup record: NEON 4-pixel-wide inner loop + scalar tail.
+ * All context comes from the TriSetup; no global read except the framebuffer
+ * and depth-buffer pointers (written only by stage 3).
  * ------------------------------------------------------------------------- */
 
-template <bool UseBC1>
-static void rasterize_triangle_t(
-    const SV* sv0, const SV* sv1, const SV* sv2,
-    const Texture* tex)
+static void fragment_stage(const TriSetup* ts, const Texture* tex)
 {
-    int x0 = sv0->x, y0 = sv0->y;
-    int x1 = sv1->x, y1 = sv1->y;
-    int x2 = sv2->x, y2 = sv2->y;
-
-    /* Signed area × 2 (cross product z-component in screen space) */
-    int area2 = (x1 - x0) * (y2 - y0) - (x2 - x0) * (y1 - y0);
-    if (area2 == 0)
-        return; /* degenerate */
-
-    /*
-     * Edge-function coefficients.
-     * E_i(x,y) = A_i*x + B_i*y + C_i
-     *
-     * A pixel is inside the triangle when E0 >= 0 && E1 >= 0 && E2 >= 0.
-     * When area2 < 0 (CCW in screen-Y-down, which is the common case for a
-     * right-hand Y-up mesh projected through a right-hand camera) we negate
-     * all coefficients so that the standard >=0 test applies uniformly.
-     */
-    int A0 = y1 - y2, B0 = x2 - x1, C0 = x1*y2 - x2*y1;
-    int A1 = y2 - y0, B1 = x0 - x2, C1 = x2*y0 - x0*y2;
-    int A2 = y0 - y1, B2 = x1 - x0, C2 = x0*y1 - x1*y0;
-
-    if (area2 < 0) {
-        A0=-A0; B0=-B0; C0=-C0;
-        A1=-A1; B1=-B1; C1=-C1;
-        A2=-A2; B2=-B2; C2=-C2;
-        area2 = -area2;
-    }
-    float inv_area = 1.0f / (float)area2;
-
-    /* Bounding box, clamped to screen */
-    int minx = x0 < x1 ? (x0 < x2 ? x0 : x2) : (x1 < x2 ? x1 : x2);
-    int maxx = x0 > x1 ? (x0 > x2 ? x0 : x2) : (x1 > x2 ? x1 : x2);
-    int miny = y0 < y1 ? (y0 < y2 ? y0 : y2) : (y1 < y2 ? y1 : y2);
-    int maxy = y0 > y1 ? (y0 > y2 ? y0 : y2) : (y1 > y2 ? y1 : y2);
-
-    if (maxx < 0 || minx >= SCREEN_W || maxy < 0 || miny >= SCREEN_H)
-        return;
-
-    if (minx < 0)        minx = 0;
-    if (maxx >= SCREEN_W) maxx = SCREEN_W - 1;
-    if (miny < 0)        miny = 0;
-    if (maxy >= SCREEN_H) maxy = SCREEN_H - 1;
-
-    /* Perspective-correct interpolation terms (scaled by texture size). */
-    float tw  = (float)tex->width;
-    float th  = (float)tex->height;
-    float tu0 = sv0->u_over_w * tw,  tv0 = sv0->v_over_w * th;
-    float tu1 = sv1->u_over_w * tw,  tv1 = sv1->v_over_w * th;
-    float tu2 = sv2->u_over_w * tw,  tv2 = sv2->v_over_w * th;
-    float iq0 = sv0->inv_w;
-    float iq1 = sv1->inv_w;
-    float iq2 = sv2->inv_w;
-    float s0  = sv0->shade;
-    float s1  = sv1->shade;
-    float s2  = sv2->shade;
-    float z0  = sv0->z, z1 = sv1->z, z2 = sv2->z;
-
     uint16_t* fb16     = (uint16_t*)s_platform->sc->writepage;
     int       stride16 = (int)(s_stride / 2);
-    int       tw_int   = tex->width;
-    int       wmask    = tex->w_mask;
-    int       hmask    = tex->h_mask;
-    /* NEON constants (hoisted outside the y-loop).
-     * Attributes use differential form: A0 + fw1*(A1-A0) + fw2*(A2-A0),
-     * so fw0 is never computed — saves 1 vcvtq + 6 vmulq per 4-pixel group. */
-    float32x4_t vinv   = vdupq_n_f32(inv_area);
-    float32x4_t vz0    = vdupq_n_f32(z0);
-    float32x4_t vdz1   = vdupq_n_f32(z1  - z0);
-    float32x4_t vdz2   = vdupq_n_f32(z2  - z0);
-    float32x4_t vtu0   = vdupq_n_f32(tu0);
-    float32x4_t vdtu1  = vdupq_n_f32(tu1 - tu0);
-    float32x4_t vdtu2  = vdupq_n_f32(tu2 - tu0);
-    float32x4_t vtv0   = vdupq_n_f32(tv0);
-    float32x4_t vdtv1  = vdupq_n_f32(tv1 - tv0);
-    float32x4_t vdtv2  = vdupq_n_f32(tv2 - tv0);
-    float32x4_t viq0   = vdupq_n_f32(iq0);
-    float32x4_t vdiq1  = vdupq_n_f32(iq1 - iq0);
-    float32x4_t vdiq2  = vdupq_n_f32(iq2 - iq0);
-    float32x4_t vs0    = vdupq_n_f32(s0);
-    float32x4_t vds1   = vdupq_n_f32(s1  - s0);
-    float32x4_t vds2   = vdupq_n_f32(s2  - s0);
+
+    /* NEON constants — hoisted outside the y-loop */
+    float32x4_t vinv   = vdupq_n_f32(ts->inv_area);
+    float32x4_t vz0    = vdupq_n_f32(ts->z0);
+    float32x4_t vdz1   = vdupq_n_f32(ts->dz1);
+    float32x4_t vdz2   = vdupq_n_f32(ts->dz2);
+    float32x4_t vtu0   = vdupq_n_f32(ts->tu0);
+    float32x4_t vdtu1  = vdupq_n_f32(ts->dtu1);
+    float32x4_t vdtu2  = vdupq_n_f32(ts->dtu2);
+    float32x4_t vtv0   = vdupq_n_f32(ts->tv0);
+    float32x4_t vdtv1  = vdupq_n_f32(ts->dtv1);
+    float32x4_t vdtv2  = vdupq_n_f32(ts->dtv2);
+    float32x4_t viq0   = vdupq_n_f32(ts->iq0);
+    float32x4_t vdiq1  = vdupq_n_f32(ts->diq1);
+    float32x4_t vdiq2  = vdupq_n_f32(ts->diq2);
+    float32x4_t vs0    = vdupq_n_f32(ts->s0);
+    float32x4_t vds1   = vdupq_n_f32(ts->ds1);
+    float32x4_t vds2   = vdupq_n_f32(ts->ds2);
     float32x4_t veps   = vdupq_n_f32(1.0e-8f);
-    int32x4_t   v_wmask = vdupq_n_s32(wmask);
-    int32x4_t   v_hmask = vdupq_n_s32(hmask);
-    int32x4_t   v_tw   = vdupq_n_s32(tw_int);
-    int32x4_t   vA0x4  = vdupq_n_s32(A0 * 4);
-    int32x4_t   vA1x4  = vdupq_n_s32(A1 * 4);
-    int32x4_t   vA2x4  = vdupq_n_s32(A2 * 4);
+    int32x4_t   v_wmask = vdupq_n_s32(ts->wmask);
+    int32x4_t   v_hmask = vdupq_n_s32(ts->hmask);
+    int32x4_t   v_tw   = vdupq_n_s32(ts->tw_int);
+    int32x4_t   vA0x4  = vdupq_n_s32(ts->A0 * 4);
+    int32x4_t   vA1x4  = vdupq_n_s32(ts->A1 * 4);
+    int32x4_t   vA2x4  = vdupq_n_s32(ts->A2 * 4);
     int32x4_t   vzero  = vdupq_n_s32(0);
     uint16x4_t  v_mask31 = vdup_n_u16(31);
     uint16x4_t  v_mask63 = vdup_n_u16(63);
-    /* {0,1,2,3} for register-based edge-vector initialisation (no stack arrays) */
     static const int32_t k0123[4] = {0, 1, 2, 3};
     int32x4_t   vi0123 = vld1q_s32(k0123);
 
-    /* Row-start edge values at y=miny, then increment per row. */
-    int e0r = A0*minx + B0*miny + C0;
-    int e1r = A1*minx + B1*miny + C1;
-    int e2r = A2*minx + B2*miny + C2;
+    const int A0 = ts->A0, A1 = ts->A1, A2 = ts->A2;
+    const int B0 = ts->B0, B1 = ts->B1, B2 = ts->B2;
+    const int C0 = ts->C0, C1 = ts->C1, C2 = ts->C2;
+    const float inv_area = ts->inv_area;
+    const float z0=ts->z0, z1=ts->z0+ts->dz1, z2=ts->z0+ts->dz2;
+    const float tu0=ts->tu0, tu1=ts->tu0+ts->dtu1, tu2=ts->tu0+ts->dtu2;
+    const float tv0=ts->tv0, tv1=ts->tv0+ts->dtv1, tv2=ts->tv0+ts->dtv2;
+    const float iq0=ts->iq0, iq1=ts->iq0+ts->diq1, iq2=ts->iq0+ts->diq2;
+    const float s0=ts->s0,   s1=ts->s0+ts->ds1,    s2=ts->s0+ts->ds2;
+    const int   wmask=ts->wmask, hmask=ts->hmask, tw_int=ts->tw_int;
+    (void)z1; (void)z2; (void)tu1; (void)tu2; (void)tv1; (void)tv2;
+    (void)iq1; (void)iq2; (void)s1; (void)s2;
 
-    /* Running row pointers — incremented instead of multiplied each row. */
-    uint16_t* row  = fb16    + miny * stride16;
-    float*    drow = s_depth + miny * SCREEN_W;
+    /* Row-start edge values */
+    int e0r = A0*ts->minx + B0*ts->miny + C0;
+    int e1r = A1*ts->minx + B1*ts->miny + C1;
+    int e2r = A2*ts->minx + B2*ts->miny + C2;
 
-    for (int y = miny; y <= maxy; ++y) {
+    uint16_t* row  = fb16    + ts->miny * stride16;
+    float*    drow = s_depth + ts->miny * SCREEN_W;
 
-        int       x    = minx;
+    for (int y = ts->miny; y <= ts->maxy; ++y) {
 
-        /* ----------------------------------------------------------------
-         * NEON 4-pixel-wide path
-         * --------------------------------------------------------------- */
+        int x = ts->minx;
 
-        /* Initialise edge vectors for x = minx + {0,1,2,3} — pure register ops */
+        /* Initialise NEON edge vectors for x = minx + {0,1,2,3} */
         int32x4_t ve0 = vmlaq_n_s32(vdupq_n_s32(e0r), vi0123, A0);
         int32x4_t ve1 = vmlaq_n_s32(vdupq_n_s32(e1r), vi0123, A1);
         int32x4_t ve2 = vmlaq_n_s32(vdupq_n_s32(e2r), vi0123, A2);
 
-        for (; x + 3 <= maxx; x += 4) {
+        /* ----------------------------------------------------------------
+         * NEON 4-pixel-wide path
+         * --------------------------------------------------------------- */
+        for (; x + 3 <= ts->maxx; x += 4) {
 
-            /* Inside test: all edge functions >= 0 */
             uint32x4_t in0    = vcgeq_s32(ve0, vzero);
             uint32x4_t in1    = vcgeq_s32(ve1, vzero);
             uint32x4_t in2    = vcgeq_s32(ve2, vzero);
             uint32x4_t inside = vandq_u32(vandq_u32(in0, in1), in2);
 
-            /* Horizontal-OR without memory round-trip (no vst1q path to GPR) */
             uint32x2_t ai_fold = vorr_u32(vget_low_u32(inside), vget_high_u32(inside));
             if (vget_lane_u32(ai_fold, 0) | vget_lane_u32(ai_fold, 1)) {
 
-                /* fw1 and fw2 only — attribute differential form avoids fw0.
-                 * Each attrib: A0 + fw1*(A1-A0) + fw2*(A2-A0). */
                 float32x4_t fw1 = vmulq_f32(vcvtq_f32_s32(ve1), vinv);
                 float32x4_t fw2 = vmulq_f32(vcvtq_f32_s32(ve2), vinv);
 
-                /* Interpolated depth */
-                float32x4_t zv = vmlaq_f32(vmlaq_f32(vz0, fw1, vdz1), fw2, vdz2);
-
-                /* Depth test against current depth buffer */
+                float32x4_t zv      = vmlaq_f32(vmlaq_f32(vz0, fw1, vdz1), fw2, vdz2);
                 float32x4_t cur_dep = vld1q_f32(drow + x);
                 uint32x4_t  dpass   = vcltq_f32(zv, cur_dep);
                 uint32x4_t  wmask4  = vandq_u32(inside, dpass);
@@ -414,30 +433,23 @@ static void rasterize_triangle_t(
                 uint32x2_t wm_fold = vorr_u32(vget_low_u32(wmask4), vget_high_u32(wmask4));
                 if (vget_lane_u32(wm_fold, 0) | vget_lane_u32(wm_fold, 1)) {
 
-                    /* Perspective-correct UV and shade (differential form) */
                     float32x4_t tuw = vmlaq_f32(vmlaq_f32(vtu0, fw1, vdtu1), fw2, vdtu2);
                     float32x4_t tvw = vmlaq_f32(vmlaq_f32(vtv0, fw1, vdtv1), fw2, vdtv2);
                     float32x4_t iqv = vmlaq_f32(vmlaq_f32(viq0, fw1, vdiq1), fw2, vdiq2);
 
                     iqv = vmaxq_f32(iqv, veps);
-
-                    /* u = (u/w)/(1/w), v = (v/w)/(1/w) — single NR step
-                     * (~22-bit precision, sufficient for 320x240 texturing). */
                     float32x4_t rinv = vrecpeq_f32(iqv);
                     rinv = vmulq_f32(rinv, vrecpsq_f32(iqv, rinv));
 
                     float32x4_t tuv = vmulq_f32(tuw, rinv);
                     float32x4_t tvv = vmulq_f32(tvw, rinv);
-
                     float32x4_t shv = vmlaq_f32(vmlaq_f32(vs0, fw1, vds1), fw2, vds2);
 
-                    /* Convert float UV to integer texture indices with wrap */
                     int32x4_t itu = vandq_s32(vcvtq_s32_f32(tuv), v_wmask);
                     int32x4_t itv = vandq_s32(vcvtq_s32_f32(tvv), v_hmask);
 
-                    /* Gather 4 texels (scalar — no ARMv7 gather instr.) */
                     uint16_t texels[4];
-                    if constexpr (UseBC1) {
+                    if (ts->use_bc1) {
                         int32_t ui[4], vi[4];
                         vst1q_s32(ui, itu);
                         vst1q_s32(vi, itv);
@@ -455,8 +467,7 @@ static void rasterize_triangle_t(
                         texels[3] = tex->pixels[ti[3]];
                     }
 
-                    /* shade in [0,1] (guaranteed by saturate() at vertex stage),
-                     * so s256 in [0,256]. Channel * s256 >> 8 <= channel_max — no clamps. */
+                    /* shade in [0,1] → s256 in [0,256]; no channel clamp needed */
                     uint16x4_t vsi = vmovn_u32(vcvtq_u32_f32(vmulq_n_f32(shv, 256.0f)));
 
                     uint16x4_t vtex = vld1_u16(texels);
@@ -471,7 +482,6 @@ static void rasterize_triangle_t(
                     uint16x4_t new_color = vorr_u16(vorr_u16(vshl_n_u16(vr, 11),
                                                              vshl_n_u16(vg, 5)), vb);
 
-                    /* Branchless masked write via NEON bit-select */
                     uint16x4_t wmask16   = vmovn_u32(wmask4);
                     uint16x4_t old_color = vld1_u16(row + x);
                     vst1_u16(row + x, vbsl_u16(wmask16, new_color, old_color));
@@ -483,41 +493,39 @@ static void rasterize_triangle_t(
                 }
             }
 
-            /* Advance edge functions by 4 pixels */
             ve0 = vaddq_s32(ve0, vA0x4);
             ve1 = vaddq_s32(ve1, vA1x4);
             ve2 = vaddq_s32(ve2, vA2x4);
         }
 
         /* ----------------------------------------------------------------
-         * Scalar tail for the remaining (0–3) pixels
+         * Scalar tail — remaining 0–3 pixels on the right edge
          * --------------------------------------------------------------- */
-        for (; x <= maxx; ++x) {
-            /* Recompute edge values from scratch for position (x, y) */
+        for (; x <= ts->maxx; ++x) {
             int e0 = A0*x + B0*y + C0;
             int e1 = A1*x + B1*y + C1;
             int e2 = A2*x + B2*y + C2;
 
-            if ((e0 | e1 | e2) >= 0) { /* same as (e0>=0 && e1>=0 && e2>=0) */
+            if ((e0 | e1 | e2) >= 0) {
                 float w0 = (float)e0 * inv_area;
                 float w1 = (float)e1 * inv_area;
                 float w2 = (float)e2 * inv_area;
 
-                float z = w0*z0 + w1*z1 + w2*z2;
+                float z = w0*ts->z0 + w1*(ts->z0+ts->dz1) + w2*(ts->z0+ts->dz2);
                 if (z < drow[x]) {
                     drow[x] = z;
-                    float tuw = w0*tu0 + w1*tu1 + w2*tu2;
-                    float tvw = w0*tv0 + w1*tv1 + w2*tv2;
-                    float iq  = w0*iq0 + w1*iq1 + w2*iq2;
+                    float tuw = w0*tu0 + w1*(tu0+ts->dtu1) + w2*(tu0+ts->dtu2);
+                    float tvw = w0*tv0 + w1*(tv0+ts->dtv1) + w2*(tv0+ts->dtv2);
+                    float iq  = w0*iq0 + w1*(iq0+ts->diq1) + w2*(iq0+ts->diq2);
                     if (iq < 1.0e-8f) iq = 1.0e-8f;
                     float rcp = 1.0f / iq;
                     float tuf = tuw * rcp;
                     float tvf = tvw * rcp;
-                    float shd = w0*s0 + w1*s1 + w2*s2;
+                    float shd = w0*s0 + w1*(s0+ts->ds1) + w2*(s0+ts->ds2);
                     int ui = (int)tuf & wmask;
                     int vi = (int)tvf & hmask;
                     uint16_t texel;
-                    if constexpr (UseBC1)
+                    if (ts->use_bc1)
                         texel = texture_sample_bc1_direct(tex, ui, vi);
                     else
                         texel = tex->pixels[vi * tw_int + ui];
@@ -531,17 +539,141 @@ static void rasterize_triangle_t(
         e2r += B2;
         row  += stride16;
         drow += SCREEN_W;
-    } /* end y-loop */
+    }
 }
 
-static void rasterize_triangle(
-    const SV* sv0, const SV* sv1, const SV* sv2,
-    const Texture* tex)
+/* -------------------------------------------------------------------------
+ * Worker thread — drains the ring buffer and runs the fragment stage
+ * ------------------------------------------------------------------------- */
+
+static void* raster_worker(void* arg)
 {
-    if (tex->format == ETF_BC1)
-        rasterize_triangle_t<true>(sv0, sv1, sv2, tex);
-    else
-        rasterize_triangle_t<false>(sv0, sv1, sv2, tex);
+    WorkerCtx* ctx = (WorkerCtx*)arg;
+    TriRing*   ring = ctx->ring;
+
+    for (;;) {
+        /* Spin-wait for a slot (SPSC — no mutex needed) */
+        uint32_t tail;
+        do {
+            tail = ring->tail.load(std::memory_order_relaxed);
+        } while (ring->head.load(std::memory_order_acquire) == tail);
+
+        const TriSetup* ts = &ring->slots[tail & RING_MASK];
+
+        if (ts->is_sentinel) {
+            /* Advance tail past sentinel, signal main thread, then loop */
+            ring->tail.store(tail + 1u, std::memory_order_release);
+            sem_post(&ctx->frame_done);
+            continue;
+        }
+
+        fragment_stage(ts, ctx->tex);
+
+        ring->tail.store(tail + 1u, std::memory_order_release);
+    }
+    return nullptr;
+}
+
+/* -------------------------------------------------------------------------
+ * Stage 2 — Primitive assembly + triangle setup
+ *
+ * Computes edge-function coefficients and attribute differentials for one
+ * triangle and pushes a TriSetup into the ring buffer.  Culls degenerate
+ * and fully off-screen triangles.
+ * ------------------------------------------------------------------------- */
+
+static void assemble_triangle(TriRing* ring,
+                               const SV* sv0, const SV* sv1, const SV* sv2,
+                               const Texture* tex)
+{
+    int x0 = sv0->x, y0 = sv0->y;
+    int x1 = sv1->x, y1 = sv1->y;
+    int x2 = sv2->x, y2 = sv2->y;
+
+    int area2 = (x1 - x0) * (y2 - y0) - (x2 - x0) * (y1 - y0);
+    if (area2 == 0)
+        return;
+
+    int A0 = y1 - y2, B0 = x2 - x1, C0 = x1*y2 - x2*y1;
+    int A1 = y2 - y0, B1 = x0 - x2, C1 = x2*y0 - x0*y2;
+    int A2 = y0 - y1, B2 = x1 - x0, C2 = x0*y1 - x1*y0;
+
+    if (area2 < 0) {
+        A0=-A0; B0=-B0; C0=-C0;
+        A1=-A1; B1=-B1; C1=-C1;
+        A2=-A2; B2=-B2; C2=-C2;
+        area2 = -area2;
+    }
+
+    int minx = x0 < x1 ? (x0 < x2 ? x0 : x2) : (x1 < x2 ? x1 : x2);
+    int maxx = x0 > x1 ? (x0 > x2 ? x0 : x2) : (x1 > x2 ? x1 : x2);
+    int miny = y0 < y1 ? (y0 < y2 ? y0 : y2) : (y1 < y2 ? y1 : y2);
+    int maxy = y0 > y1 ? (y0 > y2 ? y0 : y2) : (y1 > y2 ? y1 : y2);
+
+    if (maxx < 0 || minx >= SCREEN_W || maxy < 0 || miny >= SCREEN_H)
+        return;
+
+    if (minx < 0)         minx = 0;
+    if (maxx >= SCREEN_W) maxx = SCREEN_W - 1;
+    if (miny < 0)         miny = 0;
+    if (maxy >= SCREEN_H) maxy = SCREEN_H - 1;
+
+    float inv_area = 1.0f / (float)area2;
+    float tw = (float)tex->width;
+    float th = (float)tex->height;
+
+    float tu0 = sv0->u_over_w * tw;
+    float tu1 = sv1->u_over_w * tw;
+    float tu2 = sv2->u_over_w * tw;
+    float tv0 = sv0->v_over_w * th;
+    float tv1 = sv1->v_over_w * th;
+    float tv2 = sv2->v_over_w * th;
+
+    /* Spin-wait for a free slot (ring is not full under normal operation) */
+    uint32_t head;
+    TriRing* r = ring;
+    do {
+        head = r->head.load(std::memory_order_relaxed);
+    } while ((head - r->tail.load(std::memory_order_acquire)) >= RING_CAPACITY);
+
+    TriSetup* ts = &r->slots[head & RING_MASK];
+
+    ts->A0=A0; ts->B0=B0; ts->C0=C0;
+    ts->A1=A1; ts->B1=B1; ts->C1=C1;
+    ts->A2=A2; ts->B2=B2; ts->C2=C2;
+    ts->inv_area = inv_area;
+    ts->minx=minx; ts->maxx=maxx; ts->miny=miny; ts->maxy=maxy;
+
+    /* Differential form: base = sv0 value, d1 = sv1-sv0, d2 = sv2-sv0 */
+    ts->z0=sv0->z;   ts->dz1=sv1->z-sv0->z;     ts->dz2=sv2->z-sv0->z;
+    ts->tu0=tu0;     ts->dtu1=tu1-tu0;           ts->dtu2=tu2-tu0;
+    ts->tv0=tv0;     ts->dtv1=tv1-tv0;           ts->dtv2=tv2-tv0;
+    ts->iq0=sv0->inv_w; ts->diq1=sv1->inv_w-sv0->inv_w; ts->diq2=sv2->inv_w-sv0->inv_w;
+    ts->s0=sv0->shade;  ts->ds1=sv1->shade-sv0->shade;   ts->ds2=sv2->shade-sv0->shade;
+
+    ts->tw_int  = tex->width;
+    ts->wmask   = tex->w_mask;
+    ts->hmask   = tex->h_mask;
+    ts->use_bc1 = (tex->format == ETF_BC1);
+    ts->is_sentinel = false;
+
+    r->head.store(head + 1u, std::memory_order_release);
+}
+
+/* Push the end-of-frame sentinel and block until the worker drains it. */
+static void flush_pipeline(TriRing* ring, WorkerCtx* ctx)
+{
+    uint32_t head;
+    do {
+        head = ring->head.load(std::memory_order_relaxed);
+    } while ((head - ring->tail.load(std::memory_order_acquire)) >= RING_CAPACITY);
+
+    TriSetup* ts = &ring->slots[head & RING_MASK];
+    memset(ts, 0, sizeof(*ts));
+    ts->is_sentinel = true;
+
+    ring->head.store(head + 1u, std::memory_order_release);
+    sem_wait(&ctx->frame_done);
 }
 
 /* -------------------------------------------------------------------------
@@ -574,9 +706,8 @@ int main(int argc, char** argv)
     }
 
     if (!tex_loaded) {
-        /* Two contrasting RGB565 colours: bright orange and dark teal */
-        uint16_t col_a = MAKECOLORRGB16(28, 14,  2);  /* warm orange */
-        uint16_t col_b = MAKECOLORRGB16( 2,  8, 18);  /* cool teal   */
+        uint16_t col_a = MAKECOLORRGB16(28, 14,  2);
+        uint16_t col_b = MAKECOLORRGB16( 2,  8, 18);
         texture_create_checkerboard(&tex, 64, 64, col_a, col_b);
     }
 
@@ -622,7 +753,7 @@ int main(int argc, char** argv)
 
     VPUSetVideoMode(s_platform->vx, VIDEO_MODE, VIDEO_COLOR, EVS_Enable);
 
-    s_platform->sc->cycle      = 0;
+    s_platform->sc->cycle        = 0;
     s_platform->sc->framebufferA = &s_fbA;
     s_platform->sc->framebufferB = &s_fbB;
     VPUSwapPages(s_platform->vx, s_platform->sc);
@@ -633,25 +764,41 @@ int main(int argc, char** argv)
     VPUSetScanoutAddress(s_platform->vx,  (uint32_t)s_fbA.dmaAddress);
     VPUSetScanoutAddress2(s_platform->vx, (uint32_t)s_fbB.dmaAddress);
 
-    /* --- Depth buffer (CPU memory, not DMA) ---------------------------- */
+    /* --- Depth buffer -------------------------------------------------- */
     s_depth = (float*)malloc((size_t)(SCREEN_W * SCREEN_H) * sizeof(float));
     if (!s_depth) {
         fprintf(stderr, "raster: out of memory for depth buffer\n");
         return -1;
     }
 
-    /* --- Pre-project vertex buffer (reused every frame) ---------------- */
+    /* --- Pre-project vertex buffer ------------------------------------- */
     SV* sv = (SV*)malloc((size_t)mesh.vertex_count * sizeof(SV));
     if (!sv) {
         fprintf(stderr, "raster: out of memory for screen vertices\n");
         return -1;
     }
 
+    /* --- Pipeline ring buffer ------------------------------------------ */
+    TriRing* ring = (TriRing*)malloc(sizeof(TriRing));
+    if (!ring) {
+        fprintf(stderr, "raster: out of memory for ring buffer\n");
+        return -1;
+    }
+    ring->head.store(0u);
+    ring->tail.store(0u);
+
+    /* --- Worker context and thread ------------------------------------- */
+    WorkerCtx wctx;
+    wctx.ring = ring;
+    wctx.tex  = &tex;
+    sem_init(&wctx.frame_done, 0, 0);
+    pthread_create(&wctx.thread, nullptr, raster_worker, &wctx);
+
     /* --- Camera (fixed) ------------------------------------------------ */
     mat4_t view = mat4_look_at(
-        vec3_create(0.0f, 0.8f, -3.5f),   /* eye    */
-        vec3_create(0.0f, 0.0f,  0.0f),   /* target */
-        vec3_create(0.0f, 1.0f,  0.0f)); /* up     */
+        vec3_create(0.0f, 0.8f, -3.5f),
+        vec3_create(0.0f, 0.0f,  0.0f),
+        vec3_create(0.0f, 1.0f,  0.0f));
 
     mat4_t proj = mat4_perspective(
         65.0f * NEON_DEG_TO_RAD,
@@ -663,7 +810,7 @@ int main(int argc, char** argv)
     float angle_x = 0.0f;
 
     for (;;) {
-        /* Scene point lights. The second light orbits to show dynamic shading. */
+        /* Scene point lights */
         PointLight lights[2];
         lights[0].position  = vec3_create( 2.2f,  2.0f, -2.0f);
         lights[0].color     = vec3_create( 1.0f,  0.96f, 0.85f);
@@ -677,68 +824,51 @@ int main(int argc, char** argv)
         lights[1].intensity = 2.4f;
         lights[1].radius    = 6.0f;
 
-        /* Build model matrix: gentle tumble */
         mat4_t model = mat4_mul(mat4_rotation_y(angle_y),
                                 mat4_rotation_x(angle_x));
         mat4_t mvp   = mat4_mul(proj, mat4_mul(view, model));
 
-        /* Project all mesh vertices */
+        /* ---- Stage 1: Vertex shader ----------------------------------- */
         for (int i = 0; i < mesh.vertex_count; ++i)
             project_vertex(&mesh.vertices[i], &model, &mvp, lights, 2, &sv[i]);
 
-        /* Clear framebuffer and depth buffer */
+        /* Clear framebuffer and depth buffer before feeding rasterizer */
         clear_fb(BG_COLOR);
         clear_depth();
 
-        /* Rasterize all triangles (cheap pre-cull before entering hot rasterizer). */
+        /* ---- Stage 2: Primitive assembly ------------------------------ */
+        /* Update the worker's texture pointer before pushing any triangles */
+        wctx.tex = &tex;
         const MeshTriangle* tris = mesh.triangles;
         int tri_count = mesh.triangle_count;
         for (int t = 0; t < tri_count; ++t) {
             const MeshTriangle* tri = &tris[t];
-            const SV* a = &sv[tri->v[0]];
-            const SV* b = &sv[tri->v[1]];
-            const SV* c = &sv[tri->v[2]];
-
-            /*
-             * Coarse rejection to prevent giant projected triangles when geometry
-             * is behind or crossing the camera with no clipping.
-             */
-            if (a->inv_w <= 0.0f || b->inv_w <= 0.0f || c->inv_w <= 0.0f)
-                continue;
-            if ((a->z <= 0.0f && b->z <= 0.0f && c->z <= 0.0f) ||
-                (a->z >= 1.0f && b->z >= 1.0f && c->z >= 1.0f))
-                continue;
-
-            /* Degenerate or fully offscreen: skip function-call and setup cost. */
-            int area2 = (b->x - a->x) * (c->y - a->y) - (c->x - a->x) * (b->y - a->y);
-            if (area2 == 0)
-                continue;
-
-            int minx = a->x < b->x ? (a->x < c->x ? a->x : c->x) : (b->x < c->x ? b->x : c->x);
-            int maxx = a->x > b->x ? (a->x > c->x ? a->x : c->x) : (b->x > c->x ? b->x : c->x);
-            int miny = a->y < b->y ? (a->y < c->y ? a->y : c->y) : (b->y < c->y ? b->y : c->y);
-            int maxy = a->y > b->y ? (a->y > c->y ? a->y : c->y) : (b->y > c->y ? b->y : c->y);
-            if (maxx < 0 || minx >= SCREEN_W || maxy < 0 || miny >= SCREEN_H)
-                continue;
-
-            rasterize_triangle(a, b, c, &tex);
+            assemble_triangle(ring,
+                              &sv[tri->v[0]],
+                              &sv[tri->v[1]],
+                              &sv[tri->v[2]],
+                              &tex);
         }
+
+        /* ---- Stage 2→3 sync: push sentinel, wait for worker ----------- */
+        flush_pipeline(ring, &wctx);
 
         /* Wait for vsync, then swap display/render pages */
         VPUWaitVSync(s_platform->vx);
         VPUSwapPages(s_platform->vx, s_platform->sc);
 
-        /* Advance rotation angles (degrees per frame at ~60 Hz) */
-        angle_y += 0.058f; /* ~1.03 deg/frame */
-        angle_x += 0.027f; /* ~0.40 deg/frame */
+        angle_y += 0.058f;
+        angle_x += 0.027f;
         if (angle_y > NEON_TWO_PI) angle_y -= NEON_TWO_PI;
         if (angle_x > NEON_TWO_PI) angle_x -= NEON_TWO_PI;
     }
 
-    /* (unreachable — here for completeness) */
+    /* (unreachable) */
     free(sv);
     free(s_depth);
+    free(ring);
     mesh_free(&mesh);
     texture_free(&tex);
+    sem_destroy(&wctx.frame_done);
     return 0;
 }

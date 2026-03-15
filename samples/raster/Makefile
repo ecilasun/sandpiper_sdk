@@ -36,7 +36,7 @@ endif
 
 ARM_GCC_OPTS += -std=c++20 -Ofast -flto -mcpu=cortex-a9 -mfpu=neon -mfloat-abi=hard
 ARM_CC_OPTS  += -Ofast -flto -mcpu=cortex-a9 -mfpu=neon -mfloat-abi=hard
-ARM_GCC_LIBS += -lgcc -lc -lm
+ARM_GCC_LIBS += -lgcc -lc -lm -lpthread
 
 incs += -I$(src_dir) -I$(sdk_dir)/include
 
