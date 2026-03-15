@@ -263,7 +263,8 @@ static void project_vertex(const MeshVertex* mv, const mat4_t* model,
  * Texture dimensions must be powers of two.
  * ------------------------------------------------------------------------- */
 
-static void rasterize_triangle(
+template <bool UseBC1>
+static void rasterize_triangle_t(
     const SV* sv0, const SV* sv1, const SV* sv2,
     const Texture* tex)
 {
@@ -330,8 +331,6 @@ static void rasterize_triangle(
     int       tw_int   = tex->width;
     int       wmask    = tex->w_mask;
     int       hmask    = tex->h_mask;
-    bool      use_bc1  = (tex->format == ETF_BC1);
-
     /* NEON constants (hoisted outside the y-loop) */
     float32x4_t vinv   = vdupq_n_f32(inv_area);
     float32x4_t vz0    = vdupq_n_f32(z0);
@@ -357,12 +356,12 @@ static void rasterize_triangle(
     int32x4_t   vA1x4  = vdupq_n_s32(A1 * 4);
     int32x4_t   vA2x4  = vdupq_n_s32(A2 * 4);
 
-    for (int y = miny; y <= maxy; ++y) {
+    /* Row-start edge values at y=miny, then increment per row. */
+    int e0r = A0*minx + B0*miny + C0;
+    int e1r = A1*minx + B1*miny + C1;
+    int e2r = A2*minx + B2*miny + C2;
 
-        /* Row-start edge values (incremental, avoids per-pixel multiply) */
-        int e0r = A0*minx + B0*y + C0;
-        int e1r = A1*minx + B1*y + C1;
-        int e2r = A2*minx + B2*y + C2;
+    for (int y = miny; y <= maxy; ++y) {
 
         uint16_t* row  = fb16 + y * stride16;
         float*    drow = s_depth + y * SCREEN_W;
@@ -442,31 +441,32 @@ static void rasterize_triangle(
                     int32x4_t itu = vandq_s32(vcvtq_s32_f32(tuv), v_wmask);
                     int32x4_t itv = vandq_s32(vcvtq_s32_f32(tvv), v_hmask);
 
-                    /* Linear index: itv * tex_width + itu */
-                    int32x4_t tidx = vmlaq_s32(itu, itv, v_tw);
-
-                    int32_t ti[4];
-                    int32_t ui[4];
-                    int32_t vi[4];
                     float   dz[4];
                     float   sh[4];
-                    vst1q_s32(ti, tidx);
-                    vst1q_s32(ui, itu);
-                    vst1q_s32(vi, itv);
                     vst1q_f32(dz, zv);
                     vst1q_f32(sh, shv);
 
                     /* Conditional write — ARMv7 has no masked scatter store */
-                    if (!use_bc1) {
-                        if (wm[0]) { row[x]   = modulate_rgb565(tex->pixels[ti[0]], sh[0]); drow[x]   = dz[0]; }
-                        if (wm[1]) { row[x+1] = modulate_rgb565(tex->pixels[ti[1]], sh[1]); drow[x+1] = dz[1]; }
-                        if (wm[2]) { row[x+2] = modulate_rgb565(tex->pixels[ti[2]], sh[2]); drow[x+2] = dz[2]; }
-                        if (wm[3]) { row[x+3] = modulate_rgb565(tex->pixels[ti[3]], sh[3]); drow[x+3] = dz[3]; }
-                    } else {
+                    if constexpr (UseBC1) {
+                        int32_t ui[4];
+                        int32_t vi[4];
+                        vst1q_s32(ui, itu);
+                        vst1q_s32(vi, itv);
+
                         if (wm[0]) { row[x]   = modulate_rgb565(texture_sample_rgb565(tex, ui[0], vi[0]), sh[0]); drow[x]   = dz[0]; }
                         if (wm[1]) { row[x+1] = modulate_rgb565(texture_sample_rgb565(tex, ui[1], vi[1]), sh[1]); drow[x+1] = dz[1]; }
                         if (wm[2]) { row[x+2] = modulate_rgb565(texture_sample_rgb565(tex, ui[2], vi[2]), sh[2]); drow[x+2] = dz[2]; }
                         if (wm[3]) { row[x+3] = modulate_rgb565(texture_sample_rgb565(tex, ui[3], vi[3]), sh[3]); drow[x+3] = dz[3]; }
+                    } else {
+                        /* Linear index: itv * tex_width + itu */
+                        int32x4_t tidx = vmlaq_s32(itu, itv, v_tw);
+                        int32_t ti[4];
+                        vst1q_s32(ti, tidx);
+
+                        if (wm[0]) { row[x]   = modulate_rgb565(tex->pixels[ti[0]], sh[0]); drow[x]   = dz[0]; }
+                        if (wm[1]) { row[x+1] = modulate_rgb565(tex->pixels[ti[1]], sh[1]); drow[x+1] = dz[1]; }
+                        if (wm[2]) { row[x+2] = modulate_rgb565(tex->pixels[ti[2]], sh[2]); drow[x+2] = dz[2]; }
+                        if (wm[3]) { row[x+3] = modulate_rgb565(tex->pixels[ti[3]], sh[3]); drow[x+3] = dz[3]; }
                     }
                 }
             }
@@ -504,13 +504,30 @@ static void rasterize_triangle(
                     float shd = w0*s0 + w1*s1 + w2*s2;
                     int ui = (int)tuf & wmask;
                     int vi = (int)tvf & hmask;
-                    uint16_t texel = use_bc1 ? texture_sample_rgb565(tex, ui, vi)
-                                             : tex->pixels[vi * tw_int + ui];
+                    uint16_t texel;
+                    if constexpr (UseBC1)
+                        texel = texture_sample_rgb565(tex, ui, vi);
+                    else
+                        texel = tex->pixels[vi * tw_int + ui];
                     row[x] = modulate_rgb565(texel, shd);
                 }
             }
         }
+
+        e0r += B0;
+        e1r += B1;
+        e2r += B2;
     } /* end y-loop */
+}
+
+static void rasterize_triangle(
+    const SV* sv0, const SV* sv1, const SV* sv2,
+    const Texture* tex)
+{
+    if (tex->format == ETF_BC1)
+        rasterize_triangle_t<true>(sv0, sv1, sv2, tex);
+    else
+        rasterize_triangle_t<false>(sv0, sv1, sv2, tex);
 }
 
 /* -------------------------------------------------------------------------
