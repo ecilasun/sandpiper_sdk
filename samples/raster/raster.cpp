@@ -331,23 +331,25 @@ static void rasterize_triangle_t(
     int       tw_int   = tex->width;
     int       wmask    = tex->w_mask;
     int       hmask    = tex->h_mask;
-    /* NEON constants (hoisted outside the y-loop) */
+    /* NEON constants (hoisted outside the y-loop).
+     * Attributes use differential form: A0 + fw1*(A1-A0) + fw2*(A2-A0),
+     * so fw0 is never computed — saves 1 vcvtq + 6 vmulq per 4-pixel group. */
     float32x4_t vinv   = vdupq_n_f32(inv_area);
     float32x4_t vz0    = vdupq_n_f32(z0);
-    float32x4_t vz1    = vdupq_n_f32(z1);
-    float32x4_t vz2    = vdupq_n_f32(z2);
+    float32x4_t vdz1   = vdupq_n_f32(z1  - z0);
+    float32x4_t vdz2   = vdupq_n_f32(z2  - z0);
     float32x4_t vtu0   = vdupq_n_f32(tu0);
-    float32x4_t vtu1   = vdupq_n_f32(tu1);
-    float32x4_t vtu2   = vdupq_n_f32(tu2);
+    float32x4_t vdtu1  = vdupq_n_f32(tu1 - tu0);
+    float32x4_t vdtu2  = vdupq_n_f32(tu2 - tu0);
     float32x4_t vtv0   = vdupq_n_f32(tv0);
-    float32x4_t vtv1   = vdupq_n_f32(tv1);
-    float32x4_t vtv2   = vdupq_n_f32(tv2);
+    float32x4_t vdtv1  = vdupq_n_f32(tv1 - tv0);
+    float32x4_t vdtv2  = vdupq_n_f32(tv2 - tv0);
     float32x4_t viq0   = vdupq_n_f32(iq0);
-    float32x4_t viq1   = vdupq_n_f32(iq1);
-    float32x4_t viq2   = vdupq_n_f32(iq2);
+    float32x4_t vdiq1  = vdupq_n_f32(iq1 - iq0);
+    float32x4_t vdiq2  = vdupq_n_f32(iq2 - iq0);
     float32x4_t vs0    = vdupq_n_f32(s0);
-    float32x4_t vs1    = vdupq_n_f32(s1);
-    float32x4_t vs2    = vdupq_n_f32(s2);
+    float32x4_t vds1   = vdupq_n_f32(s1  - s0);
+    float32x4_t vds2   = vdupq_n_f32(s2  - s0);
     float32x4_t veps   = vdupq_n_f32(1.0e-8f);
     int32x4_t   v_wmask = vdupq_n_s32(wmask);
     int32x4_t   v_hmask = vdupq_n_s32(hmask);
@@ -356,29 +358,33 @@ static void rasterize_triangle_t(
     int32x4_t   vA1x4  = vdupq_n_s32(A1 * 4);
     int32x4_t   vA2x4  = vdupq_n_s32(A2 * 4);
     int32x4_t   vzero  = vdupq_n_s32(0);
+    uint16x4_t  v_mask31 = vdup_n_u16(31);
+    uint16x4_t  v_mask63 = vdup_n_u16(63);
+    /* {0,1,2,3} for register-based edge-vector initialisation (no stack arrays) */
+    static const int32_t k0123[4] = {0, 1, 2, 3};
+    int32x4_t   vi0123 = vld1q_s32(k0123);
 
     /* Row-start edge values at y=miny, then increment per row. */
     int e0r = A0*minx + B0*miny + C0;
     int e1r = A1*minx + B1*miny + C1;
     int e2r = A2*minx + B2*miny + C2;
 
+    /* Running row pointers — incremented instead of multiplied each row. */
+    uint16_t* row  = fb16    + miny * stride16;
+    float*    drow = s_depth + miny * SCREEN_W;
+
     for (int y = miny; y <= maxy; ++y) {
 
-        uint16_t* row  = fb16 + y * stride16;
-        float*    drow = s_depth + y * SCREEN_W;
         int       x    = minx;
 
         /* ----------------------------------------------------------------
          * NEON 4-pixel-wide path
          * --------------------------------------------------------------- */
 
-        /* Initialise edge vectors for x = minx + {0,1,2,3} */
-        int32_t ei0[4] = {e0r, e0r+A0, e0r+2*A0, e0r+3*A0};
-        int32_t ei1[4] = {e1r, e1r+A1, e1r+2*A1, e1r+3*A1};
-        int32_t ei2[4] = {e2r, e2r+A2, e2r+2*A2, e2r+3*A2};
-        int32x4_t ve0  = vld1q_s32(ei0);
-        int32x4_t ve1  = vld1q_s32(ei1);
-        int32x4_t ve2  = vld1q_s32(ei2);
+        /* Initialise edge vectors for x = minx + {0,1,2,3} — pure register ops */
+        int32x4_t ve0 = vmlaq_n_s32(vdupq_n_s32(e0r), vi0123, A0);
+        int32x4_t ve1 = vmlaq_n_s32(vdupq_n_s32(e1r), vi0123, A1);
+        int32x4_t ve2 = vmlaq_n_s32(vdupq_n_s32(e2r), vi0123, A2);
 
         for (; x + 3 <= maxx; x += 4) {
 
@@ -388,55 +394,42 @@ static void rasterize_triangle_t(
             uint32x4_t in2    = vcgeq_s32(ve2, vzero);
             uint32x4_t inside = vandq_u32(vandq_u32(in0, in1), in2);
 
-            uint32_t any_in[4];
-            vst1q_u32(any_in, inside);
+            /* Horizontal-OR without memory round-trip (no vst1q path to GPR) */
+            uint32x2_t ai_fold = vorr_u32(vget_low_u32(inside), vget_high_u32(inside));
+            if (vget_lane_u32(ai_fold, 0) | vget_lane_u32(ai_fold, 1)) {
 
-            if (any_in[0] | any_in[1] | any_in[2] | any_in[3]) {
-
-                /* Barycentric weights */
-                float32x4_t fw0 = vmulq_f32(vcvtq_f32_s32(ve0), vinv);
+                /* fw1 and fw2 only — attribute differential form avoids fw0.
+                 * Each attrib: A0 + fw1*(A1-A0) + fw2*(A2-A0). */
                 float32x4_t fw1 = vmulq_f32(vcvtq_f32_s32(ve1), vinv);
                 float32x4_t fw2 = vmulq_f32(vcvtq_f32_s32(ve2), vinv);
 
                 /* Interpolated depth */
-                float32x4_t zv = vmlaq_f32(
-                                     vmlaq_f32(vmulq_f32(fw0, vz0), fw1, vz1),
-                                     fw2, vz2);
+                float32x4_t zv = vmlaq_f32(vmlaq_f32(vz0, fw1, vdz1), fw2, vdz2);
 
                 /* Depth test against current depth buffer */
                 float32x4_t cur_dep = vld1q_f32(drow + x);
                 uint32x4_t  dpass   = vcltq_f32(zv, cur_dep);
                 uint32x4_t  wmask4  = vandq_u32(inside, dpass);
 
-                uint32_t wm[4];
-                vst1q_u32(wm, wmask4);
+                uint32x2_t wm_fold = vorr_u32(vget_low_u32(wmask4), vget_high_u32(wmask4));
+                if (vget_lane_u32(wm_fold, 0) | vget_lane_u32(wm_fold, 1)) {
 
-                if (wm[0] | wm[1] | wm[2] | wm[3]) {
-
-                    /* Interpolated perspective terms: (u/w), (v/w), (1/w). */
-                    float32x4_t tuw = vmlaq_f32(
-                                         vmlaq_f32(vmulq_f32(fw0, vtu0), fw1, vtu1),
-                                         fw2, vtu2);
-                    float32x4_t tvw = vmlaq_f32(
-                                         vmlaq_f32(vmulq_f32(fw0, vtv0), fw1, vtv1),
-                                         fw2, vtv2);
-                    float32x4_t iqv = vmlaq_f32(
-                                         vmlaq_f32(vmulq_f32(fw0, viq0), fw1, viq1),
-                                         fw2, viq2);
+                    /* Perspective-correct UV and shade (differential form) */
+                    float32x4_t tuw = vmlaq_f32(vmlaq_f32(vtu0, fw1, vdtu1), fw2, vdtu2);
+                    float32x4_t tvw = vmlaq_f32(vmlaq_f32(vtv0, fw1, vdtv1), fw2, vdtv2);
+                    float32x4_t iqv = vmlaq_f32(vmlaq_f32(viq0, fw1, vdiq1), fw2, vdiq2);
 
                     iqv = vmaxq_f32(iqv, veps);
 
                     /* u = (u/w)/(1/w), v = (v/w)/(1/w) — single NR step
-                     * (~22-bit precision, sufficient for 320×240 texturing). */
+                     * (~22-bit precision, sufficient for 320x240 texturing). */
                     float32x4_t rinv = vrecpeq_f32(iqv);
                     rinv = vmulq_f32(rinv, vrecpsq_f32(iqv, rinv));
 
                     float32x4_t tuv = vmulq_f32(tuw, rinv);
                     float32x4_t tvv = vmulq_f32(tvw, rinv);
 
-                    float32x4_t shv = vmlaq_f32(
-                                         vmlaq_f32(vmulq_f32(fw0, vs0), fw1, vs1),
-                                         fw2, vs2);
+                    float32x4_t shv = vmlaq_f32(vmlaq_f32(vs0, fw1, vds1), fw2, vds2);
 
                     /* Convert float UV to integer texture indices with wrap */
                     int32x4_t itu = vandq_s32(vcvtq_s32_f32(tuv), v_wmask);
@@ -462,20 +455,18 @@ static void rasterize_triangle_t(
                         texels[3] = tex->pixels[ti[3]];
                     }
 
-                    /* NEON shade modulation: shade*256 → fixed-point multiply */
-                    float32x4_t s256 = vmulq_n_f32(shv, 256.0f);
-                    int32x4_t   si32 = vmaxq_s32(vcvtq_s32_f32(s256), vzero);
-                    si32 = vminq_s32(si32, vdupq_n_s32(512));
-                    uint16x4_t vsi = vmovn_u32(vreinterpretq_u32_s32(si32));
+                    /* shade in [0,1] (guaranteed by saturate() at vertex stage),
+                     * so s256 in [0,256]. Channel * s256 >> 8 <= channel_max — no clamps. */
+                    uint16x4_t vsi = vmovn_u32(vcvtq_u32_f32(vmulq_n_f32(shv, 256.0f)));
 
                     uint16x4_t vtex = vld1_u16(texels);
                     uint16x4_t vr = vshr_n_u16(vtex, 11);
-                    uint16x4_t vg = vand_u16(vshr_n_u16(vtex, 5), vdup_n_u16(63));
-                    uint16x4_t vb = vand_u16(vtex, vdup_n_u16(31));
+                    uint16x4_t vg = vand_u16(vshr_n_u16(vtex, 5), v_mask63);
+                    uint16x4_t vb = vand_u16(vtex, v_mask31);
 
-                    vr = vmin_u16(vshr_n_u16(vmul_u16(vr, vsi), 8), vdup_n_u16(31));
-                    vg = vmin_u16(vshr_n_u16(vmul_u16(vg, vsi), 8), vdup_n_u16(63));
-                    vb = vmin_u16(vshr_n_u16(vmul_u16(vb, vsi), 8), vdup_n_u16(31));
+                    vr = vshr_n_u16(vmul_u16(vr, vsi), 8);
+                    vg = vshr_n_u16(vmul_u16(vg, vsi), 8);
+                    vb = vshr_n_u16(vmul_u16(vb, vsi), 8);
 
                     uint16x4_t new_color = vorr_u16(vorr_u16(vshl_n_u16(vr, 11),
                                                              vshl_n_u16(vg, 5)), vb);
@@ -538,6 +529,8 @@ static void rasterize_triangle_t(
         e0r += B0;
         e1r += B1;
         e2r += B2;
+        row  += stride16;
+        drow += SCREEN_W;
     } /* end y-loop */
 }
 
