@@ -28,6 +28,22 @@ static void normalize3(float* x, float* y, float* z)
     }
 }
 
+static void compute_face_normal(const MeshVertex* a, const MeshVertex* b, const MeshVertex* c,
+                                float* nx, float* ny, float* nz)
+{
+    float ex1 = b->x - a->x;
+    float ey1 = b->y - a->y;
+    float ez1 = b->z - a->z;
+    float ex2 = c->x - a->x;
+    float ey2 = c->y - a->y;
+    float ez2 = c->z - a->z;
+
+    *nx = ey1 * ez2 - ez1 * ey2;
+    *ny = ez1 * ex2 - ex1 * ez2;
+    *nz = ex1 * ey2 - ey1 * ex2;
+    normalize3(nx, ny, nz);
+}
+
 /* Parse one face-vertex token ("v", "v/t", "v//n", "v/t/n").
  * Returns 0-based position/uv/normal indices in *pi/*ti/*ni.
  * *ti and *ni are -1 when missing.
@@ -264,13 +280,20 @@ bool mesh_load_obj(const char* path, Mesh* mesh)
                     mv.ny = nrm[ni*3+1];
                     mv.nz = nrm[ni*3+2];
                 } else {
-                    /* Fallback: radial normal from position. */
-                    mv.nx = mv.x;
-                    mv.ny = mv.y;
-                    mv.nz = mv.z;
-                    normalize3(&mv.nx, &mv.ny, &mv.nz);
+                    /* Placeholder, replaced by faceted normal assignment below. */
+                    mv.nx = 0.0f;
+                    mv.ny = 1.0f;
+                    mv.nz = 0.0f;
                 }
                 verts[num_verts++] = mv;
+            }
+
+            bool has_obj_normals = true;
+            for (int i = 0; i < nfv; ++i) {
+                if (fv_ni[i] < 0 || fv_ni[i] >= num_nrm) {
+                    has_obj_normals = false;
+                    break;
+                }
             }
 
             for (int i = 1; i < nfv - 1; ++i) {
@@ -281,6 +304,18 @@ bool mesh_load_obj(const char* path, Mesh* mesh)
                 tris[num_tris].v[0] = vi_start;
                 tris[num_tris].v[1] = vi_start + i;
                 tris[num_tris].v[2] = vi_start + i + 1;
+
+                if (!has_obj_normals) {
+                    MeshVertex* va = &verts[vi_start];
+                    MeshVertex* vb = &verts[vi_start + i];
+                    MeshVertex* vc = &verts[vi_start + i + 1];
+                    float fnx, fny, fnz;
+                    compute_face_normal(va, vb, vc, &fnx, &fny, &fnz);
+                    va->nx = vb->nx = vc->nx = fnx;
+                    va->ny = vb->ny = vc->ny = fny;
+                    va->nz = vb->nz = vc->nz = fnz;
+                }
+
                 num_tris++;
             }
         }

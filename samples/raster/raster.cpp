@@ -117,6 +117,47 @@ static bool file_exists(const char* path)
     return true;
 }
 
+/* Normalize loaded meshes to a stable view-space scale for this demo camera. */
+static void fit_mesh_to_unit_bounds(Mesh* mesh)
+{
+    if (!mesh || mesh->vertex_count <= 0)
+        return;
+
+    float minx = mesh->vertices[0].x, maxx = mesh->vertices[0].x;
+    float miny = mesh->vertices[0].y, maxy = mesh->vertices[0].y;
+    float minz = mesh->vertices[0].z, maxz = mesh->vertices[0].z;
+
+    for (int i = 1; i < mesh->vertex_count; ++i) {
+        const MeshVertex& v = mesh->vertices[i];
+        if (v.x < minx) minx = v.x; if (v.x > maxx) maxx = v.x;
+        if (v.y < miny) miny = v.y; if (v.y > maxy) maxy = v.y;
+        if (v.z < minz) minz = v.z; if (v.z > maxz) maxz = v.z;
+    }
+
+    float cx = 0.5f * (minx + maxx);
+    float cy = 0.5f * (miny + maxy);
+    float cz = 0.5f * (minz + maxz);
+
+    float rx = maxx - minx;
+    float ry = maxy - miny;
+    float rz = maxz - minz;
+    float max_extent = rx;
+    if (ry > max_extent) max_extent = ry;
+    if (rz > max_extent) max_extent = rz;
+    if (max_extent < 1.0e-6f)
+        max_extent = 1.0f;
+
+    /* Target object max dimension ~2.2 world units for this camera setup. */
+    float scale = 2.2f / max_extent;
+
+    for (int i = 0; i < mesh->vertex_count; ++i) {
+        MeshVertex& v = mesh->vertices[i];
+        v.x = (v.x - cx) * scale;
+        v.y = (v.y - cy) * scale;
+        v.z = (v.z - cz) * scale;
+    }
+}
+
 /* -------------------------------------------------------------------------
  * Framebuffer and depth-buffer clear (NEON)
  * ------------------------------------------------------------------------- */
@@ -533,6 +574,8 @@ int main(int argc, char** argv)
 
     if (!mesh_loaded)
         mesh_create_cube(&mesh);
+    else
+        fit_mesh_to_unit_bounds(&mesh);
 
     /* --- Platform init ------------------------------------------------- */
     s_platform = SPInitPlatform();
@@ -619,7 +662,21 @@ int main(int argc, char** argv)
         /* Rasterize all triangles */
         for (int t = 0; t < mesh.triangle_count; ++t) {
             const MeshTriangle* tri = &mesh.triangles[t];
-            rasterize_triangle(&sv[tri->v[0]], &sv[tri->v[1]], &sv[tri->v[2]], &tex);
+            const SV* a = &sv[tri->v[0]];
+            const SV* b = &sv[tri->v[1]];
+            const SV* c = &sv[tri->v[2]];
+
+            /*
+             * Coarse rejection to prevent pathological giant projected triangles
+             * when geometry is behind or crossing the camera with no clipping.
+             */
+            if (a->inv_w <= 0.0f || b->inv_w <= 0.0f || c->inv_w <= 0.0f)
+                continue;
+            if ((a->z <= 0.0f && b->z <= 0.0f && c->z <= 0.0f) ||
+                (a->z >= 1.0f && b->z >= 1.0f && c->z >= 1.0f))
+                continue;
+
+            rasterize_triangle(a, b, c, &tex);
         }
 
         /* Wait for vsync, then swap display/render pages */
