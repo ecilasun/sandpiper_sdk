@@ -44,6 +44,37 @@ static void compute_face_normal(const MeshVertex* a, const MeshVertex* b, const 
     normalize3(nx, ny, nz);
 }
 
+static void generate_planar_uv(const MeshVertex* v,
+                               float fnx, float fny, float fnz,
+                               float minx, float maxx,
+                               float miny, float maxy,
+                               float minz, float maxz,
+                               float* u, float* vv)
+{
+    float ax = fabsf(fnx);
+    float ay = fabsf(fny);
+    float az = fabsf(fnz);
+
+    float dx = maxx - minx; if (dx < 1.0e-6f) dx = 1.0f;
+    float dy = maxy - miny; if (dy < 1.0e-6f) dy = 1.0f;
+    float dz = maxz - minz; if (dz < 1.0e-6f) dz = 1.0f;
+
+    /* Project along dominant normal axis to reduce stretching per face. */
+    if (ax >= ay && ax >= az) {
+        *u  = (v->z - minz) / dz;
+        *vv = (v->y - miny) / dy;
+    } else if (ay >= ax && ay >= az) {
+        *u  = (v->x - minx) / dx;
+        *vv = (v->z - minz) / dz;
+    } else {
+        *u  = (v->x - minx) / dx;
+        *vv = (v->y - miny) / dy;
+    }
+
+    *u = clamp01(*u);
+    *vv = clamp01(*vv);
+}
+
 /* Parse one face-vertex token ("v", "v/t", "v//n", "v/t/n").
  * Returns 0-based position/uv/normal indices in *pi/*ti/*ni.
  * *ti and *ni are -1 when missing.
@@ -164,6 +195,8 @@ bool mesh_load_obj(const char* path, Mesh* mesh)
     /* Stage 1: collect raw positions and UVs */
     int cap_pos = 1024, num_pos = 0;
     float* pos = (float*)malloc((size_t)cap_pos * 3 * sizeof(float));
+    float minx =  1.0e30f, miny =  1.0e30f, minz =  1.0e30f;
+    float maxx = -1.0e30f, maxy = -1.0e30f, maxz = -1.0e30f;
 
     int cap_uv = 1024, num_uv = 0;
     float* uv = (float*)malloc((size_t)cap_uv * 2 * sizeof(float));
@@ -198,6 +231,9 @@ bool mesh_load_obj(const char* path, Mesh* mesh)
             pos[num_pos*3+0] = x;
             pos[num_pos*3+1] = y;
             pos[num_pos*3+2] = z;
+            if (x < minx) minx = x; if (x > maxx) maxx = x;
+            if (y < miny) miny = y; if (y > maxy) maxy = y;
+            if (z < minz) minz = z; if (z > maxz) maxz = z;
             num_pos++;
 
         } else if (line[0] == 'v' && line[1] == 't') {
@@ -289,11 +325,13 @@ bool mesh_load_obj(const char* path, Mesh* mesh)
             }
 
             bool has_obj_normals = true;
+            bool has_face_uvs = true;
             for (int i = 0; i < nfv; ++i) {
                 if (fv_ni[i] < 0 || fv_ni[i] >= num_nrm) {
                     has_obj_normals = false;
-                    break;
                 }
+                if (fv_ti[i] < 0 || fv_ti[i] >= num_uv)
+                    has_face_uvs = false;
             }
 
             for (int i = 1; i < nfv - 1; ++i) {
@@ -314,6 +352,21 @@ bool mesh_load_obj(const char* path, Mesh* mesh)
                     va->nx = vb->nx = vc->nx = fnx;
                     va->ny = vb->ny = vc->ny = fny;
                     va->nz = vb->nz = vc->nz = fnz;
+
+                    if (!has_face_uvs) {
+                        generate_planar_uv(va, fnx, fny, fnz, minx, maxx, miny, maxy, minz, maxz, &va->u, &va->v);
+                        generate_planar_uv(vb, fnx, fny, fnz, minx, maxx, miny, maxy, minz, maxz, &vb->u, &vb->v);
+                        generate_planar_uv(vc, fnx, fny, fnz, minx, maxx, miny, maxy, minz, maxz, &vc->u, &vc->v);
+                    }
+                } else if (!has_face_uvs) {
+                    MeshVertex* va = &verts[vi_start];
+                    MeshVertex* vb = &verts[vi_start + i];
+                    MeshVertex* vc = &verts[vi_start + i + 1];
+                    float fnx, fny, fnz;
+                    compute_face_normal(va, vb, vc, &fnx, &fny, &fnz);
+                    generate_planar_uv(va, fnx, fny, fnz, minx, maxx, miny, maxy, minz, maxz, &va->u, &va->v);
+                    generate_planar_uv(vb, fnx, fny, fnz, minx, maxx, miny, maxy, minz, maxz, &vb->u, &vb->v);
+                    generate_planar_uv(vc, fnx, fny, fnz, minx, maxx, miny, maxy, minz, maxz, &vc->u, &vc->v);
                 }
 
                 num_tris++;

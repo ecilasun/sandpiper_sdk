@@ -684,8 +684,8 @@ int main(int argc, char** argv)
         VPUSwapPages(s_platform->vx, s_platform->sc);
 
         /* Advance rotation angles (degrees per frame at ~60 Hz) */
-        angle_y += 0.018f; /* ~1.03 deg/frame */
-        angle_x += 0.007f; /* ~0.40 deg/frame */
+        angle_y += 0.058f; /* ~1.03 deg/frame */
+        angle_x += 0.027f; /* ~0.40 deg/frame */
         if (angle_y > NEON_TWO_PI) angle_y -= NEON_TWO_PI;
         if (angle_x > NEON_TWO_PI) angle_x -= NEON_TWO_PI;
     }
