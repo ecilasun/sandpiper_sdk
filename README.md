@@ -26,17 +26,17 @@ sudo chmod +x mandelbrot
 
 To make this work in Windows, try the following:
 
-Install a TAP driver (One from OpenVPN is known to work https://swupdate.openvpn.net/community/releases/tap-windows-9.21.2.exe)
-Bridge the TAP network device with your host PC network device.
-Renamed it to EthernetTAP so it is clear to make it easy to find.
-
-Change the boot_emulator.bat to use the tap device instead of the default slirp and port forwards for network. Replace the -net arguments in there with this (replace EthernetTAP with whatever you named your TAP device above):
+- Install a TAP driver (One from OpenVPN is known to work https://swupdate.openvpn.net/community/releases/tap-windows-9.21.2.exe)
+- Bridge the TAP network device with your host PC network device.
+- Rename it to EthernetTAP so it is clear to make it easy to find.
+- Change the boot_emulator.bat to use the tap device instead of the default slirp and port forwards for network. Replace the -net arguments in there with this (replace EthernetTAP with whatever you named your TAP device above):
 ```
 -net nic,netdev=mynet0 -netdev tap,id=mynet0,ifname=EthernetTAP
 ```
 
-Find the IP address of the sandpiper instance in qemu using  ifconfig command from the emulator.
-Put the IP address in the settings.json in the helloworld sample
+- Find the IP address of the sandpiper instance in qemu using  ifconfig command from the emulator.
+- Put the IP address in the settings.json in the helloworld sample
+
 A bonus is that using the tap device is much faster than using slirp!
 
 (Thanks to [Sam Izzo](https://github.com/samizzo) for the instructions)
