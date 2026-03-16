@@ -39,7 +39,7 @@ Find the IP address of the sandpiper instance in qemu using  ifconfig command fr
 Put the IP address in the settings.json in the helloworld sample
 A bonus is that using the tap device is much faster than using slirp!
 
-(Thanks to Sam Izzo for the instructions)
+(Thanks to [Sam Izzo](https://github.com/samizzo) for the instructions)
 
 ## Documentation
 
