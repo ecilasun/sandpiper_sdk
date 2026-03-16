@@ -4,6 +4,9 @@ This project is configured for cross-compilation on Windows and remote debugging
 
 Please see the README.md file at the root of this repo for changes required to connect to the emulator using GDB.
 
+P.S.
+There may not be sufficient space on the root file system for VS Code to install its remote debugging tools. In that case you may want to do a first install attempt, check the generated vs code tools folder name, and convert it into a symbolic link to a larger partition. This will be addressed in future OS image releases.
+
 ## Prerequisites
 
 1.  **Cross-Compiler Toolchain**: Ensure `arm-none-linux-gnueabihf-g++` and `arm-none-linux-gnueabihf-gdb` are installed and available in your system `PATH`.
@@ -22,7 +25,26 @@ Please see the README.md file at the root of this repo for changes required to c
 2.  Open `helloworld.cpp` and place a breakpoint.
 3.  Press **F5** or go to the Run and Debug view and select **"Remote Debug (gdbserver)"**.
 
-P.S.
-There may not be sufficient space on the root file system for VS Code to install its remote debugging tools. In that case you may want to do a first install attempt, check the generated vs code tools folder name, and convert it into a symbolic link to a larger partition.
+### What happens automatically:
 
-This will be addressed in future OS image releases.
+1.  **Build**: The project is compiled with debug symbols (`-g -O0`) using `make DEBUG=1`.
+2.  **Deploy**: The resulting `helloworld` binary is copied to `/home/peta/helloworld` on the target via `scp`.
+3.  **Start Debug Server**: A background task cleans up any old `gdbserver` instances, sets executable permissions, and starts `gdbserver` on port `2000`.
+4.  **Connect**: VS Code's debugger (`arm-none-linux-gnueabihf-gdb`) starts locally and connects to the remote `gdbserver`.
+
+## Configuration Files
+
+-   **`Makefile`**: Supports a `DEBUG` flag.
+    -   `make` (default): Optimised release build (`-Ofast -flto`).
+    -   `make DEBUG=1`: Debug build (`-O0 -g`).
+-   **`.vscode/tasks.json`**:
+    -   `build`: Runs the make command.
+    -   `deploy`: Copies the binary to the target.
+    -   `start remote gdbserver`: Manages the remote process lifecycle.
+-   **`.vscode/launch.json`**: Configures the GDB client to connect to the remote target.
+
+## Troubleshooting
+
+-   **Permission Denied**: The `start remote gdbserver` task automatically runs `chmod +x` on the binary.
+-   **Address already in use**: The task automatically runs `killall -9 gdbserver` before starting a new session to clear hung ports.
+-   **Waiting for tasks...**: If the task hangs on "deploy" or "start remote gdbserver", it is likely waiting for an SSH password. Configure SSH keys to resolve this.
