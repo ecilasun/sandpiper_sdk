@@ -28,7 +28,7 @@ To make this work in Windows, try the following:
 
 - Install a TAP driver (One from OpenVPN is known to work https://swupdate.openvpn.net/community/releases/tap-windows-9.21.2.exe)
 - Bridge the TAP network device with your host PC network device.
-- Rename it to EthernetTAP so it is clear to make it easy to find.
+- Rename it to EthernetTAP so it is easy to find.
 - Change the boot_emulator.bat to use the tap device instead of the default slirp and port forwards for network. Replace the -net arguments in there with this (replace EthernetTAP with whatever you named your TAP device above):
 ```
 -net nic,netdev=mynet0 -netdev tap,id=mynet0,ifname=EthernetTAP
