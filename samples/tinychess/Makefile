@@ -44,6 +44,12 @@ ARM_GCC_OPTS += -std=c++20 $(OPT_FLAGS) -mcpu=cortex-a9 -mfpu=neon -mfloat-abi=h
 ARM_CC_OPTS  += $(OPT_FLAGS) -mcpu=cortex-a9 -mfpu=neon -mfloat-abi=hard
 ARM_GCC_LIBS += -lgcc -lc -lm
 
+#ifdef USE_OPENMP
+	ARM_GCC_OPTS += -fopenmp
+	ARM_CC_OPTS  += -fopenmp
+	ARM_GCC_LIBS += -fopenmp
+#endif
+
 incs += -I$(src_dir) -I$(sdk_dir)/include
 
 # Source files
