@@ -77,6 +77,13 @@ typedef enum {
     DIALOG_HELP
 } DialogMode;
 
+typedef enum {
+    DIALOG_FOCUS_LIST = 0,
+    DIALOG_FOCUS_FILENAME,
+    DIALOG_FOCUS_OK,
+    DIALOG_FOCUS_CANCEL
+} DialogFocus;
+
 typedef struct {
     char* buffer;
     size_t buffer_size;
@@ -93,12 +100,15 @@ typedef struct {
     int dialog_entry_count;
     int dialog_selected;
     int dialog_scroll;
+    DialogFocus dialog_focus;
 } EditorState;
 
 EditorState editor;
 static struct termios g_orig_termios;
 static bool g_raw_mode_enabled = false;
 static void editor_set_file_name(const char* path);
+static bool dialog_activate_selected(void);
+static bool dialog_commit_save(void);
 
 enum EditorKey {
     KEY_BACKSPACE = 127,
@@ -284,6 +294,7 @@ static bool editor_save_file(const char* path) {
 
 static void dialog_open(DialogMode mode) {
     editor.dialog_mode = mode;
+    editor.dialog_focus = DIALOG_FOCUS_LIST;
     if (getcwd(editor.dialog_path, sizeof(editor.dialog_path)) == NULL) {
         strncpy(editor.dialog_path, ".", sizeof(editor.dialog_path) - 1);
         editor.dialog_path[sizeof(editor.dialog_path) - 1] = '\0';
@@ -319,6 +330,68 @@ static void dialog_move_selection(int delta) {
     if (editor.dialog_selected >= editor.dialog_entry_count) {
         editor.dialog_selected = editor.dialog_entry_count - 1;
     }
+}
+
+static void dialog_focus_next(void) {
+    if (editor.dialog_mode == DIALOG_HELP) {
+        return;
+    }
+
+    editor.dialog_focus = (DialogFocus)(((int)editor.dialog_focus + 1) % 4);
+}
+
+static bool dialog_open_from_filename(void) {
+    if (editor.dialog_filename[0] == '\0') {
+        return false;
+    }
+
+    char full_path[DIALOG_MAX_PATH_LEN];
+    build_path(full_path, sizeof(full_path), editor.dialog_path, editor.dialog_filename);
+
+    if (path_is_directory(full_path)) {
+        strncpy(editor.dialog_path, full_path, sizeof(editor.dialog_path) - 1);
+        editor.dialog_path[sizeof(editor.dialog_path) - 1] = '\0';
+        editor.dialog_filename[0] = '\0';
+        dialog_refresh_entries();
+        return false;
+    }
+
+    if (editor_load_file(full_path)) {
+        dialog_close();
+        return true;
+    }
+
+    return false;
+}
+
+static void dialog_select_file_name_from_entry(void) {
+    if (editor.dialog_selected < 0 || editor.dialog_selected >= editor.dialog_entry_count) {
+        return;
+    }
+
+    FileEntry* sel = &editor.dialog_entries[editor.dialog_selected];
+    if (!sel->is_dir) {
+        strncpy(editor.dialog_filename, sel->name, sizeof(editor.dialog_filename) - 1);
+        editor.dialog_filename[sizeof(editor.dialog_filename) - 1] = '\0';
+    }
+}
+
+static bool dialog_activate_ok(void) {
+    if (editor.dialog_mode == DIALOG_OPEN) {
+        if (editor.dialog_filename[0] != '\0') {
+            return dialog_open_from_filename();
+        }
+        return dialog_activate_selected();
+    }
+
+    if (editor.dialog_mode == DIALOG_SAVE) {
+        if (editor.dialog_filename[0] == '\0') {
+            dialog_select_file_name_from_entry();
+        }
+        return dialog_commit_save();
+    }
+
+    return false;
 }
 
 static bool dialog_activate_selected(void) {
@@ -498,6 +571,7 @@ void editor_init() {
     editor.dialog_entry_count = 0;
     editor.dialog_selected = 0;
     editor.dialog_scroll = 0;
+    editor.dialog_focus = DIALOG_FOCUS_LIST;
     editor_set_file_name(NULL);
     
     // Initialize with empty buffer
@@ -651,17 +725,24 @@ static bool editor_process_key(int key) {
             case '~':
                 dialog_close();
                 return true;
+            case '\t':
+                dialog_focus_next();
+                return true;
             case KEY_ARROW_UP:
                 if (editor.dialog_mode == DIALOG_HELP) {
                     return true;
                 }
-                dialog_move_selection(-1);
+                if (editor.dialog_focus == DIALOG_FOCUS_LIST) {
+                    dialog_move_selection(-1);
+                }
                 return true;
             case KEY_ARROW_DOWN:
                 if (editor.dialog_mode == DIALOG_HELP) {
                     return true;
                 }
-                dialog_move_selection(1);
+                if (editor.dialog_focus == DIALOG_FOCUS_LIST) {
+                    dialog_move_selection(1);
+                }
                 return true;
             case '\r':
             case '\n':
@@ -669,17 +750,19 @@ static bool editor_process_key(int key) {
                     dialog_close();
                     return true;
                 }
-                if (editor.dialog_mode == DIALOG_OPEN) {
+                if (editor.dialog_focus == DIALOG_FOCUS_CANCEL) {
+                    dialog_close();
+                } else if (editor.dialog_focus == DIALOG_FOCUS_OK) {
+                    dialog_activate_ok();
+                } else if (editor.dialog_focus == DIALOG_FOCUS_LIST) {
                     dialog_activate_selected();
                 } else {
-                    if (!dialog_activate_selected()) {
-                        dialog_commit_save();
-                    }
+                    dialog_activate_ok();
                 }
                 return true;
             case KEY_BACKSPACE:
             case 8:
-                if (editor.dialog_mode == DIALOG_SAVE) {
+                if (editor.dialog_focus == DIALOG_FOCUS_FILENAME) {
                     size_t n = strlen(editor.dialog_filename);
                     if (n > 0) {
                         editor.dialog_filename[n - 1] = '\0';
@@ -687,7 +770,7 @@ static bool editor_process_key(int key) {
                 }
                 return true;
             default:
-                if (editor.dialog_mode == DIALOG_SAVE && key >= 32 && key <= 126) {
+                if (editor.dialog_focus == DIALOG_FOCUS_FILENAME && key >= 32 && key <= 126) {
                     size_t n = strlen(editor.dialog_filename);
                     if (n + 1 < sizeof(editor.dialog_filename)) {
                         editor.dialog_filename[n] = (char)key;
@@ -877,6 +960,10 @@ static void editor_draw_dialog(uint16_t* fb, uint32_t stride) {
     const int dlg_chars = dlg_w / CHAR_WIDTH;
     const int list_chars = list_w / CHAR_WIDTH;
     const int dlg_rows = dlg_h / CHAR_HEIGHT;
+    const bool list_focused = (editor.dialog_focus == DIALOG_FOCUS_LIST);
+    const bool filename_focused = (editor.dialog_focus == DIALOG_FOCUS_FILENAME);
+    const bool ok_focused = (editor.dialog_focus == DIALOG_FOCUS_OK);
+    const bool cancel_focused = (editor.dialog_focus == DIALOG_FOCUS_CANCEL);
 
     for (int row = 0; row < dlg_rows; row++) {
         draw_text_band(fb, stride, dlg_x, dlg_y + row * CHAR_HEIGHT, dlg_chars,
@@ -920,8 +1007,10 @@ static void editor_draw_dialog(uint16_t* fb, uint32_t stride) {
             "  Fn+ESC opens this help dialog.",
             "",
             "Dialogs",
+            "  Tab switches focus between controls.",
+            "  Enter activates the focused control.",
+            "  Type when the File name field is focused.",
             "  Esc closes the current dialog.",
-            "  Enter accepts the highlighted action.",
             "  Fn+ESC also closes this help dialog.",
             "",
             "Press Enter or Esc to close."
@@ -966,8 +1055,12 @@ static void editor_draw_dialog(uint16_t* fb, uint32_t stride) {
 
         FileEntry* e = &editor.dialog_entries[idx];
         bool selected = (idx == editor.dialog_selected);
-        uint16_t row_bg = selected ? COLOR_DIALOG_SEL_BG : COLOR_DIALOG_LIST_BG;
-        uint16_t row_fg = selected ? COLOR_DIALOG_SEL_FG : COLOR_DIALOG_LIST_FG;
+        uint16_t row_bg = COLOR_DIALOG_LIST_BG;
+        uint16_t row_fg = COLOR_DIALOG_LIST_FG;
+        if (selected) {
+            row_bg = list_focused ? COLOR_DIALOG_SEL_BG : COLOR_DIALOG_BG;
+            row_fg = list_focused ? COLOR_DIALOG_SEL_FG : COLOR_DIALOG_LIST_FG;
+        }
         int row_y = list_y + i * CHAR_HEIGHT;
 
         draw_text_band(fb, stride, list_x, row_y, list_chars, row_bg, row_bg);
@@ -978,20 +1071,36 @@ static void editor_draw_dialog(uint16_t* fb, uint32_t stride) {
             (uint16_t)(list_x + 4), (uint16_t)row_y, row, row_fg, row_bg, (int)strlen(row));
     }
 
+    const int file_y = dlg_y + dlg_h - 52;
+    const int file_chars = (dlg_w - 16) / CHAR_WIDTH;
+    uint16_t file_fg = filename_focused ? COLOR_DIALOG_SEL_FG : COLOR_DIALOG_LIST_FG;
+    uint16_t file_bg = filename_focused ? COLOR_DIALOG_SEL_BG : COLOR_DIALOG_BG;
+    draw_text_band(fb, stride, dlg_x + 8, file_y, file_chars, file_bg, file_bg);
+
     char file_line[96];
     snprintf(file_line, sizeof(file_line), "File name: %s", editor.dialog_filename);
     VPUPrintStringRGB565((uint8_t*)fb, stride, EDITOR_WIDTH, EDITOR_HEIGHT,
-        (uint16_t)(dlg_x + 8), (uint16_t)(dlg_y + dlg_h - 52), file_line,
-        COLOR_DIALOG_LIST_FG, COLOR_DIALOG_BG, (int)strlen(file_line));
+        (uint16_t)(dlg_x + 8), (uint16_t)file_y, file_line,
+        file_fg, file_bg, (int)strlen(file_line));
 
     const char* ok_text = (editor.dialog_mode == DIALOG_OPEN) ? "[ Open ]" : "[ Save ]";
     const char* cancel_text = "[ Cancel ]";
+    int ok_x = dlg_x + dlg_w - 176;
+    int cancel_x = dlg_x + dlg_w - 88;
+    uint16_t ok_fg = ok_focused ? COLOR_DIALOG_SEL_FG : COLOR_DIALOG_LIST_FG;
+    uint16_t ok_bg = ok_focused ? COLOR_DIALOG_SEL_BG : COLOR_DIALOG_BG;
+    uint16_t cancel_fg = cancel_focused ? COLOR_DIALOG_SEL_FG : COLOR_DIALOG_LIST_FG;
+    uint16_t cancel_bg = cancel_focused ? COLOR_DIALOG_SEL_BG : COLOR_DIALOG_BG;
+
+    draw_text_band(fb, stride, ok_x, dlg_y + dlg_h - 24, (int)strlen(ok_text), ok_bg, ok_bg);
+    draw_text_band(fb, stride, cancel_x, dlg_y + dlg_h - 24, (int)strlen(cancel_text), cancel_bg, cancel_bg);
+
     VPUPrintStringRGB565((uint8_t*)fb, stride, EDITOR_WIDTH, EDITOR_HEIGHT,
-        (uint16_t)(dlg_x + dlg_w - 176), (uint16_t)(dlg_y + dlg_h - 24), ok_text,
-        COLOR_DIALOG_LIST_FG, COLOR_DIALOG_BG, (int)strlen(ok_text));
+        (uint16_t)ok_x, (uint16_t)(dlg_y + dlg_h - 24), ok_text,
+        ok_fg, ok_bg, (int)strlen(ok_text));
     VPUPrintStringRGB565((uint8_t*)fb, stride, EDITOR_WIDTH, EDITOR_HEIGHT,
-        (uint16_t)(dlg_x + dlg_w - 88), (uint16_t)(dlg_y + dlg_h - 24), cancel_text,
-        COLOR_DIALOG_LIST_FG, COLOR_DIALOG_BG, (int)strlen(cancel_text));
+        (uint16_t)cancel_x, (uint16_t)(dlg_y + dlg_h - 24), cancel_text,
+        cancel_fg, cancel_bg, (int)strlen(cancel_text));
 }
 
 // Get line and column from cursor position
