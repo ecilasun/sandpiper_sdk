@@ -111,6 +111,15 @@ static void editor_set_file_name(const char* path);
 static bool dialog_activate_selected(void);
 static bool dialog_commit_save(void);
 
+static bool editor_cursor_should_blink(void) {
+    return editor.dialog_mode == DIALOG_NONE ||
+        (editor.dialog_mode != DIALOG_HELP && editor.dialog_focus == DIALOG_FOCUS_FILENAME);
+}
+
+static bool editor_cursor_is_visible(void) {
+    return ((editor.cursor_blink_ticks / 30) % 2) == 0;
+}
+
 enum EditorKey {
     KEY_NONE = -1,
     KEY_BACKSPACE = 127,
@@ -1154,8 +1163,7 @@ void editor_render(uint8_t* draw_page) {
     // Render text
     size_t line, column;
     editor_get_cursor_pos(&line, &column);
-    bool cursor_visible = ((editor.cursor_blink_ticks / 30) % 2) == 0;
-    editor.cursor_blink_ticks++;
+    bool cursor_visible = editor_cursor_is_visible();
     
     // Calculate visible lines based on scroll, avoiding unsigned underflow.
     size_t total_lines = (editor.buffer_size + CHARS_PER_LINE - 1) / CHARS_PER_LINE;
@@ -1291,24 +1299,37 @@ int main(int argc, char** argv) {
     // Prepare for synced swaps between A and B.
     VPUSetScanoutAddress(g_platform->vx, (uint32_t)(uintptr_t)g_framebuffer_a.dmaAddress);
     VPUSetScanoutAddress2(g_platform->vx, (uint32_t)(uintptr_t)g_framebuffer_b.dmaAddress);
+
+    bool prev_cursor_visible = editor_cursor_is_visible();
    
     // Main loop
     bool running = true;
     while (running) {
-        // Wait until the previously queued swap/noop has completed.
-        while (VPUGetFIFONotEmpty(g_platform->vx)) { }
+        bool redraw = false;
 
-        // Update write page pointer and render into the back buffer.
-        VPUSwapPages(g_platform->vx, g_platform->sc);
-        editor_render(g_platform->sc->writepage);
+        VPUWaitVSync(g_platform->vx);
 
-        // Queue synced front/back buffer swap and a barrier noop.
-        VPUSyncSwap(g_platform->vx, 0);
-        VPUNoop(g_platform->vx);
+        editor.cursor_blink_ticks++;
+        bool cursor_visible = editor_cursor_is_visible();
+        if (editor_cursor_should_blink() && cursor_visible != prev_cursor_visible) {
+            redraw = true;
+        }
+        prev_cursor_visible = cursor_visible;
 
         int key = editor_read_key();
         if (key != KEY_NONE) {
             running = editor_process_key(key);
+            redraw = true;
+        }
+
+        if (redraw) {
+            while (VPUGetFIFONotEmpty(g_platform->vx)) { }
+
+            VPUSwapPages(g_platform->vx, g_platform->sc);
+            editor_render(g_platform->sc->writepage);
+
+            VPUSyncSwap(g_platform->vx, 0);
+            VPUNoop(g_platform->vx);
         }
     }
     
