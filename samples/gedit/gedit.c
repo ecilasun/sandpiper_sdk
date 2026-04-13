@@ -1234,7 +1234,9 @@ int main(int argc, char** argv) {
     }
 
     if (argc >= 2) {
-        editor_set_file_name(argv[1]);
+        if (!editor_load_file(argv[1])) {
+            editor_set_file_name(argv[1]);
+        }
     }
 
     enable_raw_mode();
