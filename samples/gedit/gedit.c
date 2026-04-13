@@ -31,7 +31,7 @@
 #define EDITOR_COLOR      ECM_16bit_RGB
 #define EDITOR_FG_COLOR   MAKECOLORRGB16(0, 0, 0)     // Black
 #define EDITOR_BG_COLOR   MAKECOLORRGB16(31, 63, 31)  // White
-#define EDITOR_CURSOR_COLOR MAKECOLORRGB16(0, 0, 0)     // Black
+#define EDITOR_CURSOR_COLOR MAKECOLORRGB16(31, 32, 0)   // Orange
 #define EDITOR_SELECT_COLOR MAKECOLORRGB16(0, 0, 31)   // Blue
 
 // Character dimensions (built-in RGB565 font is 8x8)
@@ -101,6 +101,7 @@ typedef struct {
     int dialog_selected;
     int dialog_scroll;
     DialogFocus dialog_focus;
+    uint32_t cursor_blink_ticks;
 } EditorState;
 
 EditorState editor;
@@ -111,6 +112,7 @@ static bool dialog_activate_selected(void);
 static bool dialog_commit_save(void);
 
 enum EditorKey {
+    KEY_NONE = -1,
     KEY_BACKSPACE = 127,
     KEY_ARROW_LEFT = 1000,
     KEY_ARROW_RIGHT,
@@ -459,7 +461,7 @@ static bool enable_raw_mode(void) {
     raw.c_cflag |= (CS8);
     raw.c_lflag &= ~(ECHO | ICANON | IEXTEN | ISIG);
     raw.c_cc[VMIN] = 0;
-    raw.c_cc[VTIME] = 1;
+    raw.c_cc[VTIME] = 0;
 
     if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw) == -1) {
         return false;
@@ -472,7 +474,8 @@ static bool enable_raw_mode(void) {
 
 static int editor_read_key(void) {
     char c;
-    while (read(STDIN_FILENO, &c, 1) != 1) {
+    if (read(STDIN_FILENO, &c, 1) != 1) {
+        return KEY_NONE;
     }
 
     if (c == '\x1b') {
@@ -572,6 +575,7 @@ void editor_init() {
     editor.dialog_selected = 0;
     editor.dialog_scroll = 0;
     editor.dialog_focus = DIALOG_FOCUS_LIST;
+    editor.cursor_blink_ticks = 0;
     editor_set_file_name(NULL);
     
     // Initialize with empty buffer
@@ -942,7 +946,7 @@ static void draw_text_band(uint16_t* fb, uint32_t stride, int x, int y, int char
     );
 }
 
-static void editor_draw_dialog(uint16_t* fb, uint32_t stride) {
+static void editor_draw_dialog(uint16_t* fb, uint32_t stride, bool cursor_visible) {
     if (editor.dialog_mode == DIALOG_NONE) {
         return;
     }
@@ -1083,6 +1087,29 @@ static void editor_draw_dialog(uint16_t* fb, uint32_t stride) {
         (uint16_t)(dlg_x + 8), (uint16_t)file_y, file_line,
         file_fg, file_bg, (int)strlen(file_line));
 
+    if (filename_focused && cursor_visible) {
+        const int file_prefix_chars = (int)strlen("File name: ");
+        int name_chars = (int)strlen(editor.dialog_filename);
+        int max_name_chars = file_chars - file_prefix_chars - 1;
+        if (max_name_chars < 0) {
+            max_name_chars = 0;
+        }
+        if (name_chars > max_name_chars) {
+            name_chars = max_name_chars;
+        }
+
+        int caret_char = file_prefix_chars + name_chars;
+        if (caret_char < 0) {
+            caret_char = 0;
+        }
+        if (caret_char >= file_chars) {
+            caret_char = file_chars - 1;
+        }
+
+        int caret_x = dlg_x + 8 + caret_char * CHAR_WIDTH;
+        fill_rect16(fb, stride, caret_x, file_y, 2, CHAR_HEIGHT, file_fg);
+    }
+
     const char* ok_text = (editor.dialog_mode == DIALOG_OPEN) ? "[ Open ]" : "[ Save ]";
     const char* cancel_text = "[ Cancel ]";
     int ok_x = dlg_x + dlg_w - 176;
@@ -1127,6 +1154,8 @@ void editor_render(uint8_t* draw_page) {
     // Render text
     size_t line, column;
     editor_get_cursor_pos(&line, &column);
+    bool cursor_visible = ((editor.cursor_blink_ticks / 30) % 2) == 0;
+    editor.cursor_blink_ticks++;
     
     // Calculate visible lines based on scroll, avoiding unsigned underflow.
     size_t total_lines = (editor.buffer_size + CHARS_PER_LINE - 1) / CHARS_PER_LINE;
@@ -1182,21 +1211,25 @@ void editor_render(uint8_t* draw_page) {
     
     // Render cursor
     editor_get_cursor_pos(&line, &column);
-    if (line >= start_line && line < start_line + TEXT_LINES_PER_SCREEN) {
+    if (editor.dialog_mode == DIALOG_NONE && cursor_visible &&
+        line >= start_line && line < start_line + TEXT_LINES_PER_SCREEN) {
         size_t cursor_screen_line = line - start_line;
         int16_t cursor_x = column * CHAR_WIDTH;
         int16_t cursor_y = cursor_screen_line * CHAR_HEIGHT;
         
-        // Draw cursor as a vertical line
+        // Draw cursor as a 2-pixel vertical bar
         for (int y = 0; y < CHAR_HEIGHT; y++) {
             if (cursor_x < EDITOR_WIDTH && cursor_y + y < EDITOR_HEIGHT) {
                 fb[(cursor_y + y) * (stride / sizeof(uint16_t)) + cursor_x] = EDITOR_CURSOR_COLOR;
+                if (cursor_x + 1 < EDITOR_WIDTH) {
+                    fb[(cursor_y + y) * (stride / sizeof(uint16_t)) + cursor_x + 1] = EDITOR_CURSOR_COLOR;
+                }
             }
         }
     }
 
     editor_draw_status_line(fb, stride, line, column);
-    editor_draw_dialog(fb, stride);
+    editor_draw_dialog(fb, stride, cursor_visible);
 }
 
 int main(int argc, char** argv) {
@@ -1274,7 +1307,9 @@ int main(int argc, char** argv) {
         VPUNoop(g_platform->vx);
 
         int key = editor_read_key();
-        running = editor_process_key(key);
+        if (key != KEY_NONE) {
+            running = editor_process_key(key);
+        }
     }
     
     // Cleanup
