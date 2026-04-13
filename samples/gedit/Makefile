@@ -10,7 +10,7 @@ else
 	endif
 endif
 
-TARGET = ed
+TARGET = gedit
 
 default: $(TARGET)
 
