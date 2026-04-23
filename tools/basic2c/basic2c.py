@@ -323,11 +323,14 @@ class BasicProgram:
         channel = int(float(tokens[2].value))
         return Statement("CLOSE", line_no, {"channel": channel})
 
-    def _parse_print_list(self, tokens: List[Token]) -> Tuple[List[Tuple[str, bool]], bool]:
+    def _parse_print_list(self, tokens: List[Token]) -> Tuple[List[Tuple[str, str, bool]], bool]:
+        """Parse PRINT items. Returns list of (separator, expr, is_string).
+        separator is ',', ';', or '' (first item). newline=True if trailing comma (no semicolon)."""
         if not tokens:
-            return [], True  # PRINT alone => newline
+            return [('', '', True)], True  # PRINT alone => newline
         parts: List[List[Token]] = []
         buf: List[Token] = []
+        seps: List[str] = []  # separator before each part
         depth = 0
         for t in tokens:
             if t.kind == "OP" and t.value == "(":
@@ -337,22 +340,29 @@ class BasicProgram:
                 if depth < 0:
                     raise BasicParseError("Mismatched parentheses in PRINT")
             if depth == 0 and t.value in (",", ";"):
+                seps.append(t.value)
                 parts.append(buf)
                 buf = []
                 continue
             buf.append(t)
         if depth != 0:
             raise BasicParseError("Mismatched parentheses in PRINT")
-        if buf:
-            parts.append(buf)
+        parts.append(buf)
+        # trailing comma means newline, trailing semicolon means no newline
         trailing_sep = tokens[-1].value if tokens and tokens[-1].value in (",", ";") else None
-        items: List[Tuple[str, bool]] = []
-        for p in parts:
+        if trailing_sep == ",":
+            newline = True
+        elif trailing_sep == ";":
+            newline = False
+        else:
+            newline = True
+        items: List[Tuple[str, str, bool]] = []
+        for idx, p in enumerate(parts):
             if not p:
                 continue
             expr, is_string = self._parse_expression(p)
-            items.append((expr, is_string))
-        newline = trailing_sep is None
+            sep = seps[idx] if idx < len(seps) else ''
+            items.append((sep, expr, is_string))
         return items, newline
 
     def _parse_input_targets(self, tokens: List[Token]) -> List[str]:
@@ -507,20 +517,27 @@ class BasicProgram:
                 elif t.kind == "STRING":
                     escaped = t.value.replace('\\', '\\\\').replace('"', '\\"')
                     stack.append(f'"{escaped}"')
-                elif t.kind == "IDENT":
-                    stack.append(t.value.lower())
-                else:
+                elif t.kind == "IDENT" and t.value in ("AND", "OR", "NOT"):
+                    # These are operators, not variable names
                     if t.value == "NOT":
                         a = stack.pop()
                         stack.append(f"(!({a}))")
                     else:
                         b = stack.pop(); a = stack.pop()
-                        op = {
-                            "AND": "&&",
-                            "OR": "||",
-                            "<>": "!=",
-                        }.get(t.value, t.value)
+                        op = {"AND": "&&", "OR": "||"}[t.value]
                         stack.append(f"({a} {op} {b})")
+                elif t.kind == "IDENT":
+                    stack.append(t.value.lower())
+                elif t.kind == "OP":
+                    if t.value == "NOT":
+                        a = stack.pop()
+                        stack.append(f"(!({a}))")
+                    else:
+                        b = stack.pop(); a = stack.pop()
+                        op = {"<>": "!="}.get(t.value, t.value)
+                        stack.append(f"({a} {op} {b})")
+                else:
+                    raise BasicParseError(f"Unexpected token in emit: {t.kind}/{t.value}")
             if len(stack) != 1:
                 raise BasicParseError("Bad expression assembly")
             return stack[0]
@@ -553,6 +570,15 @@ class BasicProgram:
         for stmt in self.statements:
             if stmt.kind == "GOSUB":
                 self.return_targets.add(self._next_label_number(stmt))
+        # Collect FOR loop temporaries for top-level declaration (C89 compliance)
+        for_end_ids: List[int] = []
+        for_step_ids: List[int] = []
+        for stmt in self.statements:
+            if stmt.kind == "FOR":
+                fid = stmt.data["id"]
+                if fid not in for_end_ids:
+                    for_end_ids.append(fid)
+                    for_step_ids.append(fid)
         lines: List[str] = []
         lines.append("#include <stdio.h>")
         lines.append("")
@@ -569,6 +595,11 @@ class BasicProgram:
             lines.append(f"    double {decls};")
         for name, size in sorted(self.arrays.items()):
             lines.append(f"    double {name}[{size}] = {{0}};")
+        if for_end_ids:
+            end_decls = ", ".join(f"__for_end_{fid}" for fid in for_end_ids)
+            step_decls = ", ".join(f"__for_step_{fid}" for fid in for_step_ids)
+            lines.append(f"    double {end_decls};")
+            lines.append(f"    double {step_decls};")
         lines.append("    goto L" + str(self.statements[0].line) + ";")
         lines.append("")
         for stmt in self.statements:
@@ -577,7 +608,7 @@ class BasicProgram:
             emit(lines, stmt)
         lines.append("Lexit:")
         if self.uses_files:
-            lines.append("    for (int __i = 0; __i < FILE_CH_MAX; __i++) { if (__files[__i]) fclose(__files[__i]); }")
+            lines.append("    { int __i; for (__i = 0; __i < FILE_CH_MAX; __i++) { if (__files[__i]) fclose(__files[__i]); } }")
         lines.append("    return 0;")
         lines.append("}")
         return "\n".join(lines) + "\n"
@@ -593,18 +624,35 @@ class BasicProgram:
                 out.append("    printf(\"\\n\");")
             else:
                 out.append(f"    fprintf(__files[{channel}], \"\\n\");")
-        else:
-            for expr, is_string in items:
-                fmt = "%s" if is_string else "%g"
-                if channel is None:
+            out.append("    goto L" + self._next_label(stmt) + ";")
+            return
+        for sep, expr, is_string in items:
+            fmt = "%s" if is_string else "%g"
+            if channel is None:
+                if sep == ';':
+                    # Semicolon: no separator, print directly
                     out.append(f"    printf(\"{fmt}\", {expr});")
+                elif sep == ',':
+                    # Comma: advance to next tab stop (print zone)
+                    # Use spaces to simulate tab stop at column 15, 30, 45, etc.
+                    out.append(f"    printf(\"{fmt}\", {expr});")
+                    out.append(f"    printf(\" \");")  # simple space separator
+                else:
+                    # First item or no separator
+                    out.append(f"    printf(\"{fmt}\", {expr});")
+            else:
+                if sep == ';':
+                    out.append(f"    fprintf(__files[{channel}], \"{fmt}\", {expr});")
+                elif sep == ',':
+                    out.append(f"    fprintf(__files[{channel}], \"{fmt}\", {expr});")
+                    out.append(f"    fprintf(__files[{channel}], \" \");")
                 else:
                     out.append(f"    fprintf(__files[{channel}], \"{fmt}\", {expr});")
-            if newline:
-                if channel is None:
-                    out.append("    printf(\"\\n\");")
-                else:
-                    out.append(f"    fprintf(__files[{channel}], \"\\n\");")
+        if newline:
+            if channel is None:
+                out.append("    printf(\"\\n\");")
+            else:
+                out.append(f"    fprintf(__files[{channel}], \"\\n\");")
         out.append("    goto L" + self._next_label(stmt) + ";")
 
     def _emit_dim(self, out: List[str], stmt: Statement) -> None:
@@ -682,8 +730,8 @@ class BasicProgram:
         step = stmt.data["step"]
         fid = stmt.data["id"]
         out.append(f"    {var} = {start};")
-        out.append(f"    double __for_end_{fid} = {end};")
-        out.append(f"    double __for_step_{fid} = {step};")
+        out.append(f"    __for_end_{fid} = {end};")
+        out.append(f"    __for_step_{fid} = {step};")
         out.append(f"__for_check_{fid}:")
         out.append(f"    if ((__for_step_{fid} >= 0 && {var} > __for_end_{fid}) || (__for_step_{fid} < 0 && {var} < __for_end_{fid})) goto __for_exit_{fid};")
         out.append("    goto L" + self._next_label(stmt) + ";")
