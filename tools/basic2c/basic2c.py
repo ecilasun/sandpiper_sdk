@@ -2,7 +2,8 @@
 """
 Tiny BASIC-to-C translator for sandpiper cross builds.
 Supports: line numbers, numeric (double) variables, PRINT, INPUT, LET, IF...THEN <line>,
-GOTO, GOSUB/RETURN, FOR/NEXT, END, REM, DIM for 1-D arrays.
+GOTO, GOSUB/RETURN, FOR/NEXT, END, REM, DIM for 1-D arrays, DEF FN (user-defined functions),
+LEN(), STR$(), VAL() built-in functions.
 Generates standalone C (no external runtime) and can optionally compile with
 arm-amd-linux-gnueabi-gcc if available on the target.
 """
@@ -13,7 +14,7 @@ import re
 import shlex
 import subprocess
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import List, Tuple, Dict, Optional, Set
 
 KEYWORDS = {
@@ -40,7 +41,19 @@ KEYWORDS = {
     "AS",
     "OUTPUT",
     "APPEND",
+    "DEF",
+    "FN",
 }
+
+@dataclass
+class DefFn:
+    """Represents a DEF FN user-defined function."""
+    name: str  # e.g., "F"
+    param: str  # e.g., "X"
+    expr: str  # C expression, e.g., "(x * x + 1)"
+    param_expr: str  # Original BASIC param expression
+    c_func_name: str  # e.g., "fn_f"
+    line: int
 
 @dataclass
 class Token:
@@ -66,6 +79,8 @@ class BasicProgram:
         self._for_id = 0
         self.return_targets: Set[int] = set()
         self.uses_files: bool = False
+        self.def_fns: Dict[str, DefFn] = {}  # name -> DefFn (e.g., "F" -> DefFn)
+        self._fn_counter = 0
 
     def parse(self) -> None:
         for raw_line in self.src.splitlines():
@@ -81,7 +96,7 @@ class BasicProgram:
                 self.statements.append(stmt)
 
         if self._for_stack:
-            raise BasicParseError("Unmatched FOR without NEXT")
+            raise BasicParseError(f"Unmatched FOR without NEXT: {self._for_stack[-1][0]}")
 
     def _split_line_number(self, line: str) -> Tuple[int, str]:
         m = re.match(r"^(\d+)\s+(.*)$", line)
@@ -142,7 +157,7 @@ class BasicProgram:
                 tokens.append(Token("OP", two))
                 i += 2
                 continue
-            if ch in "+-*/(),;=<>#":
+            if ch in "+-*/(),;=<>#$":
                 tokens.append(Token("OP", ch))
                 i += 1
                 continue
@@ -188,6 +203,8 @@ class BasicProgram:
             return self._parse_next(line_no, tokens)
         if head == "END":
             return Statement("END", line_no, {})
+        if head == "DEF":
+            return self._parse_def_fn(line_no, tokens)
         if head == "OPEN":
             self.uses_files = True
             return self._parse_open(line_no, tokens)
@@ -282,6 +299,54 @@ class BasicProgram:
         for k,v in dims.items():
             self.arrays[k] = v
         return Statement("DIM", line_no, {"dims": dims})
+
+    def _parse_def_fn(self, line_no: int, tokens: List[Token]) -> Statement:
+        # DEF FNf(x) = expr
+        # tokens: DEF, FNf, (x), =, expr...
+        if len(tokens) < 5:
+            raise BasicParseError("DEF FN syntax: DEF FNf(x) = expr")
+        fn_name_token = tokens[1]  # FNf
+        if not fn_name_token.value.startswith("FN"):
+            raise BasicParseError("DEF FN must start with FN")
+        fn_name = fn_name_token.value[2:]  # extract 'f' from 'FNf'
+        # Parse parameter list (simplified: single parameter)
+        if len(tokens) < 6 or tokens[2].value != "(":
+            raise BasicParseError("DEF FN expects parameter: DEF FNf(x) = expr")
+        param = tokens[3].value if tokens[3].kind == "IDENT" else "x"
+        # Find closing paren
+        close_paren = None
+        for idx, t in enumerate(tokens):
+            if t.value == ")" and idx > 2:
+                close_paren = idx
+                break
+        if close_paren is None:
+            raise BasicParseError("DEF FN missing closing parenthesis")
+        # Find = after closing paren
+        eq_idx = close_paren + 1
+        if eq_idx >= len(tokens) or tokens[eq_idx].value != "=":
+            raise BasicParseError("DEF FN missing = sign")
+        # Parse expression after =
+        expr_tokens = tokens[eq_idx + 1:]
+        # We need to convert the expression to C, replacing param name with lowercase
+        expr_str, _ = self._parse_expression(expr_tokens)
+        # Replace param occurrences with lowercase version
+        c_expr = expr_str.replace(param, param.lower())
+        # Store the function definition
+        c_func_name = f"fn_{fn_name.lower()}"
+        self.def_fns[fn_name.upper()] = DefFn(
+            name=fn_name.upper(),
+            param=param,
+            expr=c_expr,
+            param_expr=param,
+            c_func_name=c_func_name,
+            line=line_no,
+        )
+        return Statement("DEF", line_no, {
+            "name": fn_name.upper(),
+            "param": param,
+            "expr": c_expr,
+            "c_func_name": c_func_name,
+        })
 
     def _parse_channel_prefix(self, tokens: List[Token]) -> Tuple[Optional[int], List[Token]]:
         if tokens and tokens[0].value == "#":
@@ -432,10 +497,17 @@ class BasicProgram:
     def _parse_next(self, line_no: int, tokens: List[Token]) -> Statement:
         if not self._for_stack:
             raise BasicParseError("NEXT without matching FOR")
-        var, for_id = self._for_stack.pop()
-        if len(tokens) >= 2 and tokens[1].kind == "IDENT" and tokens[1].value != var:
-            raise BasicParseError("NEXT variable mismatch")
-        return Statement("NEXT", line_no, {"var": var, "id": for_id})
+        next_var = None
+        if len(tokens) >= 2 and tokens[1].kind == "IDENT":
+            next_var = tokens[1].value.upper()
+        # Search for matching FOR on stack (from top to bottom)
+        for idx in range(len(self._for_stack) - 1, -1, -1):
+            stack_var, for_id = self._for_stack[idx]
+            if next_var is None or stack_var.upper() == next_var:
+                # Found match - remove from stack
+                self._for_stack.pop(idx)
+                return Statement("NEXT", line_no, {"var": stack_var, "id": for_id})
+        raise BasicParseError(f"NEXT variable mismatch: no FOR for {next_var}")
 
     def _parse_expression(self, tokens: List[Token]) -> Tuple[str, bool]:
         if not tokens:
@@ -460,8 +532,9 @@ class BasicProgram:
             tok = tokens[i]
             if tok.kind in ("NUMBER", "STRING"):
                 output.append(tok)
-            elif tok.kind == "IDENT" and i + 1 < len(tokens) and tokens[i+1].value == "(":
-                # Array reference
+            elif tok.kind == "IDENT" and i + 1 < len(tokens) and tokens[i+1].value == "(" and tok.value.upper() not in ("AND", "OR", "NOT"):
+                # Could be array reference, function call, or DEF FN call
+                # But NOT AND/OR/NOT which are binary operators
                 name = tok.value
                 j = i + 2
                 depth = 1
@@ -476,10 +549,58 @@ class BasicProgram:
                     inner.append(tokens[j])
                     j += 1
                 if depth != 0:
-                    raise BasicParseError("Mismatched parentheses in array index")
-                idx_expr, _ = self._parse_expression(inner)
-                self._register_array(name)
-                output.append(Token("IDENT", f"{name.lower()}[(int)({idx_expr})]"))
+                    raise BasicParseError("Mismatched parentheses")
+                arg_expr, _ = self._parse_expression(inner)
+                # Check for built-in functions
+                upper_name = name.upper()
+                if upper_name == "LEN":
+                    output.append(Token("IDENT", f"(int)(strlen({arg_expr}))"))
+                elif upper_name == "VAL":
+                    output.append(Token("IDENT", f"atof({arg_expr})"))
+                elif upper_name == "SQR":
+                    output.append(Token("IDENT", f"sqrt({arg_expr})"))
+                elif upper_name == "INT":
+                    output.append(Token("IDENT", f"floor({arg_expr})"))
+                elif upper_name == "ABS":
+                    output.append(Token("IDENT", f"(({arg_expr}) < 0 ? -({arg_expr}) : ({arg_expr}))"))
+                elif upper_name == "RND":
+                    output.append(Token("IDENT", f"rand01()"))
+                elif upper_name.startswith("FN") and len(name) >= 3:
+                    # DEF FN function call: FNf(x) or FNf(x,y)
+                    fn_name = name[2:]  # Extract 'f' from 'FNf'
+                    if not fn_name:
+                        raise BasicParseError("DEF FN name must be FN followed by letter")
+                    if fn_name.upper() not in self.def_fns:
+                        raise BasicParseError(f"Undefined DEF FN{fn_name}")
+                    defn = self.def_fns[fn_name.upper()]
+                    # Substitute argument into function body
+                    substituted = defn.expr.replace(defn.param.lower(), f"({arg_expr})")
+                    output.append(Token("IDENT", substituted))
+                elif name.lower() in self.arrays:
+                    # Array reference
+                    self._register_array(name)
+                    output.append(Token("IDENT", f"{name.lower()}[(int)({arg_expr})]"))
+                else:
+                    raise BasicParseError(f"Unknown function or array: {name}")
+                i = j  # will be incremented by loop
+            elif tok.kind == "IDENT" and tok.value.upper() == "STR" and i + 1 < len(tokens) and tokens[i+1].value == "$" and i + 2 < len(tokens) and tokens[i+2].value == "(":
+                # STR$() function: string conversion
+                j = i + 3
+                depth = 1
+                inner: List[Token] = []
+                while j < len(tokens):
+                    if tokens[j].value == "(":
+                        depth += 1
+                    if tokens[j].value == ")":
+                        depth -= 1
+                        if depth == 0:
+                            break
+                    inner.append(tokens[j])
+                    j += 1
+                if depth != 0:
+                    raise BasicParseError("Mismatched parentheses in STR$")
+                arg_expr, _ = self._parse_expression(inner)
+                output.append(Token("IDENT", f"__str({arg_expr})"))
                 i = j  # will be incremented by loop
             elif tok.kind == "IDENT" and tok.value not in ("AND", "OR", "NOT"):
                 self._register_var(tok.value)
@@ -581,6 +702,27 @@ class BasicProgram:
                     for_step_ids.append(fid)
         lines: List[str] = []
         lines.append("#include <stdio.h>")
+        lines.append("#include <string.h>")
+        lines.append("#include <math.h>")
+        lines.append("#include <stdlib.h>")
+        lines.append("")
+        # Generate DEF FN helper functions
+        for name, defn in sorted(self.def_fns.items()):
+            lines.append(f"static double {defn.c_func_name}(double {defn.param.lower()}) {{")
+            lines.append(f"    return {defn.expr};")
+            lines.append("}")
+        if self.def_fns:
+            lines.append("")
+        # Helper function for STR$
+        lines.append("static char* __str(double v) {")
+        lines.append("    static __thread char buf[32];")
+        lines.append("    snprintf(buf, sizeof(buf), \"%g\", v);")
+        lines.append("    return buf;")
+        lines.append("}")
+        # Random number helper (returns 0-1)
+        lines.append("static double rand01(void) {")
+        lines.append("    return (double)rand() / (double)RAND_MAX;")
+        lines.append("}")
         lines.append("")
         lines.append("#define GOSUB_STACK_MAX 1024")
         lines.append("int __gosub_stack[GOSUB_STACK_MAX];")
@@ -657,6 +799,10 @@ class BasicProgram:
 
     def _emit_dim(self, out: List[str], stmt: Statement) -> None:
         # DIM only affects declarations; at runtime it is a no-op.
+        out.append("    goto L" + self._next_label(stmt) + ";")
+
+    def _emit_def(self, out: List[str], stmt: Statement) -> None:
+        # DEF FN only affects function definitions; at runtime it is a no-op.
         out.append("    goto L" + self._next_label(stmt) + ";")
 
     def _emit_input(self, out: List[str], stmt: Statement) -> None:
