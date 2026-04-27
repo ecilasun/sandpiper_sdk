@@ -6,6 +6,7 @@
 extern "C" {
 #endif
 
+// Revision 0x00
 #define VPUCMD_SETVPAGE				0x00000000
 #define VPUCMD_RESERVED				0x00000001
 #define VPUCMD_SETVMODE				0x00000002
@@ -19,6 +20,8 @@ extern "C" {
 #define VPUCMD_SETVPAGE2_B			0x0000000A
 #define VPUCMD_SYNCSWAP_B			0x0000000B
 #define VPUCMD_SETMIXMODE			0x0000000C
+// Revision 0x01
+#define VPUCMD_SETSTRIDE            0x0000000D
 #define VPUCMD_NOOP					0x000000FF
 
 #define VPU_AUTO 0xFFFF
@@ -55,10 +58,13 @@ extern "C" {
 void VPUInitVideo(struct EVideoContext* _context, struct SPPlatform* _platform);
 void VPUShutdownVideo(struct EVideoContext* _context);
 
+// Helper functions
+
 uint32_t VPUGetStride(const enum EVideoMode _mode, const enum EColorMode _cmode);
 void VPUGetDimensions(const enum EVideoMode _mode, uint32_t *_width, uint32_t *_height);
 
-// Hardware
+// Available on all hardware revisions
+
 void VPUNoop(struct EVideoContext *_context);
 void VPUSetScanoutAddress(struct EVideoContext *_context, const uint32_t _scanOutAddress64ByteAligned);
 void VPUSetPal(struct EVideoContext *_context, const uint8_t _paletteIndex, const uint32_t _red, const uint32_t _green, const uint32_t _blue);
@@ -78,6 +84,13 @@ uint32_t VPUGetFIFONotEmpty(struct EVideoContext *_context);
 void VPUWriteControlRegister(struct EVideoContext *_context, uint8_t _setFlag, uint8_t _value);
 uint8_t VPUReadControlRegister(struct EVideoContext *_context);
 
+// Available on hardware revision 0x01 and later
+
+void VPUSetStrideIn128ByteBlocks(struct EVideoContext *_context, uint16_t _numberOf128ByteUnitsPerScanline);
+uint32_t VPUGetHardwareRevision(struct EVideoContext *_context);
+
+// Generic maintenance and utility functions
+
 void VPUClear(struct EVideoContext *_context, const uint32_t _colorWord);
 void VPUSetDefaultPalette(struct EVideoContext *_context);
 void VPUSetWriteAddress(struct EVideoContext *_context, const uint32_t _cpuWriteAddress64ByteAligned);
@@ -85,6 +98,8 @@ void VPUSwapPages(struct EVideoContext* _context, struct EVideoSwapContext *_sc)
 void VPUWaitVSync(struct EVideoContext *_context);
 void VPUPrintString(struct EVideoContext *_context, const uint8_t _foregroundIndex, const uint8_t _backgroundIndex, const uint16_t _x, const uint16_t _y, const char *_message, int _length);
 void VPUPrintStringRGB565(uint8_t* _base, uint32_t _strideBytes, uint32_t _width, uint32_t _height, uint16_t _x, uint16_t _y, const char* _text, uint16_t _fgColor, uint16_t _bgColor, int _length);
+
+// Console functions - software only
 
 void VPUConsoleResolve(struct EVideoContext *_context);
 void VPUConsoleScrollUp(struct EVideoContext *_context);
