@@ -84,11 +84,6 @@ uint32_t VPUGetFIFONotEmpty(struct EVideoContext *_context);
 void VPUWriteControlRegister(struct EVideoContext *_context, uint8_t _setFlag, uint8_t _value);
 uint8_t VPUReadControlRegister(struct EVideoContext *_context);
 
-// Available on hardware revision 0x01 and later
-
-void VPUSetStrideIn128ByteBlocks(struct EVideoContext *_context, uint16_t _numberOf128ByteUnitsPerScanline);
-uint32_t VPUGetHardwareRevision(struct EVideoContext *_context);
-
 // Generic maintenance and utility functions
 
 void VPUClear(struct EVideoContext *_context, const uint32_t _colorWord);

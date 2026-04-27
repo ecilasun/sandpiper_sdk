@@ -301,20 +301,6 @@ void VPUSetMixMode(struct EVideoContext *_context, uint8_t _layerBEnable, uint8_
 }
 
 /*
- * Sets the stride for the VPU in units of 128 bytes per scanline.
- * This is used to configure how the VPU reads pixel data from memory for each scanline.
- * The stride must be set according to the video mode and color mode being used.
- * Please note that if you set this to a value smaller than the video buffer unexpected results may occur.
- * Make sure you call VPUGetStride() to get the recommended stride for a given video mode and color mode combination.
- * _numberOf128ByteUnitsPerScanline is the number of 128-byte units that make up a single scanline in memory i.e. (VPUGetStride() + 127) / 128.
-*/
-void VPUSetStrideIn128ByteBlocks(struct EVideoContext *_context, uint16_t _numberOf128ByteUnitsPerScanline)
-{
-	videowrite32(_context->m_platform, 0, VPUCMD_SETSTRIDE);
-	videowrite32(_context->m_platform, 0, _numberOf128ByteUnitsPerScanline);
-}
-
-/*
  * Shifts the scanline cache write address by the specified offset, in number of bytes.
  * This can be used to adjust the write position within the cache for effects like scrolling.
  */
@@ -469,15 +455,6 @@ uint32_t VPUGetScanline(struct EVideoContext *_context)
 uint32_t VPUGetFIFONotEmpty(struct EVideoContext *_context)
 {
 	return (videoread32(_context->m_platform, 0) & 0x800) >> 11;
-}
-
-/*
- * Retrieves the hardware revision number of the VPU.
- * The revision number is extracted from the hardware register and is a machine-wide revision identifier
-*/
-uint32_t VPUGetHardwareRevision(struct EVideoContext *_context)
-{
-	return (videoread32(_context->m_platform, 0) & 0x0FF00000) >> 20;
 }
 
  /*
