@@ -320,14 +320,22 @@ void VPUShiftScanout(struct EVideoContext *_context, uint8_t _offsetPixels)
 }
 
 /*
- * Configures the video mode, color mode, and scanout enable settings for the VPU.
- * If a valid context is provided, it updates the context's state accordingly.
- * Otherwise, it directly writes the settings to the hardware registers.
+ * Configures the video mode, color mode, scanout enable, and optional manual framebuffer stride.
+ * _strideBytes must be a multiple of 128 bytes. Use VPU_AUTO to select the mode default.
  */
-void VPUSetVideoMode(struct EVideoContext *_context, const enum EVideoMode _mode, const enum EColorMode _cmode, const enum EVideoScanoutEnable _scanEnable)
+void VPUSetVideoModeWithStride(struct EVideoContext *_context, const enum EVideoMode _mode, const enum EColorMode _cmode, const enum EVideoScanoutEnable _scanEnable, uint32_t _strideBytes)
 {
 	uint32_t videoModeSelect = ((_mode == EVM_320_240) || (_mode == EVM_320_480)) ? 0 : 1; // Pick between 320(0) and 640(1) wide modes
-	uint32_t strideUnitsMinusOne = (VPUGetStride(_mode, _cmode) / 128u) - 1u;
+	uint32_t defaultStrideBytes = VPUGetStride(_mode, _cmode);
+	uint32_t strideBytes = ((_strideBytes == VPU_AUTO) || (_strideBytes == 0)) ? defaultStrideBytes : _strideBytes;
+
+	if ((strideBytes < defaultStrideBytes) || ((strideBytes & 127u) != 0u))
+	{
+		fprintf(stderr, "VPUSetVideoModeWithStride: stride must be VPU_AUTO or a multiple of 128 bytes and at least %u bytes\n", defaultStrideBytes);
+		strideBytes = defaultStrideBytes;
+	}
+
+	uint32_t strideUnitsMinusOne = (strideBytes / 128u) - 1u;
 
 	if (_context)
 	{
@@ -338,7 +346,7 @@ void VPUSetVideoMode(struct EVideoContext *_context, const enum EVideoMode _mode
 		// NOTE: Caller sets vmode/cmode fields
 		_context->m_scanEnable = _scanEnable;
 		_context->m_scanlineDoubling = ((_mode == EVM_320_240) || (_mode == EVM_640_240)) ? EVD_Enable : EVD_Disable; // NOTE: We'll support more modes by exposing this later
-		_context->m_strideInWords = VPUGetStride(_context->m_vmode, _context->m_cmode) / sizeof(uint32_t);
+		_context->m_strideInWords = strideBytes / sizeof(uint32_t);
 
 		VPUGetDimensions(_context->m_vmode, &_context->m_graphicsWidth, &_context->m_graphicsHeight);
 
@@ -356,6 +364,14 @@ void VPUSetVideoMode(struct EVideoContext *_context, const enum EVideoMode _mode
 		videowrite32(_context->m_platform, 0, VPUCMD_SETVMODE);
 		videowrite32(_context->m_platform, 0, MAKEVMODEINFO(strideUnitsMinusOne, (uint32_t)_cmode, videoModeSelect, ((_mode == EVM_320_240) || (_mode == EVM_640_240)) ? EVD_Enable : EVD_Disable, (uint32_t)_scanEnable));
 	}
+}
+
+/*
+ * Configures the video mode using the hardware's default stride for the selected mode.
+ */
+void VPUSetVideoMode(struct EVideoContext *_context, const enum EVideoMode _mode, const enum EColorMode _cmode, const enum EVideoScanoutEnable _scanEnable)
+{
+	VPUSetVideoModeWithStride(_context, _mode, _cmode, _scanEnable, VPU_AUTO);
 }
 
 /*

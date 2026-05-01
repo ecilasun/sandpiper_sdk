@@ -7,7 +7,7 @@
  * rendering a test pattern and smoothly scrolling it both horizontally and vertically.
  * Vertical scrolling is achieved by adjusting the scanout base address.
  * Horizontal scrolling is achieved by using the VPU's coarse cache and fine scanout shift features.
- * The background buffer is a square (stride x stride) to allow for
+ * The background buffer is a 512x512 playfield to allow for
  * smooth scrolling in both axes without visual artifacts.
  * NOTE: This only works in 320-wide 8 bit indexed color modes.
  */
@@ -22,7 +22,10 @@
 
 #define VIDEO_MODE      EVM_320_240
 #define VIDEO_COLOR     ECM_8bit_Indexed
-#define VIDEO_HEIGHT    240
+#define FRAMEBUFFER_WIDTH   512u
+#define FRAMEBUFFER_HEIGHT  512u
+#define VISIBLE_WIDTH       320u
+#define VISIBLE_HEIGHT      240u
 
 static struct SPPlatform* s_platform = NULL;
 struct SPSizeAlloc frameBuffer;
@@ -31,15 +34,15 @@ int main(int argc, char** argv)
 {
 	s_platform = SPInitPlatform();
 
-	uint32_t stride = VPUGetStride(VIDEO_MODE, VIDEO_COLOR);
-	// Allocate square playfield (stride x stride) for scrolling in both axes
-	frameBuffer.size = stride * stride;
+	uint32_t stride = FRAMEBUFFER_WIDTH;
+	// Allocate a 512x512 8bpp playfield for scrolling in both axes.
+	frameBuffer.size = FRAMEBUFFER_WIDTH * FRAMEBUFFER_HEIGHT;
 	SPAllocateBuffer(s_platform, &frameBuffer);
 
 	uint32_t baseAddress = (uint32_t)frameBuffer.dmaAddress;
 	VPUSetWriteAddress(s_platform->vx, (uint32_t)frameBuffer.cpuAddress);
 	VPUSetScanoutAddress(s_platform->vx, baseAddress);
-	VPUSetVideoMode(s_platform->vx, VIDEO_MODE, VIDEO_COLOR, EVS_Enable);
+	VPUSetVideoModeWithStride(s_platform->vx, VIDEO_MODE, VIDEO_COLOR, EVS_Enable, stride);
 
 	VPUShiftCache(s_platform->vx, 0);
 	VPUShiftScanout(s_platform->vx, 0);
@@ -47,16 +50,17 @@ int main(int argc, char** argv)
 	// Horizontal scroll tracking
 	int totalscroll_h = 0;
 	int direction_h = 1;
-	int maxscroll = 64;
+	int maxscroll_h = (int)(FRAMEBUFFER_WIDTH - VISIBLE_WIDTH);
 
 	// Vertical scroll tracking
 	int totalscroll_v = 0;
 	int direction_v = 2;
+	int maxscroll_v = (int)(FRAMEBUFFER_HEIGHT - VISIBLE_HEIGHT);
 
-	// Fill the square buffer with test pattern
-	for (uint32_t y = 0; y < stride; y++)
+	// Fill the full 512x512 buffer with a test pattern.
+	for (uint32_t y = 0; y < FRAMEBUFFER_HEIGHT; y++)
 	{
-		for (uint32_t x = 0; x < stride; x++)
+		for (uint32_t x = 0; x < FRAMEBUFFER_WIDTH; x++)
 		{
 			// Write a test pattern to test scroll
 			uint8_t* pixel = (uint8_t*)frameBuffer.cpuAddress + (y * stride) + x;
@@ -68,14 +72,14 @@ int main(int argc, char** argv)
 	{
 		// Update horizontal scroll
 		totalscroll_h += direction_h;
-		if (totalscroll_h > maxscroll)
+		if (totalscroll_h > maxscroll_h)
 			direction_h = -1;
 		else if (totalscroll_h <= 0)
 			direction_h = 1;
 
 		// Update vertical scroll
 		totalscroll_v += direction_v;
-		if (totalscroll_v > maxscroll)
+		if (totalscroll_v > maxscroll_v)
 			direction_v = -1;
 		else if (totalscroll_v <= 0)
 			direction_v = 1;
