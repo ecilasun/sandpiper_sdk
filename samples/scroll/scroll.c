@@ -6,7 +6,7 @@
  * This example demonstrates how to use the VPU scrolling features by
  * rendering a test pattern and smoothly scrolling it both horizontally and vertically.
  * Vertical scrolling is achieved by adjusting the scanout base address.
- * Horizontal scrolling is achieved by using the VPU's pixel and scanout shift features.
+ * Horizontal scrolling is achieved by using the VPU's coarse cache and fine scanout shift features.
  * The background buffer is a square (stride x stride) to allow for
  * smooth scrolling in both axes without visual artifacts.
  * NOTE: This only works in 320-wide 8 bit indexed color modes.
@@ -43,7 +43,6 @@ int main(int argc, char** argv)
 
 	VPUShiftCache(s_platform->vx, 0);
 	VPUShiftScanout(s_platform->vx, 0);
-	VPUShiftPixel(s_platform->vx, 0);
 
 	// Horizontal scroll tracking
 	int totalscroll_h = 0;
@@ -81,12 +80,14 @@ int main(int argc, char** argv)
 		else if (totalscroll_v <= 0)
 			direction_v = 1;
 
-		// Apply horizontal scroll via hardware shift
-		int byteoffset = totalscroll_h >> 4;		// div 16
-		int pixeloffset = totalscroll_h & 15;		// mod 16
+		// Apply horizontal scroll via hardware shift.
+		// In 320x240x8 mode one pixel is one byte, so the new hardware split is:
+		// coarse scroll in 128-byte units plus fine scroll in pixels.
+		int coarseoffset = totalscroll_h >> 7;
+		int pixeloffset = totalscroll_h & 127;
 
-		VPUShiftScanout(s_platform->vx, byteoffset);
-		VPUShiftPixel(s_platform->vx, pixeloffset);
+		VPUShiftCache(s_platform->vx, (uint8_t)coarseoffset);
+		VPUShiftScanout(s_platform->vx, (uint8_t)pixeloffset);
 
 		// Apply vertical scroll by adjusting scanout base address
 		uint32_t scrolledAddress = baseAddress + (totalscroll_v * stride);

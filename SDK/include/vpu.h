@@ -6,13 +6,13 @@
 extern "C" {
 #endif
 
-// Revision 0x00
+// Current hardware command set
 #define VPUCMD_SETVPAGE				0x00000000
 #define VPUCMD_RESERVED				0x00000001
 #define VPUCMD_SETVMODE				0x00000002
 #define VPUCMD_SHIFTCACHE			0x00000003
 #define VPUCMD_SHIFTSCANOUT			0x00000004
-#define VPUCMD_SHIFTPIXEL			0x00000005
+#define VPUCMD_RESERVED2			0x00000005
 #define VPUCMD_SETVPAGE2			0x00000006
 #define VPUCMD_SYNCSWAP				0x00000007
 #define VPUCMD_WCONTROLREG			0x00000008
@@ -20,8 +20,6 @@ extern "C" {
 #define VPUCMD_SETVPAGE2_B			0x0000000A
 #define VPUCMD_SYNCSWAP_B			0x0000000B
 #define VPUCMD_SETMIXMODE			0x0000000C
-// Revision 0x01
-#define VPUCMD_SETSTRIDE            0x0000000D
 #define VPUCMD_NOOP					0x000000FF
 
 #define VPU_AUTO 0xFFFF
@@ -69,9 +67,8 @@ void VPUNoop(struct EVideoContext *_context);
 void VPUSetScanoutAddress(struct EVideoContext *_context, const uint32_t _scanOutAddress64ByteAligned);
 void VPUSetPal(struct EVideoContext *_context, const uint8_t _paletteIndex, const uint32_t _red, const uint32_t _green, const uint32_t _blue);
 void VPUSetVideoMode(struct EVideoContext *_context, const enum EVideoMode _mode, const enum EColorMode _cmode, const enum EVideoScanoutEnable _scanEnable);
-void VPUShiftCache(struct EVideoContext *_context, uint8_t _offset);
-void VPUShiftScanout(struct EVideoContext *_context, uint8_t _offset);
-void VPUShiftPixel(struct EVideoContext *_context, uint8_t _offset);
+void VPUShiftCache(struct EVideoContext *_context, uint8_t _offset128Bytes);
+void VPUShiftScanout(struct EVideoContext *_context, uint8_t _offsetPixels);
 void VPUSetScanoutAddress2(struct EVideoContext *_context, const uint32_t _scanOutAddress64ByteAligned);
 void VPUSyncSwap(struct EVideoContext *_context, uint8_t _donotwaitforvsync);
 void VPUSetScanoutAddressB(struct EVideoContext *_context, const uint32_t _scanOutAddress64ByteAligned);

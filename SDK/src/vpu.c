@@ -17,7 +17,8 @@
 
 
 // Video mode control word
-#define MAKEVMODEINFO(_cmode, _vmode, _scanlineDoubleEnable, _scanEnable) ((_scanlineDoubleEnable&0x1)<<3) | ((_cmode&0x1)<<2) | ((_vmode&0x1)<<1) | (_scanEnable&0x1)
+#define MAKEVMODEFLAGS(_cmode, _vmode, _scanlineDoubleEnable, _scanEnable) (((_scanlineDoubleEnable & 0x1) << 3) | ((_cmode & 0x1) << 2) | ((_vmode & 0x1) << 1) | (_scanEnable & 0x1))
+#define MAKEVMODEINFO(_strideUnitsMinusOne, _cmode, _vmode, _scanlineDoubleEnable, _scanEnable) (((_strideUnitsMinusOne & 0xFF) << 4) | MAKEVMODEFLAGS(_cmode, _vmode, _scanlineDoubleEnable, _scanEnable))
 
 /*
  * Resident font data aligned to 16 bytes for optimal access.
@@ -301,34 +302,21 @@ void VPUSetMixMode(struct EVideoContext *_context, uint8_t _layerBEnable, uint8_
 }
 
 /*
- * Shifts the scanline cache write address by the specified offset, in number of bytes.
- * This can be used to adjust the write position within the cache for effects like scrolling.
+ * Applies a coarse framebuffer offset in 128-byte steps to every scanline fetch.
  */
-void VPUShiftCache(struct EVideoContext *_context, uint8_t _offset)
+void VPUShiftCache(struct EVideoContext *_context, uint8_t _offset128Bytes)
 {
 	videowrite32(_context->m_platform, 0, VPUCMD_SHIFTCACHE);
-	videowrite32(_context->m_platform, 0, _offset);
+	videowrite32(_context->m_platform, 0, _offset128Bytes);
 }
 
  /*
-  * Shifts the scanline cache read address by the specified offset, in number of bytes.
-  * This can be used to implement panning or other display effects.
+  * Applies a fine scanout offset in pixels after the coarse 128-byte cache shift.
   */
-void VPUShiftScanout(struct EVideoContext *_context, uint8_t _offset)
+void VPUShiftScanout(struct EVideoContext *_context, uint8_t _offsetPixels)
 {
 	videowrite32(_context->m_platform, 0, VPUCMD_SHIFTSCANOUT);
-	videowrite32(_context->m_platform, 0, _offset);
-}
-
-/*
- * Shifts the pixel cache address by the specified offset, in number of pixels.
- * This can be used for fine-grained control over pixel rendering positions.
- * The range of the shift is 0 to 7 pixels.
- */
-void VPUShiftPixel(struct EVideoContext *_context, uint8_t _offset)
-{
-	videowrite32(_context->m_platform, 0, VPUCMD_SHIFTPIXEL);
-	videowrite32(_context->m_platform, 0, _offset);
+	videowrite32(_context->m_platform, 0, _offsetPixels);
 }
 
 /*
@@ -339,6 +327,7 @@ void VPUShiftPixel(struct EVideoContext *_context, uint8_t _offset)
 void VPUSetVideoMode(struct EVideoContext *_context, const enum EVideoMode _mode, const enum EColorMode _cmode, const enum EVideoScanoutEnable _scanEnable)
 {
 	uint32_t videoModeSelect = ((_mode == EVM_320_240) || (_mode == EVM_320_480)) ? 0 : 1; // Pick between 320(0) and 640(1) wide modes
+	uint32_t strideUnitsMinusOne = (VPUGetStride(_mode, _cmode) / 128u) - 1u;
 
 	if (_context)
 	{
@@ -359,13 +348,13 @@ void VPUSetVideoMode(struct EVideoContext *_context, const enum EVideoMode _mode
 		_context->m_consoleUpdated = 0;
 
 		videowrite32(_context->m_platform, 0, VPUCMD_SETVMODE);
-		videowrite32(_context->m_platform, 0, MAKEVMODEINFO((uint32_t)_context->m_cmode, videoModeSelect, (uint32_t)_context->m_scanlineDoubling, (uint32_t)_scanEnable));
+		videowrite32(_context->m_platform, 0, MAKEVMODEINFO(strideUnitsMinusOne, (uint32_t)_context->m_cmode, videoModeSelect, (uint32_t)_context->m_scanlineDoubling, (uint32_t)_scanEnable));
 	}
 	else
 	{
 		// Does not preserve state, mostly preferred during shutdown
 		videowrite32(_context->m_platform, 0, VPUCMD_SETVMODE);
-		videowrite32(_context->m_platform, 0, MAKEVMODEINFO((uint32_t)_cmode, videoModeSelect, ((_mode == EVM_320_240) || (_mode == EVM_640_240)) ? EVD_Enable : EVD_Disable, (uint32_t)_scanEnable));
+		videowrite32(_context->m_platform, 0, MAKEVMODEINFO(strideUnitsMinusOne, (uint32_t)_cmode, videoModeSelect, ((_mode == EVM_320_240) || (_mode == EVM_640_240)) ? EVD_Enable : EVD_Disable, (uint32_t)_scanEnable));
 	}
 }
 
