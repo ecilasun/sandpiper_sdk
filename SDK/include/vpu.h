@@ -68,8 +68,8 @@ void VPUSetScanoutAddress(struct EVideoContext *_context, const uint32_t _scanOu
 void VPUSetPal(struct EVideoContext *_context, const uint8_t _paletteIndex, const uint32_t _red, const uint32_t _green, const uint32_t _blue);
 void VPUSetVideoMode(struct EVideoContext *_context, const enum EVideoMode _mode, const enum EColorMode _cmode, const enum EVideoScanoutEnable _scanEnable);
 void VPUSetVideoModeWithStride(struct EVideoContext *_context, const enum EVideoMode _mode, const enum EColorMode _cmode, const enum EVideoScanoutEnable _scanEnable, uint32_t _strideBytes);
-void VPUShiftCache(struct EVideoContext *_context, uint8_t _offset128Bytes);
-void VPUShiftScanout(struct EVideoContext *_context, uint8_t _offsetPixels);
+void VPUShiftCoarse(struct EVideoContext *_context, uint8_t _offset128Bytes);
+void VPUShiftFine(struct EVideoContext *_context, uint8_t _offsetPixels);
 void VPUSetScanoutAddress2(struct EVideoContext *_context, const uint32_t _scanOutAddress64ByteAligned);
 void VPUSyncSwap(struct EVideoContext *_context, uint8_t _donotwaitforvsync);
 void VPUSetScanoutAddressB(struct EVideoContext *_context, const uint32_t _scanOutAddress64ByteAligned);

@@ -304,7 +304,7 @@ void VPUSetMixMode(struct EVideoContext *_context, uint8_t _layerBEnable, uint8_
 /*
  * Applies a coarse framebuffer offset in 128-byte steps to every scanline fetch.
  */
-void VPUShiftCache(struct EVideoContext *_context, uint8_t _offset128Bytes)
+void VPUShiftCoarse(struct EVideoContext *_context, uint8_t _offset128Bytes)
 {
 	videowrite32(_context->m_platform, 0, VPUCMD_SHIFTCACHE);
 	videowrite32(_context->m_platform, 0, _offset128Bytes);
@@ -313,7 +313,7 @@ void VPUShiftCache(struct EVideoContext *_context, uint8_t _offset128Bytes)
  /*
   * Applies a fine scanout offset in pixels after the coarse 128-byte cache shift.
   */
-void VPUShiftScanout(struct EVideoContext *_context, uint8_t _offsetPixels)
+void VPUShiftFine(struct EVideoContext *_context, uint8_t _offsetPixels)
 {
 	videowrite32(_context->m_platform, 0, VPUCMD_SHIFTSCANOUT);
 	videowrite32(_context->m_platform, 0, _offsetPixels);

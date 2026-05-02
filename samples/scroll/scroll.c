@@ -44,8 +44,8 @@ int main(int argc, char** argv)
 	VPUSetScanoutAddress(s_platform->vx, baseAddress);
 	VPUSetVideoModeWithStride(s_platform->vx, VIDEO_MODE, VIDEO_COLOR, EVS_Enable, stride);
 
-	VPUShiftCache(s_platform->vx, 0);
-	VPUShiftScanout(s_platform->vx, 0);
+	VPUShiftCoarse(s_platform->vx, 0);
+	VPUShiftFine(s_platform->vx, 0);
 
 	// Horizontal scroll tracking
 	int totalscroll_h = 0;
@@ -90,8 +90,8 @@ int main(int argc, char** argv)
 		int coarseoffset = totalscroll_h >> 7;
 		int pixeloffset = totalscroll_h & 127;
 
-		VPUShiftCache(s_platform->vx, (uint8_t)coarseoffset);
-		VPUShiftScanout(s_platform->vx, (uint8_t)pixeloffset);
+		VPUShiftCoarse(s_platform->vx, (uint8_t)coarseoffset);
+		VPUShiftFine(s_platform->vx, (uint8_t)pixeloffset);
 
 		// Apply vertical scroll by adjusting scanout base address
 		uint32_t scrolledAddress = baseAddress + (totalscroll_v * stride);
